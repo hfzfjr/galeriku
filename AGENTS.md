@@ -5,6 +5,7 @@ Personal cloud storage for sharing photos and videos through public links. Mobil
 ## Docs (read on demand, do not paste into context)
 
 - `docs/PRD.md` is the product spec (Indonesian). Before a story, read the relevant parts: §8 architecture, §9 data model, §10 routes/endpoints, §11 security, §12.4 sprint stories and acceptance criteria.
+- `docs/PROGRESS.md` is the story checklist (exact PRD titles). Read it at the start of every session.
 - `docs/DESIGN.md` is the visual design spec. Read it before any UI work.
 
 ## Structure (pnpm workspaces monorepo)
@@ -31,6 +32,7 @@ Do not rename these folders.
 - Ask before adding a dependency that the PRD does not mention.
 - Finish a story only after build, lint, and relevant tests pass. For UI work, also check a 360x800 viewport.
 - Keep commits small, one story per branch.
+- Centang story di docs/PROGRESS.md pada commit terakhir story tersebut
 
 ## Architecture rules (do not violate)
 
@@ -52,6 +54,7 @@ Do not rename these folders.
 - Backend: one NestJS module per domain (`auth`, `users`, `files`, `albums`, `shares`, `uploads`, `admin`). Prisma for the database, with migrations through Prisma Migrate.
 - Frontend: TanStack Query for data, `credentials: 'include'` on API calls, Tailwind with the tokens from `docs/DESIGN.md`.
 - Mobile-first: design at 360 px, touch targets of at least 44 px, respect safe-area insets, use `100dvh` instead of `100vh`.
+- BigInt columns (file sizes, quotas) must never be sent raw in JSON; always serialize them as strings in DTOs and responses.
 
 ## UI rules
 
