@@ -4,6 +4,8 @@ node_modules/
 !.env.example
 dist/
 .next/
+coverage/
+*.tsbuildinfo
 .vercel/
 *.log
 .DS_Store

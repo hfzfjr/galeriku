@@ -14,8 +14,31 @@ const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
+  // Mode ESM: file .ts dimuat sebagai ESM agar package ESM-only
+  // (@nestjs/* v12, ada import.meta) bisa dimuat native oleh Node.
+  // node_modules tidak ditransform. Runtime aplikasi tidak berubah.
+  extensionsToTreatAsEsm: ['.ts'],
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          target: 'ES2023',
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          rootDir: './src',
+          experimentalDecorators: true,
+          emitDecoratorMetadata: true,
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          resolveJsonModule: true,
+          isolatedModules: true,
+          strict: true,
+          skipLibCheck: true,
+        },
+      },
+    ],
   },
   moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
   collectCoverageFrom: [

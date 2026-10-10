@@ -1,6 +1,7 @@
 {
   "name": "galeriku",
   "private": true,
+  "packageManager": "pnpm@12.10.1",
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "pnpm --filter backend start:dev",
