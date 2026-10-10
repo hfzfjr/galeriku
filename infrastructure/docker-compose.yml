@@ -1,0 +1,74 @@
+# Galeriku — Compose utama untuk server Debian.
+# Dijalankan dari direktori ini: docker compose up -d
+# Variabel dibaca dari infrastructure/.env (lihat .env.example).
+# TIDAK ada service cloudflared: tunnel "cf-tunnel" jalan sebagai layanan
+# host dengan route galeriku-api.hafizfajar.com -> http://localhost:4000
+# (didaftarkan manual lewat dashboard Cloudflare, lihat US-03).
+name: galeriku
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: galeriku-postgres
+    restart: unless-stopped
+    mem_limit: 384m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - galeriku_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    # Tag latest dipakai deploy.sh untuk rollback (previous).
+    image: galeriku-backend:latest
+    container_name: galeriku-backend
+    restart: unless-stopped
+    mem_limit: 512m
+    # Hanya loopback: diakses publik lewat route tunnel cf-tunnel.
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      PORT: "4000"
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      MEDIA_DIR: /data/media
+    volumes:
+      # MEDIA_HOST_DIR wajib diisi di .env (tanpa default) agar salah
+      # konfigurasi langsung ketahuan saat compose di-render.
+      - ${MEDIA_HOST_DIR}:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Image slim tanpa curl/wget; pakai fetch bawaan Node.
+      # TODO(US-06): ganti path "/" dengan "/health".
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:4000/\").then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  galeriku_pgdata:
