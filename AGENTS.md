@@ -12,7 +12,7 @@ Personal cloud storage for sharing photos and videos through public links. Mobil
 - `frontend/`: Next.js (App Router, TypeScript, Tailwind). Deployed to Vercel (Root Directory `frontend`), domain `galeriku.hafizfajar.com`.
 - `backend/`: NestJS (Fastify adapter), Prisma, PostgreSQL. Runs in Docker on a local Debian server behind a Cloudflare Tunnel, host `galeriku-api.hafizfajar.com`.
 - `packages/`: optional shared code (for example Zod schemas in `packages/contracts`).
-- `infrastructure/`: Docker Compose (`backend`, `postgres`, `cloudflared`), tunnel config, backup scripts.
+- `infrastructure/`: Docker Compose (`backend`, `postgres`), skrip deploy (`deploy.sh`), backup scripts. Tunnel Cloudflare (`cf-tunnel`) jalan sebagai layanan host dengan route ke `127.0.0.1:4000`, bukan container Compose.
 - `docs/`: PRD and design spec.
 
 Do not rename these folders.

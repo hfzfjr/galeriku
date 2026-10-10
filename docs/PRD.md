@@ -75,7 +75,7 @@ Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarg
 
 | Komponen | Estimasi RAM |
 | --- | --- |
-| cloudflared | ± 50 MB |
+| cloudflared (layanan host `cf-tunnel`, di luar Compose) | ± 50 MB |
 | PostgreSQL | 300–600 MB |
 | NestJS (backend) | 150–300 MB |
 | OS + Docker | ± 1 GB |
@@ -134,11 +134,11 @@ HP / Browser
   |-- halaman web (HTML/JS) ----> Vercel: galeriku.hafizfajar.com (Next.js)
   |
   '-- API, upload, unduh, streaming (langsung, tidak lewat Vercel)
-        --HTTPS--> Cloudflare --Tunnel--> cloudflared (Docker)
+        --HTTPS--> Cloudflare --Tunnel--> cloudflared (layanan host "cf-tunnel")
                                               |
-                        host API: galeriku-api.hafizfajar.com
+                        host API: galeriku-api.hafizfajar.com -> http://localhost:4000
                                               |
-                       backend NestJS (Docker) ---> PostgreSQL (Docker)
+                       backend NestJS (Docker, 127.0.0.1:4000) ---> PostgreSQL (Docker)
                                               |
                        Volume /data/media (HDD)
 ```
@@ -154,13 +154,13 @@ HP / Browser
 | Upload | Protokol tus: klien `tus-js-client`/Uppy, server `@tus/server di dalam NestJS` dengan hook penyimpanan metadata ke database |  |
 | Media | `sharp` untuk thumbnail WebP; Fase 2: ffmpeg/ffprobe |  |
 | Antrian job | Fase 2: pg-boss (memakai PostgreSQL, tanpa Redis) |  |
-| Infrastruktur | Docker Compose (backend, postgres, cloudflared) di Debian 13; frontend di Vercel |  |
+| Infrastruktur | Docker Compose (backend, postgres) di Debian 13; tunnel Cloudflare sebagai layanan host; frontend di Vercel |  |
 | Backup/monitoring | `pg_dump` terjadwal, restic/rclone, smartmontools, Uptime Kuma |  |
 
 **Keputusan arsitektur**
 
-- **AD-1 Monorepo pnpm workspaces.** Folder `frontend/` (Next.js), `backend/` (NestJS), `packages/` (opsional, untuk skema bersama), dan `infrastructure/` (Docker Compose, konfigurasi tunnel, backup).
-- **AD-2 Frontend di Vercel, backend dan database di server lokal.** Container di server: `backend`, `postgres`, `cloudflared`. Frontend tetap tampil saat server mati dan menampilkan pesan layanan tidak tersedia.
+- **AD-1 Monorepo pnpm workspaces.** Folder `frontend/` (Next.js), `backend/` (NestJS), `packages/` (opsional, untuk skema bersama), dan `infrastructure/` (Docker Compose, skrip deploy, backup). Tunnel `cf-tunnel` dikelola di host, bukan dari repo.
+- **AD-2 Frontend di Vercel, backend dan database di server lokal.** Container di server: `backend` dan `postgres` saja. Tunnel Cloudflare (`cf-tunnel`) jalan sebagai layanan host (bukan container Compose) dengan route `galeriku-api.hafizfajar.com` -> `http://localhost:4000`; backend hanya dipublish di loopback. Frontend tetap tampil saat server mati dan menampilkan pesan layanan tidak tersedia.
 - **AD-3 Byte file tidak melewati Vercel.** Body request dan response Vercel Functions dibatasi 4,5 MB, sehingga browser upload, unduh, dan streaming langsung ke host API. Next.js hanya merender UI.
 - **AD-4 Auth sepenuhnya di backend.** Sesi server-side di PostgreSQL dengan cookie HttpOnly, Secure, SameSite=Lax di host API. Frontend dan API sama-sama di `hafizfajar.com` (same-site), sehingga cookie ikut terkirim untuk fetch, gambar, video, dan link unduh. Token tidak pernah dipegang JavaScript. CORS hanya mengizinkan origin frontend, dan request yang mengubah data memeriksa header Origin. Halaman privat dirender di sisi klien.
 - **AD-5 Host API satu tingkat di bawah domain** (`galeriku-api.hafizfajar.com`), karena sertifikat Universal SSL Cloudflare hanya mencakup root dan subdomain tingkat pertama.
@@ -266,8 +266,8 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
 | US-01 | Sebagai developer, saya ingin monorepo yang rapi | 2 | Folder `frontend`, `backend`, `packages`, `infrastructure`; workspace pnpm berjalan; `AGENTS.md`, `opencode.json`, `docs/PRD.md`, `docs/DESIGN.md` ada di repo; `.env.example` untuk tiap aplikasi; port dev: frontend 3000, backend 4000 |
-| US-02 | Sebagai owner, saya ingin Docker Compose di server lokal | 3 | `docker compose up -d` di `infrastructure` menjalankan `backend`, `postgres`, `cloudflared`; data Postgres dan media di volume persisten; `restart: unless-stopped`; image backend memakai Node LTS |
-| US-03 | Sebagai owner, saya ingin tunnel dan CORS yang benar | 3 | Backend dapat diakses lewat HTTPS di `galeriku-api.hafizfajar.com`; tidak ada port yang dibuka di router; CORS hanya mengizinkan origin frontend dengan credentials |
+| US-02 | Sebagai owner, saya ingin Docker Compose di server lokal | 3 | `docker compose up -d` di `infrastructure` menjalankan `backend` dan `postgres` (tanpa `cloudflared`); data Postgres di volume persisten dan media di bind mount; `restart: unless-stopped`; backend hanya dipublish di `127.0.0.1:4000`; image backend memakai Node LTS |
+| US-03 | Sebagai owner, saya ingin tunnel dan CORS yang benar | 3 | Route `galeriku-api.hafizfajar.com` -> `http://localhost:4000` ditambahkan pada tunnel `cf-tunnel` yang sudah ada (lewat dashboard Cloudflare); backend dapat diakses lewat HTTPS; tidak ada port yang dibuka di router; CORS hanya mengizinkan origin frontend dengan credentials |
 | US-04 | Sebagai developer, saya ingin frontend ter-deploy ke Vercel | 3 | Root Directory `frontend`; domain `galeriku.hafizfajar.com` aktif (DNS sesuai petunjuk Vercel); `NEXT_PUBLIC_API_URL` terisi; build dilewati bila hanya `backend` yang berubah |
 | US-05 | Sebagai developer, saya ingin skema database awal | 2 | Skema Prisma untuk users, sessions, allowed\_emails, files, albums, album\_files, share\_links; migrasi berjalan otomatis saat container backend start |
 | US-06 | Sebagai owner, saya ingin health check | 1 | `GET /health` menampilkan status DB dan sisa disk; frontend menampilkan pesan layanan tidak tersedia bila API tidak terjangkau |
