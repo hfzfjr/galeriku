@@ -10,6 +10,9 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter(),
   );
-  await app.listen(Number(process.env.PORT ?? 4000));
+  await app.listen(
+    Number(process.env.PORT ?? 4000),
+    process.env.HOST ?? '0.0.0.0',
+  );
 }
 bootstrap();

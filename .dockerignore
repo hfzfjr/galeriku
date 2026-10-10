@@ -1,0 +1,9 @@
+# Konteks build Docker (root repo) untuk backend/Dockerfile.
+node_modules
+.next
+dist
+coverage
+.env*
+.git
+docs
+infrastructure/data
