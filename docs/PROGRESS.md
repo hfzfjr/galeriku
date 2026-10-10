@@ -12,6 +12,8 @@ Aturan: centang pada commit terakhir story tersebut.
 - [x] US-05 Sebagai developer, saya ingin skema database awal
 - [x] US-06 Sebagai owner, saya ingin health check
 
+Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-06) dikerjakan di Sprint 1.
+
 ## Sprint 1 — UI Dasar, Landing Page, dan Login Email + Password
 
 - [ ] US-07 Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman
