@@ -58,8 +58,7 @@ services:
         condition: service_healthy
     healthcheck:
       # Image slim tanpa curl/wget; pakai fetch bawaan Node.
-      # TODO(US-06): ganti path "/" dengan "/health".
-      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:4000/\").then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))'"]
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:4000/health\").then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))'"]
       interval: 15s
       timeout: 5s
       retries: 3
