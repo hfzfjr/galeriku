@@ -1,0 +1,178 @@
+// Skema database Galeriku — cerminan §9 docs/PRD.md (model data) apa adanya.
+// Nama kolom/tabel snake_case via @map/@@map agar sama persis dengan PRD.
+// Keputusan konservatif yang diambil (lihat laporan US-05):
+// - ID surrogat String cuid(); sessions.id String tanpa default (hash dari app);
+//   allowed_emails memakai email sebagai PK alami.
+// - quota_bytes/size_bytes BigInt (kuota 30 GB dan video 2 GB melebihi int32);
+//   duration_s Float (detik pecahan dari ffprobe).
+// - Kolom lifecycle (invite_*, used_at, metadata media, expires/password/
+//   revoked, cover, taken/deleted) nullable; name/avatar/last_login nullable.
+// - created_at/accessed_at/added_at default now(); allow_download default true
+//   (eksplisit di PRD); view_count default 0.
+// - storage_key @unique (implisit dari desain UUID sebagai nama file di disk).
+// - Relasi untuk kolom *_id kepemilikan/tautan, dengan onDelete eksplisit:
+//   Cascade untuk sessions->users, album_files->albums/files, dan
+//   share_access_logs->share_links; Restrict untuk files/albums/share_links
+//   ->users dan albums.coverFile->files (sampul wajib dibersihkan app dulu).
+//   Penghapusan permanen tanpa trash mengikuti PRD (FR-21 Won't, US-22).
+// - invited_by String polos tanpa FK (target ambigu); target_id polimorfik
+//   tanpa FK. Index share_links(token) dilewati karena @unique sudah
+//   membuat unique index.
+
+generator client {
+  provider = "prisma-client"
+  // Di dalam src/ agar ikut terkompilasi tsc (rootDir ./src) ke dist/.
+  // Import eksplisit ".js" di file generated dipetakan ke .ts oleh
+  // moduleNameMapper di config Jest.
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  owner
+  member
+}
+
+enum FileKind {
+  image
+  video
+}
+
+enum FileStatus {
+  uploading
+  ready
+  failed
+}
+
+enum ShareTarget {
+  file
+  album
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  avatarUrl    String?   @map("avatar_url")
+  passwordHash String?   @map("password_hash")
+  googleSub    String?   @unique @map("google_sub")
+  role         Role
+  quotaBytes   BigInt    @map("quota_bytes")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  sessions   Session[]
+  files      File[]
+  albums     Album[]
+  shareLinks ShareLink[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  ipHash    String   @map("ip_hash")
+  userAgent String   @map("user_agent")
+
+  @@map("sessions")
+}
+
+model AllowedEmail {
+  email           String    @id
+  invitedBy       String    @map("invited_by")
+  inviteTokenHash String?   @map("invite_token_hash")
+  inviteExpiresAt DateTime? @map("invite_expires_at")
+  usedAt          DateTime? @map("used_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@map("allowed_emails")
+}
+
+model File {
+  id           String     @id @default(cuid())
+  ownerId      String     @map("owner_id")
+  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  originalName String     @map("original_name")
+  storageKey   String     @unique @map("storage_key")
+  mimeType     String     @map("mime_type")
+  sizeBytes    BigInt     @map("size_bytes")
+  kind         FileKind
+  width        Int?
+  height       Int?
+  durationS    Float?     @map("duration_s")
+  thumbKey     String?    @map("thumb_key")
+  status       FileStatus
+  takenAt      DateTime?  @map("taken_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  albumFiles AlbumFile[]
+  coverOf    Album[]     @relation("AlbumCover")
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@map("files")
+}
+
+model Album {
+  id          String      @id @default(cuid())
+  ownerId     String      @map("owner_id")
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  title       String
+  coverFileId String?     @map("cover_file_id")
+  coverFile   File?       @relation("AlbumCover", fields: [coverFileId], references: [id], onDelete: Restrict)
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  albumFiles AlbumFile[]
+
+  @@map("albums")
+}
+
+model AlbumFile {
+  albumId  String   @map("album_id")
+  album    Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  fileId   String   @map("file_id")
+  file     File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  position Int
+  addedAt  DateTime @default(now()) @map("added_at")
+
+  @@id([albumId, fileId])
+  @@index([albumId, position])
+  @@map("album_files")
+}
+
+model ShareLink {
+  id            String      @id @default(cuid())
+  token         String      @unique
+  ownerId       String      @map("owner_id")
+  owner         User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  targetType    ShareTarget @map("target_type")
+  targetId      String      @map("target_id")
+  expiresAt     DateTime?   @map("expires_at")
+  passwordHash  String?     @map("password_hash")
+  allowDownload Boolean     @default(true) @map("allow_download")
+  viewCount     Int         @default(0) @map("view_count")
+  revokedAt     DateTime?   @map("revoked_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  accessLogs ShareAccessLog[]
+
+  @@map("share_links")
+}
+
+model ShareAccessLog {
+  id         String    @id @default(cuid())
+  linkId     String    @map("link_id")
+  link       ShareLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  accessedAt DateTime  @default(now()) @map("accessed_at")
+  ipHash     String    @map("ip_hash")
+  userAgent  String?   @map("user_agent")
+
+  @@map("share_access_logs")
+}

@@ -18,7 +18,11 @@ RUN pnpm install --frozen-lockfile
 
 # ---------- Tahap 2: build backend ----------
 FROM deps AS build
+# Dummy agar evaluasi prisma.config.ts (env DATABASE_URL) tidak gagal saat
+# generate/build. Tidak terbawa ke image final (stage terpisah).
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 COPY backend ./backend
+RUN pnpm --filter backend prisma:generate
 RUN pnpm --filter backend build
 # Kemas backend + dependency production saja ke /prod/backend.
 RUN pnpm --filter backend deploy --prod /prod/backend

@@ -40,7 +40,12 @@ const config: Config = {
       },
     ],
   },
-  moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
+  moduleNameMapper: {
+    ...pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
+    // File generated Prisma memakai import eksplisit ".js" (gaya ESM);
+    // petakan ke sumber .ts agar Jest mentransformnya.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   collectCoverageFrom: [
     'src/**/*.(t|j)s',
     'libs/**/*.(t|j)s',

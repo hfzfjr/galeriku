@@ -57,6 +57,29 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## Basis data (PostgreSQL + Prisma)
+
+Butuh Docker untuk Postgres dev. Dari folder `infrastructure`:
+
+```bash
+# salin .env dev (sudah gitignored) lalu naikkan postgres saja
+cp .env.example .env  # sesuaikan isinya bila perlu
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+```
+
+Dari folder `backend`, salin `backend/.env.example` menjadi `backend/.env`
+(sudah gitignored) dan sesuaikan `DATABASE_URL` ke `127.0.0.1:5432`,
+lalu dari root repo:
+
+```bash
+pnpm --filter backend prisma:generate   # generate Prisma Client
+pnpm --filter backend migrate:dev       # buat/terapkan migrasi (dev)
+```
+
+`prisma:generate` juga berjalan otomatis sebelum `build`/`test` lewat
+script `prebuild`/`pretest`. Di produksi, migrasi dijalankan `deploy.sh`
+sebelum container baru naik (`migrate deploy`).
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

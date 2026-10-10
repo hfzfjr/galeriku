@@ -59,9 +59,25 @@ fi
 log "Build image backend..."
 docker compose -f "$COMPOSE_FILE" build backend
 
-# US-05: jalankan migrasi database di sini (Prisma Migrate), SETELAH build
-# dan SEBELUM container baru naik. Contoh (belum aktif):
-#   docker compose -f "$COMPOSE_FILE" run --rm backend npx prisma migrate deploy
+# Migrasi database (Prisma Migrate), SETELAH build dan SEBELUM container
+# baru naik. Catatan: migrasi harus backward-compatible dengan image yang
+# sedang berjalan, karena rollback hanya mengembalikan image, bukan skema.
+# Pastikan postgres berjalan dan healthy dulu (deploy pertama: belum jalan).
+log "Memastikan postgres berjalan..."
+docker compose -f "$COMPOSE_FILE" up -d postgres
+log "Menunggu galeriku-postgres berstatus healthy..."
+pg_healthy=0
+for ((i = 0; i < HEALTH_TIMEOUT; i++)); do
+  pg_status="$(docker inspect -f '{{.State.Health.Status}}' galeriku-postgres 2>/dev/null || echo starting)"
+  if [[ "$pg_status" == "healthy" ]]; then
+    pg_healthy=1
+    break
+  fi
+  sleep 1
+done
+[[ "$pg_healthy" -eq 1 ]] || fail "galeriku-postgres tidak healthy dalam $HEALTH_TIMEOUT detik."
+log "Menjalankan migrasi database..."
+docker compose -f "$COMPOSE_FILE" run --rm backend node ./node_modules/prisma/build/index.js migrate deploy
 
 # e. Naikkan service (tanpa --force-recreate agar postgres tidak ikut
 # dibuat ulang bila konfigurasinya tidak berubah).

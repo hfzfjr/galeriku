@@ -1,9 +1,16 @@
+import { existsSync } from 'node:fs';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+
+// Muat backend/.env untuk dev lokal tanpa dependency tambahan.
+// Di container produksi file ini tidak ada: env datang dari Compose.
+if (existsSync('.env')) {
+  process.loadEnvFile('.env');
+}
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
