@@ -71,7 +71,50 @@ describe('loadAppConfig', () => {
         defaultQuotaBytes: config.defaultQuotaBytes,
         ipHashSecret: config.ipHashSecret,
         turnstileSecretKey: config.turnstileSecretKey,
+        mailProvider: config.mailProvider,
+        mailFrom: config.mailFrom,
       }),
     ).not.toThrow();
+  });
+
+  it('aturan MAIL_PROVIDER: default log, resend butuh kunci+from', () => {
+    expect(loadAppConfig({ ...BASE_ENV }).mailProvider).toBe('log');
+    expect(
+      loadAppConfig({
+        ...BASE_ENV,
+        MAIL_PROVIDER: 'resend',
+        MAIL_API_KEY: 'kunci-uji',
+        MAIL_FROM: 'Galeriku <noreply@contoh.id>',
+      }).mailProvider,
+    ).toBe('resend');
+    expect(() =>
+      loadAppConfig({ ...BASE_ENV, MAIL_PROVIDER: 'pos' }),
+    ).toThrow('MAIL_PROVIDER');
+    expect(() =>
+      loadAppConfig({ ...BASE_ENV, MAIL_PROVIDER: 'resend' }),
+    ).toThrow('MAIL_FROM');
+  });
+
+  it('produksi menolak log dan mewajibkan kunci+from', () => {
+    const prod = {
+      NODE_ENV: 'production',
+      FRONTEND_ORIGIN: 'https://galeriku.hafizfajar.com',
+      ADMIN_EMAIL: 'admin@contoh.id',
+      IP_HASH_SECRET: 'rahasia-ip-hash-minimal-32-karakter',
+      TURNSTILE_SECRET_KEY: 'kunci-uji',
+    } as NodeJS.ProcessEnv;
+    expect(() => loadAppConfig({ ...prod, MAIL_PROVIDER: 'log' })).toThrow(
+      'MAIL_PROVIDER wajib resend',
+    );
+    expect(() => loadAppConfig({ ...prod })).toThrow(
+      'MAIL_PROVIDER wajib resend',
+    );
+    expect(() =>
+      loadAppConfig({
+        ...prod,
+        MAIL_PROVIDER: 'resend',
+        MAIL_API_KEY: 'kunci-uji',
+      }),
+    ).toThrow('MAIL_FROM');
   });
 });

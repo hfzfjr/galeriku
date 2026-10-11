@@ -1,3 +1,4 @@
+import { Global, Module } from '@nestjs/common';
 import { z } from 'zod';
 
 // Konfigurasi backend dari environment, divalidasi saat start (gagal cepat).
@@ -6,6 +7,10 @@ import { z } from 'zod';
 // US-09b); DEFAULT_QUOTA_BYTES angka valid (default 5 GB bila tak diset);
 // IP_HASH_SECRET minimal 32 karakter dan wajib di produksi;
 // TURNSTILE_SECRET_KEY selalu wajib; CONTACT_EMAIL opsional.
+// US-09b: MAIL_PROVIDER resend/log; MAIL_API_KEY dan MAIL_FROM wajib bila
+// provider resend. Di produksi provider wajib resend (log ditolak).
+
+export type MailProvider = 'resend' | 'log';
 
 export type AppConfig = {
   isProduction: boolean;
@@ -15,9 +20,26 @@ export type AppConfig = {
   ipHashSecret: string;
   turnstileSecretKey: string;
   contactEmail: string | undefined;
+  mailProvider: MailProvider;
+  mailApiKey: string | undefined;
+  mailFrom: string | undefined;
 };
 
 export const APP_CONFIG = 'APP_CONFIG';
+
+// Modul global agar APP_CONFIG dapat di-inject di AuthModule, MailModule,
+// dan modul lain tanpa impor berantai.
+@Global()
+@Module({
+  providers: [
+    {
+      provide: APP_CONFIG,
+      useFactory: () => loadAppConfig(process.env),
+    },
+  ],
+  exports: [APP_CONFIG],
+})
+export class AppConfigModule {}
 
 const DEFAULT_QUOTA_BYTES = 5368709120n;
 // Secret khusus dev lokal (http). Tidak pernah dipakai di produksi:
@@ -78,6 +100,35 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new Error('CONTACT_EMAIL tidak valid.');
   }
 
+  const providerRaw = optional(env, 'MAIL_PROVIDER')?.toLowerCase();
+  if (
+    providerRaw !== undefined &&
+    providerRaw !== 'resend' &&
+    providerRaw !== 'log'
+  ) {
+    throw new Error('MAIL_PROVIDER harus resend atau log.');
+  }
+  const mailApiKey = optional(env, 'MAIL_API_KEY');
+  let mailProvider: MailProvider;
+  if (isProduction) {
+    // Pengiriman sungguhan wajib; log ditolak agar kode tak tercetak.
+    if (providerRaw !== 'resend') {
+      throw new Error('MAIL_PROVIDER wajib resend di production.');
+    }
+    if (!mailApiKey) {
+      throw new Error('MAIL_API_KEY wajib diisi di production.');
+    }
+    mailProvider = 'resend';
+  } else {
+    // Non-produksi: eksplisit resend + kunci terisi berarti kirim
+    // sungguhan; selebihnya catat ke log (tidak pernah kirim diam-diam).
+    mailProvider = providerRaw ?? 'log';
+  }
+  const mailFrom = optional(env, 'MAIL_FROM');
+  if (mailProvider === 'resend' && !mailFrom) {
+    throw new Error('MAIL_FROM wajib diisi bila MAIL_PROVIDER=resend.');
+  }
+
   return {
     isProduction,
     frontendOrigin,
@@ -86,6 +137,9 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     ipHashSecret,
     turnstileSecretKey,
     contactEmail: contactRaw,
+    mailProvider,
+    mailApiKey,
+    mailFrom,
   };
 }
 
@@ -95,4 +149,6 @@ export const appConfigSchema = z.object({
   defaultQuotaBytes: z.bigint().positive(),
   ipHashSecret: z.string().min(32),
   turnstileSecretKey: z.string().min(1),
+  mailProvider: z.enum(['resend', 'log']),
+  mailFrom: z.string().min(1).optional(),
 });

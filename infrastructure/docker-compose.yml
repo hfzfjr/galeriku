@@ -53,6 +53,9 @@ services:
       IP_HASH_SECRET: ${IP_HASH_SECRET}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
       CONTACT_EMAIL: ${CONTACT_EMAIL}
+      MAIL_PROVIDER: ${MAIL_PROVIDER}
+      MAIL_API_KEY: ${MAIL_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
       MEDIA_DIR: /data/media
     volumes:
       # MEDIA_HOST_DIR wajib diisi di .env (tanpa default) agar salah
