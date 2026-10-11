@@ -5,6 +5,14 @@
 
 # ---------- Tahap 1: install dependency workspace ----------
 FROM node:24-bookworm-slim AS deps
+# openssl juga dibutuhkan DI SINI (bukan hanya di runtime): postinstall
+# @prisma/engines mendeteksi libssl saat install untuk mengunduh flavor
+# schema-engine yang tepat (debian-openssl-3.0.x). Tanpa ini, yang
+# terunduh flavor 1.1.x lalu migrate gagal di runtime yang sudah
+# punya openssl 3.0 (butuh download sebagai user node -> EACCES).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /app
 
@@ -38,6 +46,12 @@ RUN rm -rf src test \
   && rm -f *.tsbuildinfo \
   && mkdir -p /data/media \
   && chown node:node /data/media
+
+# Prisma membutuhkan libssl yang terdeteksi + CA agar tidak warning
+# "failed to detect the libssl/openssl version".
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 USER node
 EXPOSE 4000
