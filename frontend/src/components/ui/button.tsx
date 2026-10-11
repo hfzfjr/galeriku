@@ -2,20 +2,14 @@
 
 import { LoaderCircle } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
-import { cn } from "@/lib/cn";
-
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+import {
+  getButtonClassName,
+  type ButtonVariant,
+} from "./button-styles";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   loading?: boolean;
-};
-
-const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-on-accent active:bg-accent-hover",
-  secondary: "border border-ink bg-transparent text-ink active:bg-sunken",
-  ghost: "bg-transparent text-ink active:bg-sunken",
-  danger: "bg-danger text-on-accent active:opacity-90 active:scale-[0.98]",
 };
 
 /**
@@ -38,13 +32,7 @@ export function Button({
       type={type}
       disabled={isDisabled}
       aria-busy={loading || undefined}
-      className={cn(
-        "inline-flex h-12 min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-6 text-base font-semibold",
-        "transition-[background-color,transform,opacity] duration-150 ease-out motion-safe:active:scale-[0.98]",
-        "disabled:cursor-default disabled:opacity-45",
-        variantClasses[variant],
-        className,
-      )}
+      className={getButtonClassName(variant, className)}
       {...rest}
     >
       {loading ? (
