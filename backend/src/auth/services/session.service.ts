@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
-import { PrismaService } from '../prisma.service';
-import { SESSION_TTL_MS } from './auth.constants';
+import { PrismaService } from '../../prisma/prisma.service';
+import { SESSION_TTL_MS } from '../auth.constants';
 
 // Token sesi 32 byte acak (base64url). Yang disimpan di DB hanyalah
 // SHA-256 hex dari token; token mentah tidak pernah disimpan.

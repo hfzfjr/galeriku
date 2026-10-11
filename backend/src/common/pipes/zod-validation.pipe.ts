@@ -4,7 +4,7 @@ import {
   PipeTransform,
 } from '@nestjs/common';
 import type { ZodType } from 'zod';
-import { ApiError } from './api-error';
+import { ApiError } from '../errors/api-error';
 
 // Validasi body request memakai skema zod dari packages/contracts.
 // Gagal -> 400 VALIDATION_ERROR; details hanya berisi path+pesan

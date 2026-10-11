@@ -1,7 +1,7 @@
 ﻿import { createHash } from 'node:crypto';
 import request from 'supertest';
-import { ApiError } from '../src/auth/api-error';
-import { PasswordService } from '../src/auth/password.service';
+import { ApiError } from '../src/common/errors/api-error';
+import { PasswordService } from '../src/auth/services/password.service';
 import {
   createTestApp,
   type FakeDb,

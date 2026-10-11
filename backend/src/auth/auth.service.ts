@@ -10,22 +10,22 @@ import type {
   ResetPasswordRequest,
   VerifyEmailRequest,
 } from '@galeriku/contracts';
-import { APP_CONFIG, type AppConfig } from '../app-config';
+import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { EmailCodeKind, Role, UserStatus } from '../generated/prisma/client';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { MAIL_SERVICE, type MailSender } from '../mail/mail.service';
 import {
   resetPasswordTemplate,
   verifyEmailTemplate,
 } from '../mail/templates';
 import type { MailKind } from '../mail/mail.service';
-import { ApiError } from './api-error';
+import { ApiError } from '../common/errors/api-error';
 import { RESEND_WINDOW_MS } from './auth.constants';
-import { hashIp } from './client-ip';
-import { OtpService } from './otp.service';
-import { PasswordService } from './password.service';
-import { hashSessionToken, SessionService } from './session.service';
-import { TurnstileService } from './turnstile.service';
+import { hashIp } from '../common/utils/client-ip';
+import { OtpService } from './services/otp.service';
+import { PasswordService } from './services/password.service';
+import { hashSessionToken, SessionService } from './services/session.service';
+import { TurnstileService } from './services/turnstile.service';
 
 export type SessionUserRow = {
   id: string;

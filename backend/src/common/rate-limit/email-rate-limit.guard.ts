@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { normalizeEmail } from '@galeriku/contracts';
-import { ApiError } from './api-error';
+import { ApiError } from '../errors/api-error';
 import {
   EMAIL_RATE_LIMIT_KEY,
   type EmailRateLimitOptions,

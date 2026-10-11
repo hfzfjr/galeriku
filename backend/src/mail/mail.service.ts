@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { APP_CONFIG, type AppConfig } from '../app-config';
+import { APP_CONFIG, type AppConfig } from '../config/app-config';
 
 export type MailKind = 'verify-email' | 'reset-password';
 

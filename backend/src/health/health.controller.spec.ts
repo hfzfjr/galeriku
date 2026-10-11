@@ -1,7 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
-import { PrismaService } from './prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Tanpa jest.fn(): di mode Jest ESM, objek global `jest` tidak tersedia
 // (butuh @jest/globals yang bukan dependency), jadi pakai mock manual.

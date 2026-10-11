@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 const UNVERIFIED_TTL_MS = 24 * HOUR_MS;

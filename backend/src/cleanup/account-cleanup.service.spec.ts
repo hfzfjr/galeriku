@@ -1,4 +1,4 @@
-﻿import type { PrismaService } from '../prisma.service';
+﻿import type { PrismaService } from '../prisma/prisma.service';
 import { AccountCleanupService } from './account-cleanup.service';
 
 const JAM = new Date('2026-10-11T12:00:00.000Z').getTime();

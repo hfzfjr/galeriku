@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
-import { ApiError } from './api-error';
+import { ApiError } from '../errors/api-error';
 
 // Hanya ApiError yang diformat di sini. Error lain (mis. 503 dari /health,
 // 404 bawaan) dibiarkan ke handler default Nest agar tidak berubah.

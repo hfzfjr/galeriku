@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_CONFIG, type AppConfig } from '../app-config';
+import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { MAIL_SERVICE, MailFactory } from './mail.service';
 
 @Module({

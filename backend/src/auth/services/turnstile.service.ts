@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { APP_CONFIG, type AppConfig } from '../app-config';
-import { ApiError } from './api-error';
+import { APP_CONFIG, type AppConfig } from '../../config/app-config';
+import { ApiError } from '../../common/errors/api-error';
 
 const VERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify';

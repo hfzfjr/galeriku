@@ -1,5 +1,5 @@
-import { loadAppConfig } from '../app-config';
-import type { PrismaService } from '../prisma.service';
+import { loadAppConfig } from '../../config/app-config';
+import type { PrismaService } from '../../prisma/prisma.service';
 import { OtpService, hashOtpCode } from './otp.service';
 
 const CONFIG = loadAppConfig({

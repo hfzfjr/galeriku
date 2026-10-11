@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
-import { APP_CONFIG, type AppConfig } from '../app-config';
-import { EmailCodeKind } from '../generated/prisma/client';
-import { PrismaService } from '../prisma.service';
+import { APP_CONFIG, type AppConfig } from '../../config/app-config';
+import { EmailCodeKind } from '../../generated/prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export const OTP_TTL_MS = 10 * 60 * 1000;
 export const OTP_MAX_ATTEMPTS = 5;

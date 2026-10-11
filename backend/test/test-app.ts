@@ -1,12 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module';
-import { APP_CONFIG } from '../src/app-config';
-import { PrismaService } from '../src/prisma.service';
-import { TurnstileService } from '../src/auth/turnstile.service';
+import { APP_CONFIG } from '../src/config/app-config';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { TurnstileService } from '../src/auth/services/turnstile.service';
 import { MAIL_SERVICE } from '../src/mail/mail.service';
 import { setupApp } from '../src/setup';
 

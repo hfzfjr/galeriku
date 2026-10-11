@@ -4,8 +4,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ApiError } from './api-error';
-import { getClientIp } from './client-ip';
+import { ApiError } from '../errors/api-error';
+import { getClientIp } from '../utils/client-ip';
 import {
   RATE_LIMIT_KEY,
   type RateLimitOptions,

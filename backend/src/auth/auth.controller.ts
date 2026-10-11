@@ -29,8 +29,8 @@ import {
   verifyEmailRequestSchema,
 } from '@galeriku/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { APP_CONFIG, type AppConfig } from '../app-config';
-import { CurrentUser, type SessionUser } from './auth.guard';
+import { APP_CONFIG, type AppConfig } from '../config/app-config';
+import { CurrentUser, type SessionUser } from './guards/auth.guard';
 import {
   FORGOT_EMAIL_LIMIT,
   FORGOT_IP_LIMIT,
@@ -47,13 +47,13 @@ import {
   VERIFY_IP_LIMIT,
 } from './auth.constants';
 import { AuthService, toMeResponse } from './auth.service';
-import { getClientIp, getUserAgent } from './client-ip';
-import { EmailRateLimitGuard } from './email-rate-limit.guard';
-import { Public } from './public.decorator';
-import { RateLimit } from './rate-limit.decorator';
-import { RateLimitEmail } from './rate-limit-email.decorator';
-import { RateLimitGuard } from './rate-limit.guard';
-import { ZodValidationPipe } from './zod-validation.pipe';
+import { getClientIp, getUserAgent } from '../common/utils/client-ip';
+import { EmailRateLimitGuard } from '../common/rate-limit/email-rate-limit.guard';
+import { Public } from '../common/decorators/public.decorator';
+import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
+import { RateLimitEmail } from '../common/rate-limit/rate-limit-email.decorator';
+import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 
 @Controller('auth')
 export class AuthController {

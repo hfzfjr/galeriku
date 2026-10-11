@@ -5,9 +5,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { APP_CONFIG, type AppConfig } from '../app-config';
-import { ApiError } from './api-error';
-import { SESSION_COOKIE } from './auth.constants';
+import { APP_CONFIG, type AppConfig } from '../../config/app-config';
+import { ApiError } from '../errors/api-error';
+import { SESSION_COOKIE } from '../../auth/auth.constants';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 

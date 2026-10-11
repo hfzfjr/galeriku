@@ -7,13 +7,13 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
-import { APP_CONFIG, type AppConfig } from '../app-config';
-import { UserStatus } from '../generated/prisma/client';
-import { PrismaService } from '../prisma.service';
-import { ApiError } from './api-error';
-import { SESSION_COOKIE } from './auth.constants';
-import { IS_PUBLIC_KEY } from './public.decorator';
-import { hashSessionToken, SessionService } from './session.service';
+import { APP_CONFIG, type AppConfig } from '../../config/app-config';
+import { UserStatus } from '../../generated/prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ApiError } from '../../common/errors/api-error';
+import { SESSION_COOKIE } from '../auth.constants';
+import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
+import { hashSessionToken, SessionService } from '../services/session.service';
 
 export type SessionUser = {
   id: string;
