@@ -1,26 +1,221 @@
 @import "tailwindcss";
 
+/*
+ * Token warna Galeriku — nilai PERSIS dari docs/DESIGN.md §2.
+ * Terang sebagai bawaan di :root; gelap mengikuti sistem
+ * (prefers-color-scheme) kecuali dipaksa lewat [data-theme].
+ * Tanpa data-theme = Otomatis (ikut sistem).
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
+
+  --paper: #f6f0e4; /* latar halaman */
+  --surface: #fbf7ee; /* kartu, sheet, input */
+  --sunken: #ede5d3; /* area cekung, placeholder thumbnail */
+  --ink: #2a2420; /* teks utama */
+  --ink-muted: #6b6054; /* teks sekunder */
+  --line: #ddd2bc; /* garis dan border */
+  --accent: #a9502e; /* terakota: tombol utama, tautan, fokus */
+  --accent-hover: #8f4023;
+  --accent-soft: #ebd3c4; /* latar lembut untuk chip/terpilih */
+  --on-accent: #fff8f0; /* teks di atas aksen */
+  --success: #4f6b3a;
+  --warning: #9a6b12;
+  --danger: #a8322d;
+  --scrim: rgba(42, 36, 32, 0.55); /* lapisan di atas foto/modal */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #1c1814;
+  --surface: #26211b;
+  --sunken: #151210;
+  --ink: #f0e8da;
+  --ink-muted: #a89c8a;
+  --line: #3a322a;
+  --accent: #d9825c;
+  --accent-hover: #e69a78;
+  --accent-soft: #3a261c;
+  --on-accent: #1c1814;
+  --success: #8fb06e;
+  --warning: #d9a441;
+  --danger: #e27a72;
+  --scrim: rgba(0, 0, 0, 0.6);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --paper: #1c1814;
+    --surface: #26211b;
+    --sunken: #151210;
+    --ink: #f0e8da;
+    --ink-muted: #a89c8a;
+    --line: #3a322a;
+    --accent: #d9825c;
+    --accent-hover: #e69a78;
+    --accent-soft: #3a261c;
+    --on-accent: #1c1814;
+    --success: #8fb06e;
+    --warning: #d9a441;
+    --danger: #e27a72;
+    --scrim: rgba(0, 0, 0, 0.6);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/*
+ * Pemetaan token ke tema Tailwind (Tailwind v4).
+ * @theme inline: kelas merujuk var(--...) saat dipakai sehingga
+ * terang/gelap berganti tanpa kelas duplikat. Tidak ada nilai
+ * heks statis di sini selain yang sudah menjadi token.
+ */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-scrim: var(--scrim);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+}
+
+/* Radius (DESIGN.md §4) dan bayangan melayang — statis, tidak ikut tema. */
+@theme {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  --shadow-float:
+    0 1px 2px rgba(60, 40, 20, 0.1),
+    0 10px 24px -12px rgba(60, 40, 20, 0.28);
+}
+
+/*
+ * Skala tipografi DESIGN.md §3. Tiap kelas membawa font-family,
+ * ukuran, tinggi baris, dan bobot. Display dan h1 membesar di ≥768px.
+ */
+@utility text-display {
+  font-family: var(--font-serif);
+  font-size: 36px;
+  line-height: 40px;
+  font-weight: 600;
+
+  @media (min-width: 768px) {
+    font-size: 52px;
+    line-height: 56px;
+  }
+}
+
+@utility text-h1 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 600;
+
+  @media (min-width: 768px) {
+    font-size: 36px;
+    line-height: 42px;
+  }
+}
+
+@utility text-h2 {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+@utility text-h3 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+@utility text-body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+@utility text-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+@utility text-caption {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+/* Utilitas safe-area untuk elemen yang menempel di tepi (DESIGN.md §4). */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Fokus terlihat di semua elemen interaktif (DESIGN.md §10). */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
