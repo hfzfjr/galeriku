@@ -252,7 +252,7 @@ export function CtaSection() {
 export function SiteFooter() {
   return (
     <footer className="mx-auto w-full max-w-[560px] px-4 pb-10 pt-14 md:flex md:max-w-[960px] md:items-center md:justify-between md:gap-6 md:px-6 md:pb-12 md:pt-[72px]">
-      <Logo className="h-6" />
+      <Logo small />
       <p className="mt-3 text-caption text-ink-muted md:mt-0">
         © 2026 Galeriku. Simpan foto dan video perjalananmu.
       </p>

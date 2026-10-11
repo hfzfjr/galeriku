@@ -187,32 +187,6 @@
   padding-left: env(safe-area-inset-left);
 }
 
-/*
- * Logo lockup terang/gelap (tanpa JS): varian gelap disembunyikan,
- * kecuali tema gelap aktif — via pilihan manual atau sistem.
- */
-.brand-lockup-dark {
-  display: none;
-}
-
-:root[data-theme="dark"] .brand-lockup-light {
-  display: none;
-}
-
-:root[data-theme="dark"] .brand-lockup-dark {
-  display: inline;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .brand-lockup-light {
-    display: none;
-  }
-
-  :root:not([data-theme="light"]) .brand-lockup-dark {
-    display: inline;
-  }
-}
-
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

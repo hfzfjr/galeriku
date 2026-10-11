@@ -1,39 +1,41 @@
+import Image from "next/image";
 import { cn } from "@/lib/cn";
 
 type LogoProps = {
-  /** Kelas tinggi untuk kedua gambar (lebar mengikuti aspek lockup). */
-  className?: string;
+  /** Varian kecil untuk footer (mark 24px, teks 16px). */
+  small?: boolean;
 };
 
 /**
- * Logo Galeriku dari frontend/public/brand (lockup terang/gelap).
- * Server Component tanpa JS: varian yang tampil dipilih lewat CSS
- * (.brand-lockup-light/.brand-lockup-dark di globals.css) mengikuti
- * data-theme dan prefers-color-scheme. Pembaca layar mendapat satu
- * label "Galeriku"; gambar yang tersembunyi display:none.
+ * Logo Galeriku: SATU ikon mark (tile mandiri, tampil sama di tema
+ * terang dan gelap) + teks "Galeriku" sungguhan (Fraunces 600).
+ * Pembaca layar membaca teksnya; ikon dekoratif disembunyikan.
+ * Server Component, tanpa JS.
  */
-export function Logo({ className }: LogoProps) {
-  const imgClass = cn("w-auto", className ?? "h-9");
+export function Logo({ small = false }: LogoProps) {
   return (
-    <span role="img" aria-label="Galeriku" className="inline-flex shrink-0">
-      {/* eslint-disable-next-line @next/next/no-img-element -- SVG lockup diganti via CSS tanpa JS; next/image membungkus span sehingga display:none bocor */}
-      <img
-        src="/brand/logo-lockup-light.svg"
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center",
+        small ? "gap-2" : "gap-2.5",
+      )}
+    >
+      <Image
+        src="/brand/logo-mark.svg"
         alt=""
         aria-hidden="true"
-        width={143}
-        height={36}
-        className={cn("brand-lockup-light", imgClass)}
+        width={68}
+        height={68}
+        className={small ? "h-6 w-6" : "h-[34px] w-[34px]"}
       />
-      {/* eslint-disable-next-line @next/next/no-img-element -- alasan sama seperti di atas */}
-      <img
-        src="/brand/logo-lockup-dark.svg"
-        alt=""
-        aria-hidden="true"
-        width={143}
-        height={36}
-        className={cn("brand-lockup-dark", imgClass)}
-      />
+      <span
+        className={cn(
+          "font-serif font-semibold leading-none text-ink",
+          small ? "text-base" : "text-[22px]",
+        )}
+      >
+        Galeriku
+      </span>
     </span>
   );
 }
