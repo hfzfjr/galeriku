@@ -19,7 +19,7 @@ Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10
 - [x] US-07 Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman
 - [x] US-08 Sebagai pengunjung, saya ingin landing page Galeriku di root domain
 - [x] US-09 Sebagai pengguna, saya ingin mendaftar dan login dengan email + password
-- [ ] US-09b Sebagai pengguna, saya ingin verifikasi email dan lupa password
+- [x] US-09b Sebagai pengguna, saya ingin verifikasi email dan lupa password
 
 ## Sprint 2 — Layar Auth, Google Login, dan Kelola Pengguna
 
