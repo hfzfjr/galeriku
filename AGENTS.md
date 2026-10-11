@@ -15,6 +15,7 @@ Personal cloud storage for sharing photos and videos through public links. Mobil
 - `packages/`: optional shared code (for example Zod schemas in `packages/contracts`).
 - `infrastructure/`: Docker Compose (`backend`, `postgres`), skrip deploy (`deploy.sh`), backup scripts. Tunnel Cloudflare (`cf-tunnel`) jalan sebagai layanan host dengan route ke `127.0.0.1:4000`, bukan container Compose.
 - `docs/`: PRD and design spec.
+- `backend/src` tata letak per fitur: `auth/` (dengan sub-folder `guards/`, `services/`), `mail/`, `cleanup/`, `health/`; `config/` dan `common/` (sub-folder `decorators/`, `errors/`, `filters/`, `guards/`, `pipes/`, `rate-limit/`, `utils/`) untuk kode bersama; `prisma/` untuk modul database; spec di samping berkas aslinya.
 
 Do not rename these folders.
 
