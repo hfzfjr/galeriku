@@ -21,6 +21,7 @@ RUN corepack enable && corepack prepare pnpm@12.10.1 --activate
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json ./backend/package.json
+COPY packages/contracts/package.json ./packages/contracts/package.json
 COPY frontend/package.json ./frontend/package.json
 RUN pnpm install --frozen-lockfile
 
@@ -30,6 +31,7 @@ FROM deps AS build
 # generate/build. Tidak terbawa ke image final (stage terpisah).
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 COPY backend ./backend
+COPY packages/contracts ./packages/contracts
 RUN pnpm --filter backend prisma:generate
 RUN pnpm --filter backend build
 # Kemas backend + dependency production saja ke /prod/backend.

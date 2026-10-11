@@ -48,6 +48,11 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      DEFAULT_QUOTA_BYTES: ${DEFAULT_QUOTA_BYTES}
+      IP_HASH_SECRET: ${IP_HASH_SECRET}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+      CONTACT_EMAIL: ${CONTACT_EMAIL}
       MEDIA_DIR: /data/media
     volumes:
       # MEDIA_HOST_DIR wajib diisi di .env (tanpa default) agar salah
