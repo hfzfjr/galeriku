@@ -42,14 +42,15 @@ export function PhotoCard({ slot }: { slot: LandingPhotoSlot }) {
       )}
     >
       {slot.src ? (
-        <Image
-          src={slot.src}
-          alt={slot.alt}
-          width={slot.width}
-          height={slot.height}
-          sizes="(max-width: 768px) 60vw, 360px"
-          className="block h-auto w-full"
-        />
+        <div className={cn("relative w-full overflow-hidden", slot.frameAspect)}>
+          <Image
+            src={slot.src}
+            alt={slot.alt}
+            fill
+            sizes="(max-width: 768px) 60vw, 360px"
+            className="object-cover"
+          />
+        </div>
       ) : (
         slot.illustration
       )}

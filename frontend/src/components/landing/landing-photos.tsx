@@ -17,12 +17,18 @@ export type LandingPhotoSlot = {
   duration?: string;
   /**
    * Foto asli (opsional). Isi dengan path di frontend/public/landing/
-   * (mis. "/landing/bromo.jpg") untuk menggantikan ilustrasi tanpa
-   * mengubah komponen. Lihat public/landing/README.md.
+   * untuk menggantikan ilustrasi tanpa mengubah komponen.
+   * Lihat public/landing/README.md.
    */
   src?: string;
   width: number;
   height: number;
+  /**
+   * Rasio bingkai kartu (sama dengan ilustrasi slot ini). Foto asli
+   * dipotong object-cover mengikuti rasio ini agar komposisi tumpukan
+   * tidak berubah.
+   */
+  frameAspect?: string;
   illustration: ReactNode;
 };
 
@@ -38,20 +44,24 @@ export const LANDING_PHOTOS: LandingPhotoSlot[] = [
   },
   {
     id: "walakiri",
-    caption: "Pantai Walakiri",
-    alt: "Contoh foto: pantai saat senja",
+    caption: "Pangalengan, Sep 2025",
+    alt: "Rombongan berjalan mendaki jalur tanah di hutan berkabut, Pangalengan",
     kind: "photo",
-    width: 600,
-    height: 800,
+    src: "/landing/pangalengan-jalur.jpg",
+    width: 1200,
+    height: 1800,
+    frameAspect: "aspect-[3/4]",
     illustration: <WalakiriArt className="block h-auto w-full" />,
   },
   {
     id: "jatiluwih",
-    caption: "Sawah Jatiluwih",
-    alt: "Contoh foto: sawah berundak",
+    caption: "Pangalengan, Sep 2025",
+    alt: "Seorang pengunjung berdiri di atas batu besar di lereng berbatu, Pangalengan",
     kind: "photo",
-    width: 600,
-    height: 600,
+    src: "/landing/pangalengan-bebatuan.jpg",
+    width: 1200,
+    height: 1800,
+    frameAspect: "aspect-square",
     illustration: <JatiluwihArt className="block h-auto w-full" />,
   },
   {
