@@ -16,7 +16,7 @@ Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-
 
 ## Sprint 1 — UI Dasar, Landing Page, Login, dan Verifikasi Email
 
-- [ ] US-07 Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman
+- [x] US-07 Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman
 - [ ] US-08 Sebagai pengunjung, saya ingin landing page Galeriku di root domain
 - [ ] US-09 Sebagai pengguna, saya ingin mendaftar dan login dengan email + password
 - [ ] US-09b Sebagai pengguna, saya ingin verifikasi email dan lupa password
