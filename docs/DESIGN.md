@@ -1,6 +1,6 @@
 # DESIGN — Galeriku
 
-Versi 1.0 · 10 Oktober 2026 · Arah: **Album Foto Perjalanan**
+Versi 1.1 · 11 Oktober 2026 · Arah: **Album Foto Perjalanan**
 
 Dokumen ini adalah acuan visual tunggal. Jika ada konflik dengan komponen bawaan (shadcn/ui, Tailwind default), dokumen ini yang menang. Teks UI berbahasa Indonesia.
 
@@ -131,11 +131,19 @@ Semua tombol: area sentuh minimal 44×44 px, status `pressed` (gelapkan ke `acce
 
 ### Input
 
-Tinggi 48, latar `surface`, border 1 px `line`, radius `md`, teks 16 px. Label di atas input (bukan placeholder-sebagai-label). Fokus: ring 2 px `accent` dengan offset 2 px. Error: border `danger`, pesan di bawah dengan ikon. Pesan error login bersifat umum (tidak membocorkan keberadaan email).
+Tinggi 48, latar `surface`, border 1 px `line`, radius `md`, teks 16 px. Label di atas input (bukan placeholder-sebagai-label). Fokus: ring 2 px `accent` dengan offset 2 px. Error: border `danger`, pesan di bawah dengan ikon. Pesan error login bersifat umum (tidak membocorkan keberadaan email). Pada pendaftaran, pesan "email sudah terdaftar" boleh jelas karena registrasi terbuka.
+
+### Input kode OTP
+
+Satu input teks sungguhan (`inputmode="numeric"`, `autocomplete="one-time-code"`, `maxlength="6"`, teks ≥ 16 px) yang ditampilkan sebagai 6 sel: tiap sel 48×56 dengan jarak 8 px (muat di lebar 360 px), latar `surface`, border 1 px `line`, radius `md`, angka Fraunces 28 bobot 600. Sel aktif memakai ring fokus 2 px `accent`. Mendukung tempel (paste) dan isian otomatis dari email. Error: border semua sel `danger` dan pesan dengan ikon di bawahnya (tanpa animasi goyang). Tombol **Kirim ulang kode** berupa ghost dengan hitung mundur ("Kirim ulang kode (45 dtk)"), nonaktif sampai hitungan habis; hitungan mundur hanya diumumkan ke pembaca layar saat selesai.
+
+### Widget Turnstile
+
+Cloudflare Turnstile dipasang di form daftar, login, dan lupa password, di atas tombol utama, lebar penuh, dengan tema mengikuti tema aktif (terang/gelap) dan mode ringkas agar tidak mengganggu. Bila gagal dimuat: "Pemeriksaan keamanan gagal dimuat. Muat ulang halaman." dan tombol utama nonaktif.
 
 ### Navigasi
 
-- **Bottom navigation** (area `/app`): 4 tab, tinggi 56 px + safe-area bawah, latar `surface`, garis atas 1 px `line`. Tab: **Galeri**, **Album**, **Link**, **Akun**. Tab aktif: ikon dan label `accent`, label bobot 600; tab tidak aktif `ink-muted`. Label selalu terlihat.
+- **Bottom navigation** (area `/app`): 4 tab, tinggi 56 px + safe-area bawah, latar `surface`, garis atas 1 px `line`. Tab: **Galeri**, **Album**, **Link**, **Akun**. Tab aktif: ikon dan label `accent`, label bobot 600; tab tidak aktif `ink-muted`. Label selalu terlihat. Item **Admin** (menuju `/app/admin`) hanya muncul di tab Akun untuk pengguna ber-peran ADMIN.
 - **Tombol Unggah (FAB):** lingkaran 56 px `accent`, ikon plus, di kanan bawah, 16 px di atas bottom nav. Hanya di Galeri dan Album.
 - **Bilah atas:** tinggi 56, judul halaman Fraunces h2 di kiri, aksi (cari/pilih) di kanan. Lengket di atas, latar `paper` dengan garis bawah muncul saat di-scroll.
 - Di ≥ 1024 px: bottom nav berubah menjadi sidebar kiri 240 px (desktop hanya pendukung).
@@ -179,23 +187,35 @@ Judul Fraunces h2 satu kalimat, satu baris penjelasan, satu tombol utama. Hiasan
 ### Landing `/` (statis, boleh diindeks)
 
 1. Bilah atas: wordmark "Galeriku" (Fraunces 600) kiri, tombol **Masuk** (sekunder) kanan.
-2. Hero: display "Simpan foto perjalananmu. Kirim satu link ke teman." + satu kalimat pendukung + tombol utama **Masuk**. Di bawahnya tumpukan 3 "foto cetak" bingkai kertas (gambar contoh milik sendiri, bukan stok generik).
+2. Hero: display "Simpan foto perjalananmu. Kirim satu link ke teman." + satu kalimat pendukung + tombol utama **Masuk** dan tautan teks kecil "Belum punya akun? Daftar" (ke `/register`). Di bawahnya tumpukan 3 "foto cetak" bingkai kertas (gambar contoh milik sendiri, bukan stok generik).
 3. Tiga keunggulan, masing-masing ikon + judul h3 + satu kalimat: **Unggah dari HP** (bisa dilanjutkan kalau sinyal putus), **Bagikan lewat link** (atur kedaluwarsa dan password), **Teman tanpa login** (buka dan unduh langsung).
-4. Penutup: satu baris catatan ("Galeriku pribadi. Akses hanya untuk yang diundang.") dan footer kecil.
+4. Penutup: satu baris catatan ("Fotomu tetap milikmu. Hanya link yang kamu buat yang bisa dibuka orang lain.") dan footer kecil.
 
 Tanpa carousel testimoni, tanpa harga, tanpa gradien.
 
 ### Login `/login` dan Daftar `/register`
 
-Kartu tunggal di tengah, wordmark di atas, h1 "Masuk", tombol **Masuk dengan Google** (sekunder, logo Google resmi), pemisah "atau", form email + password, tombol utama **Masuk**. Di `/register`: salam ke email yang diundang dan pengaturan password. Tautan bantuan: "Belum punya akses? Minta undangan ke pemilik."
+Kartu tunggal di tengah, wordmark di atas. **Login:** h1 "Masuk", tombol **Masuk dengan Google** (sekunder, logo Google resmi), pemisah "atau", form email + password, widget Turnstile, tombol utama **Masuk**. Tautan bantuan: "Lupa password?" dan "Belum punya akun? Daftar". **Daftar:** h1 "Buat akun", tombol **Daftar dengan Google**, pemisah "atau", form nama, email, dan password (dengan tombol tampilkan/sembunyikan password dan petunjuk aturan password), widget Turnstile, tombol utama **Daftar**; setelah berhasil menuju layar verifikasi email. Tautan bantuan: "Sudah punya akun? Masuk". Login oleh akun yang belum terverifikasi mengarahkan ke layar verifikasi email. Pesan error login tetap umum; pada pendaftaran boleh jelas ("Email ini sudah terdaftar").
+
+### Verifikasi email
+
+Layar kartu tunggal setelah daftar. h1 "Cek email kamu", satu kalimat ("Kami mengirim kode 6 digit ke {email}. Kode berlaku 10 menit."), input kode OTP (bagian 6), tombol utama **Verifikasi**, ghost **Kirim ulang kode** dengan hitung mundur 60 detik, dan tautan teks "Salah email? Ubah". Kode benar: langsung masuk ke `/app` tanpa layar tambahan. Kode salah: tampilkan sisa percobaan; setelah 5 kali salah atau kedaluwarsa, kode lama hangus dan layar mengajak meminta kode baru.
+
+### Lupa dan atur ulang password
+
+Dua layar kartu tunggal. (1) "Lupa password": input email, widget Turnstile, tombol utama **Kirim kode**; setelah dikirim selalu tampilkan pesan yang sama ("Kalau email itu terdaftar, kode sudah kami kirim.") apa pun hasilnya, lalu lanjut ke layar kedua. (2) "Atur password baru": input kode OTP, password baru, tombol utama **Simpan password**. Berhasil: ajak masuk ("Password sudah diganti. Masuk dengan password barumu.") dan beri tahu dalam satu kalimat bahwa semua perangkat otomatis keluar.
+
+### Dashboard admin `/app/admin`
+
+Hanya untuk ADMIN; pengguna lain yang membukanya melihat halaman "Tidak ada akses" yang ramah, bukan layar kosong. Bilah atas "Pengguna" dengan kolom cari (nama atau email). Mobile: daftar kartu satu kolom; tiap kartu berisi avatar inisial lingkaran 40 px, nama, email (caption `ink-muted`), bar pemakaian 4 px dengan teks "1,2 GB dari 5 GB", dan chip status (Aktif, Ditangguhkan, Belum terverifikasi) dengan ikon + teks. Mengetuk kartu membuka bottom sheet detail dengan aksi: **Ubah kuota** (input angka dalam GB + tombol Simpan), **Tangguhkan** atau **Aktifkan** (sekunder), dan **Hapus pengguna** (bahaya; konfirmasi dengan mengetik email pengguna: "Hapus {nama}? Semua file, album, dan link miliknya ikut terhapus dan tidak bisa dikembalikan."). Konfirmasi tangguhkan: "Tangguhkan {nama}? Dia akan keluar dari semua perangkat dan link publiknya tidak aktif sampai akunnya diaktifkan lagi." Bar pemakaian berubah ke `warning` di atas 80% dan `danger` pada 100%, selalu disertai teks. Admin tidak dapat menangguhkan atau menghapus akunnya sendiri (tombol nonaktif dengan penjelasan satu kalimat). Layar ≥ 768 px: daftar menjadi tabel (nama, email, pemakaian, status, aksi).
 
 ### Galeri `/app`
 
-Bilah atas (judul "Galeri", ikon cari, ikon pilih), grid per tanggal, FAB Unggah, bottom nav. Di atas grid, baris kuota tipis: "12,4 GB dari 30 GB terpakai" dengan bar 4 px (hanya muncul bila > 80% atau di Pengaturan).
+Bilah atas (judul "Galeri", ikon cari, ikon pilih), grid per tanggal, FAB Unggah, bottom nav. Di atas grid, baris kuota tipis: "4,2 GB dari 5 GB terpakai" dengan bar 4 px (hanya muncul bila > 80% atau di Pengaturan).
 
 ### Halaman publik `/s/[token]` (SSR, `noindex`)
 
-Tanpa bottom nav. Header kecil: wordmark kiri. Judul h1 album (atau nama file), caption "Dibagikan oleh {nama} · berlaku sampai {tanggal}". Grid sama dengan galeri, viewer sama. Tombol utama **Unduh semua (ZIP)** untuk album dan ikon unduh per file, hanya bila izin unduh aktif. Link tidak valid/kedaluwarsa/dicabut: halaman ramah dengan judul Fraunces dan satu kalimat ("Link ini sudah tidak berlaku. Minta pengirimnya membuat yang baru."). Link berpassword: kartu gerbang dengan satu input dan tombol **Buka**.
+Tanpa bottom nav. Header kecil: wordmark kiri. Judul h1 album (atau nama file), caption "Dibagikan oleh {nama} · berlaku sampai {tanggal}". Grid sama dengan galeri, viewer sama. Tombol utama **Unduh semua (ZIP)** untuk album dan ikon unduh per file, hanya bila izin unduh aktif. Di footer ada tautan kecil **Laporkan konten ini** (ghost, caption) yang membuka email ke alamat kontak. Link tidak valid/kedaluwarsa/dicabut: halaman ramah dengan judul Fraunces dan satu kalimat ("Link ini sudah tidak berlaku. Minta pengirimnya membuat yang baru."). Link berpassword: kartu gerbang dengan satu input dan tombol **Buka**.
 
 ### Layanan tidak tersedia
 
@@ -212,12 +232,17 @@ Dipakai saat API tidak terjangkau (server rumah mati). Judul "Galeriku lagi isti
 | --- | --- |
 | Berhasil salin | Link disalin |
 | Hapus (konfirmasi) | Hapus 3 file? File yang dihapus tidak bisa dikembalikan. |
-| Kuota habis | Kuota penuh. Hapus beberapa file atau minta pemilik menambah kuota. |
+| Kuota habis | Kuota penuh. Hapus beberapa file atau minta admin menambah kuota. |
 | Disk server penuh | Server sedang penuh, unggahan ditunda dulu. |
 | Format ditolak | Format ini belum didukung. Pakai JPEG, PNG, WebP, GIF, HEIC, MP4, MOV, atau WebM. |
 | Upload terputus | Koneksi terputus, akan dilanjutkan otomatis. |
 | Login gagal | Email atau password tidak cocok. |
-| Email di luar allowlist | Email ini belum diundang. Minta undangan ke pemilik. |
+| Email sudah terdaftar | Email ini sudah terdaftar. Masuk atau atur ulang password. |
+| Kode OTP salah | Kode salah. Sisa {n} percobaan. |
+| Kode OTP kedaluwarsa | Kode sudah tidak berlaku. Kirim kode baru. |
+| Email belum diverifikasi | Email kamu belum diverifikasi. Masukkan kode yang kami kirim. |
+| Lupa password terkirim | Kalau email itu terdaftar, kode sudah kami kirim. |
+| Akun ditangguhkan | Akunmu sedang ditangguhkan. Hubungi admin lewat {email kontak}. |
 
 ## 9. Gerak dan Detail
 
@@ -269,3 +294,4 @@ Hilangkan tekstur di tema gelap atau bila memengaruhi performa HP lawas.
 4. Hanya token dari dokumen ini yang dipakai (tanpa nilai warna/ukuran acak).
 5. Teks dalam Bahasa Indonesia sesuai gaya di bagian 8.
 6. Safe-area dan `100dvh` dipakai pada elemen yang menempel di tepi.
+7. Layar autentikasi: login dan lupa password tidak membocorkan apakah email terdaftar; hanya pendaftaran yang boleh menyebut email sudah terdaftar.
