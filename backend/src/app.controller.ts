@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 
+// Rute scaffold: ikut default-deny (401 tanpa sesi).
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}

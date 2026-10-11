@@ -4,8 +4,9 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import { loadAppConfig } from './app-config';
 import { AppModule } from './app.module';
-import { setupCors } from './cors';
+import { setupApp } from './setup';
 
 // Muat backend/.env untuk dev lokal tanpa dependency tambahan.
 // Di container produksi file ini tidak ada: env datang dari Compose.
@@ -14,11 +15,14 @@ if (existsSync('.env')) {
 }
 
 async function bootstrap() {
+  // Validasi konfigurasi dulu: gagal cepat bila env kurang/salah.
+  const config = loadAppConfig(process.env);
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
   );
-  setupCors(app);
+  // Konfigurasi yang sama dipakai tes e2e (lihat setupApp).
+  await setupApp(app, config);
   await app.listen(
     Number(process.env.PORT ?? 4000),
     process.env.HOST ?? '0.0.0.0',

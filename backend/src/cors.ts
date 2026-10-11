@@ -1,8 +1,10 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 // Konfigurasi CORS terpusat agar dipakai main.ts dan e2e.
-export function setupCors(app: NestFastifyApplication) {
-  const frontendOrigin = process.env.FRONTEND_ORIGIN;
+export function setupCors(
+  app: NestFastifyApplication,
+  frontendOrigin: string,
+) {
   if (process.env.NODE_ENV === 'production' && !frontendOrigin) {
     throw new Error(
       'FRONTEND_ORIGIN wajib diisi di production (untuk CORS).',
@@ -12,7 +14,7 @@ export function setupCors(app: NestFastifyApplication) {
     // Satu origin persis dalam array agar @fastify/cors mencocokkan
     // secara eksak per request (bukan wildcard, tanpa refleksi):
     // origin asing tidak mendapat header allow-origin.
-    origin: [frontendOrigin ?? 'http://localhost:3000'],
+    origin: [frontendOrigin],
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-Requested-With'],
