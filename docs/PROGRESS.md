@@ -12,12 +12,12 @@ Aturan: centang pada commit terakhir story tersebut.
 - [x] US-05 Sebagai developer, saya ingin skema database awal
 - [x] US-06 Sebagai admin, saya ingin health check
 
-Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-06) dikerjakan di Sprint 1.
+Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10 (Sprint 2) karena landing statis tidak memanggil API.
 
 ## Sprint 1 — UI Dasar, Landing Page, Login, dan Verifikasi Email
 
 - [x] US-07 Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman
-- [ ] US-08 Sebagai pengunjung, saya ingin landing page Galeriku di root domain
+- [x] US-08 Sebagai pengunjung, saya ingin landing page Galeriku di root domain
 - [ ] US-09 Sebagai pengguna, saya ingin mendaftar dan login dengan email + password
 - [ ] US-09b Sebagai pengguna, saya ingin verifikasi email dan lupa password
 
