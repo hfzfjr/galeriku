@@ -269,12 +269,12 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | --- | --- | --- | --- |
 | 0 | Fondasi infrastruktur | 14 | Monorepo, backend dan frontend ter-deploy, tunnel dan Vercel berjalan |
 | 1 | UI dasar, landing page, login + verifikasi email | 16 | Landing tampil; registrasi + login manual dan OTP lewat API |
-| 2 | Layar auth, Google login, dan kelola pengguna | 15 | Layar auth lengkap; login ganda; akses terkunci |
+| 2 | Layar auth, Google login, dan kelola pengguna | 17 | Layar auth lengkap; login ganda; akses terkunci |
 | 3 | Upload dan penyimpanan | 16 | Upload resumable dan thumbnail foto |
 | 4 | Galeri dan viewer | 15 | Melihat, memutar, mengunduh, dan menghapus file; halaman pengaturan |
 | 5 | Album dan link publik inti | 15 | Link publik dapat dibuka dan diunduh tanpa login |
 | 6 | Opsi berbagi dan pengerasan | 14 | Kedaluwarsa, password, ZIP, PWA |
-| 7 | Stabilisasi dan rilis | 16 | **Rilis v1.0 (MVP)** |
+| 7 | Stabilisasi dan rilis | 13 | **Rilis v1.0 (MVP)** |
 | 8–9 | Pemrosesan video (Fase 2) | 21 | Thumbnail video dan transcode |
 
 ### 12.4 Detail Sprint
@@ -296,7 +296,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | --- | --- | --- | --- |
 | US-07 | Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman | 3 | Token warna, tipografi, spacing, dan radius dari `DESIGN.md` masuk ke tema Tailwind; bottom navigation; komponen dasar (tombol, input, kartu); area sentuh ≥ 44 px; tema terang/gelap |
 | US-08 | Sebagai pengunjung, saya ingin landing page Galeriku di root domain | 3 | Halaman `/` statis dan mobile-first: judul, penjelasan singkat, tiga keunggulan (upload dari HP, bagikan lewat link, penerima tanpa login), tombol Masuk ke `/login`; tag meta dan Open Graph terisi; tampil < 2,5 detik di 4G; boleh diindeks |
-| US-09 | Sebagai pengguna, saya ingin mendaftar dan login dengan email + password | 5 | `POST /auth/register` (terbuka, tanpa token; `ADMIN_EMAIL` dicatat untuk penetapan peran setelah verifikasi), `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`; password argon2id; Turnstile terverifikasi server-side; rate limit register per IP; email yang sudah terdaftar boleh dijawab jelas saat registrasi; login tetap tidak membocorkan keberadaan email; pendaftaran ulang email yang belum terverifikasi menimpa akun tanpa mewarisi peran; sesi di PostgreSQL dengan cookie HttpOnly, Secure, SameSite=Lax |
+| US-09 | Sebagai pengguna, saya ingin mendaftar dan login dengan email + password | 5 | `POST /auth/register` (terbuka, tanpa token; `ADMIN_EMAIL` dicatat untuk penetapan peran setelah verifikasi), `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`; password argon2id; Turnstile terverifikasi server-side; rate limit register per IP; email yang sudah terdaftar boleh dijawab jelas saat registrasi; login tetap tidak membocorkan keberadaan email; pendaftaran ulang email yang belum terverifikasi menimpa akun tanpa mewarisi peran; sesi di PostgreSQL dengan cookie HttpOnly, Secure, SameSite=Lax; sesi bertahan 30 hari |
 | US-09b | Sebagai pengguna, saya ingin verifikasi email dan lupa password | 5 | `POST /auth/verify-email`, `POST /auth/resend-code`, `POST /auth/forgot-password`, `POST /auth/reset-password`; kode OTP 6 digit, berlaku 10 menit, hanya hash disimpan, maks 5 percobaan lalu hangus, kirim ulang berjeda 60 detik, rate limit per email dan IP; login sebelum verifikasi ditolak dan mengarah ke layar kode; verifikasi sukses langsung membuat sesi; peran ADMIN dari `ADMIN_EMAIL` ditetapkan setelah verifikasi (tidak untuk akun belum terverifikasi); reset mencabut semua sesi; respons lupa password tidak membocorkan email; MailService via fetch tanpa dependency baru (kode dicetak ke log di non-produksi); akun belum terverifikasi dibersihkan otomatis setelah 24 jam |
 | US-10 | Sebagai pengguna, saya ingin halaman login dan registrasi | 5 | `/login` dan `/register` (tanpa query token) dengan widget Turnstile; layar kode verifikasi, layar lupa password, dan layar reset password; login akun belum terverifikasi mengarah ke layar kode; status sesi dari `GET /auth/me`; `/app/*` mengalihkan ke `/login` bila belum login (di sisi klien); berfungsi di Chrome Android dan Safari iOS |
 
@@ -304,7 +304,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| US-11 | Sebagai pengguna, saya ingin login dengan Google | 3 | Alur OAuth di backend (`/auth/google` dan callback di host API); akun dibuat untuk siapa pun dengan email Google terverifikasi (dianggap terverifikasi); peran ADMIN dari `ADMIN_EMAIL` ditetapkan setelah verifikasi; cookie sesi sama dengan login manual |
+| US-11 | Sebagai pengguna, saya ingin login dengan Google | 5 | Alur OAuth di backend (`/auth/google` dan callback di host API); akun dibuat untuk siapa pun dengan email Google terverifikasi (dianggap terverifikasi); peran ADMIN dari `ADMIN_EMAIL` ditetapkan setelah verifikasi; cookie sesi sama dengan login manual; tombol Masuk dengan Google di `/login` dan `/register` untuk semua pengunjung; error alur Google ditangani |
 | US-12 | Sebagai admin, saya ingin mengelola pengguna dan kuota | 5 | Halaman `/app/admin`: daftar pengguna + pemakaian storage; ubah kuota per pengguna (batas bukan reservasi; penurunan di bawah pemakaian hanya menghalangi upload baru); suspend/aktifkan (login ditolak, sesi dicabut, link publik miliknya nonaktif); hapus pengguna beserta datanya; hanya untuk ADMIN (403 bila bukan) |
 | US-13 | Sebagai admin, saya ingin akses yang terkunci di backend | 2 | Semua endpoint privat menolak akses tanpa sesi (401); endpoint admin hanya untuk ADMIN (403); pengguna ditolak mengakses milik pengguna lain; uji otomatis matriks auth/admin; kepemilikan per resource diuji di tiap story resource (pola A-vs-B) |
 
@@ -324,7 +324,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | US-20 | Sebagai pengguna, saya ingin grid galeri | 5 | 3 kolom di HP; thumbnail lazy-load; infinite scroll 24 item per halaman; urut terbaru; video diberi ikon penanda |
 | US-21 | Sebagai pengguna, saya ingin viewer layar penuh | 5 | Foto dapat di-swipe dan di-zoom; video diputar dengan streaming (Range) dan bisa di-seek; cookie sesi ikut terkirim untuk gambar dan video dari host API |
 | US-22 | Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri | 3 | Tombol unduh (`?download=1`, Content-Disposition attachment); mode pilih dengan long-press; hapus banyak file dengan konfirmasi; file dan thumbnail fisik terhapus; pemakaian storage diperbarui |
-| US-15 | Sebagai pengguna, saya ingin halaman profil dan pengaturan | 2 | `/app/settings` menampilkan nama, avatar, dan pemakaian storage terhadap kuota; akun Google dapat menambahkan password; tautan ke `/app/admin` untuk ADMIN |
+| US-15 | Sebagai pengguna, saya ingin halaman profil dan pengaturan | 2 | `/app/settings` menampilkan nama, avatar, dan pemakaian storage terhadap kuota; akun Google dapat menambahkan password; tautan ke `/app/admin` untuk ADMIN; tombol keluar |
 
 **Sprint 5 — Album dan Link Publik Inti** (Goal: link dapat dibuat, dibuka, dan diunduh tanpa login)
 
@@ -352,7 +352,8 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | US-32 | Sebagai admin, saya ingin pengujian di perangkat nyata | 5 | Diuji di minimal 1 Android (Chrome) dan 1 iPhone (Safari) lewat jaringan seluler, termasuk login ganda, upload, dan link publik; bug kritis diperbaiki |
 | US-33 | Sebagai admin, saya ingin dokumentasi | 2 | README dan runbook (deploy frontend dan backend, update, restore, tambah pengguna) |
 | US-34 | Sebagai admin, saya ingin monitoring | 3 | Uptime check untuk frontend dan API; notifikasi bila sisa disk < 20% atau SMART bermasalah |
-| US-14 | Sebagai pengguna, saya ingin tombol Google dan status sesi di UI | 3 | Tombol Masuk dengan Google di `/login` dan `/register` untuk semua pengunjung; error ditangani; logout; sesi bertahan 30 hari |
+
+_Catatan: US-14 dihapus, digabung ke US-09/10/11 (tombol Google, logout, sesi 30 hari, status sesi)._
 
 ## 13. Fase 2 — Pemrosesan Video (Dicatat, Dikerjakan Setelah v1.0 Stabil)
 

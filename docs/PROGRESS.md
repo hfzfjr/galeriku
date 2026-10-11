@@ -62,7 +62,8 @@ Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-
 - [ ] US-32 Sebagai admin, saya ingin pengujian di perangkat nyata
 - [ ] US-33 Sebagai admin, saya ingin dokumentasi
 - [ ] US-34 Sebagai admin, saya ingin monitoring
-- [ ] US-14 Sebagai pengguna, saya ingin tombol Google dan status sesi di UI
+
+_Catatan: US-14 dihapus, digabung ke US-09/10/11._
 
 ## Fase 2 — Pemrosesan Video
 
