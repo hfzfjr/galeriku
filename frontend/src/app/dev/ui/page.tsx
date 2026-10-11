@@ -174,15 +174,15 @@ export default async function DevUiPage() {
             hint="Nama ini hanya terlihat olehmu."
           />
           <Input
-            label="Surel"
-            name="surel"
+            label="Email"
+            name="email"
             type="email"
             autoComplete="email"
             placeholder="nama@contoh.id"
           />
           <Input
-            label="Kata sandi"
-            name="katasandi"
+            label="Password"
+            name="password"
             type="password"
             defaultValue="salah-sandi"
             error="Email atau password tidak cocok."
@@ -194,7 +194,7 @@ export default async function DevUiPage() {
             defaultValue="Tidak bisa diubah"
           />
           <p className="text-caption text-ink-muted">
-            Ketuk kolom Surel untuk melihat ring fokus 2px.
+            Ketuk kolom Email untuk melihat ring fokus 2px.
           </p>
         </div>
       </Section>
