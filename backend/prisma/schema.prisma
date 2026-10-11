@@ -32,8 +32,18 @@ datasource db {
 }
 
 enum Role {
-  owner
-  member
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum EmailCodeKind {
+  VERIFY_EMAIL
+  RESET_PASSWORD
 }
 
 enum FileKind {
@@ -53,16 +63,18 @@ enum ShareTarget {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  avatarUrl    String?   @map("avatar_url")
-  passwordHash String?   @map("password_hash")
-  googleSub    String?   @unique @map("google_sub")
-  role         Role
-  quotaBytes   BigInt    @map("quota_bytes")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastLoginAt  DateTime? @map("last_login_at")
+  id              String     @id @default(cuid())
+  email           String     @unique
+  name            String?
+  avatarUrl       String?    @map("avatar_url")
+  passwordHash    String?    @map("password_hash")
+  googleSub       String?    @unique @map("google_sub")
+  role            Role       @default(USER)
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?  @map("email_verified_at")
+  quotaBytes      BigInt     @map("quota_bytes")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  lastLoginAt     DateTime?  @map("last_login_at")
 
   sessions   Session[]
   files      File[]
@@ -81,18 +93,23 @@ model Session {
   ipHash    String   @map("ip_hash")
   userAgent String   @map("user_agent")
 
+  @@index([userId])
+  @@index([expiresAt])
   @@map("sessions")
 }
 
-model AllowedEmail {
-  email           String    @id
-  invitedBy       String    @map("invited_by")
-  inviteTokenHash String?   @map("invite_token_hash")
-  inviteExpiresAt DateTime? @map("invite_expires_at")
-  usedAt          DateTime? @map("used_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
+// Kode OTP email (dipakai US-09b; tabel disiapkan di US-09).
+model EmailCode {
+  id         String        @id @default(cuid())
+  email      String
+  kind       EmailCodeKind
+  codeHash   String        @map("code_hash")
+  expiresAt  DateTime      @map("expires_at")
+  attempts   Int           @default(0)
+  lastSentAt DateTime      @map("last_sent_at")
 
-  @@map("allowed_emails")
+  @@index([email, kind])
+  @@map("email_codes")
 }
 
 model File {
