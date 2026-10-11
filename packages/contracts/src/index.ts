@@ -13,6 +13,7 @@ export const AUTH_ERROR_CODES = {
   RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   FORBIDDEN_ORIGIN: 'FORBIDDEN_ORIGIN',
+  INVALID_CODE: 'INVALID_CODE',
 } as const;
 
 export type AuthErrorCode =
@@ -65,6 +66,42 @@ export const loginRequestSchema = z.object({
 });
 
 export type LoginRequest = z.output<typeof loginRequestSchema>;
+
+// Kode OTP: tepat 6 digit angka.
+const otpCode = z.string().regex(/^\d{6}$/);
+
+export const verifyEmailRequestSchema = z.object({
+  email: normalizedEmail,
+  code: otpCode,
+});
+
+export type VerifyEmailRequest = z.output<typeof verifyEmailRequestSchema>;
+
+export const resendCodeRequestSchema = z.object({
+  email: normalizedEmail,
+});
+
+export type ResendCodeRequest = z.output<typeof resendCodeRequestSchema>;
+
+export const acceptedResponseSchema = z.object({
+  accepted: z.literal(true),
+});
+
+export type AcceptedResponse = z.output<typeof acceptedResponseSchema>;
+
+export const forgotPasswordRequestSchema = z.object({
+  email: normalizedEmail,
+  turnstileToken: z.string().min(1),
+});
+
+export type ForgotPasswordRequest = z.output<typeof forgotPasswordRequestSchema>;
+
+export const resetPasswordRequestSchema = z.object({
+  email: normalizedEmail,
+  code: otpCode,
+  newPassword: z.string().min(8).max(128),
+});
+export type ResetPasswordRequest = z.output<typeof resetPasswordRequestSchema>;
 
 // quotaBytes selalu string di JSON (BigInt tidak boleh mentah).
 export const meResponseSchema = z.object({
