@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { APP_CONFIG } from '../src/app-config';
 import { PrismaService } from '../src/prisma.service';
 import { TurnstileService } from '../src/auth/turnstile.service';
+import { MAIL_SERVICE } from '../src/mail/mail.service';
 import { setupApp } from '../src/setup';
 
 // DB palsu dalam memori untuk e2e tanpa Postgres.
@@ -20,11 +21,36 @@ export function createFakeDb(): FakeDb {
   return { users: new Map(), sessions: new Map(), emailCodes: [] };
 }
 
+function compareValues(a: unknown, b: unknown): number {
+  const left = a instanceof Date ? a.getTime() : a;
+  const right = b instanceof Date ? b.getTime() : b;
+  if (left === right) return 0;
+  return (left as number) < (right as number) ? -1 : 1;
+}
+
 function matchWhere(
   row: Record<string, unknown>,
   where: Record<string, unknown>,
 ): boolean {
-  return Object.entries(where).every(([key, value]) => row[key] === value);
+  return Object.entries(where).every(([key, value]) => {
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      !(value instanceof Date) &&
+      !Array.isArray(value)
+    ) {
+      const ops = value as Record<string, unknown>;
+      if ('in' in ops) {
+        return (ops.in as unknown[]).includes(row[key]);
+      }
+      if ('lt' in ops) return compareValues(row[key], ops.lt) < 0;
+      if ('lte' in ops) return compareValues(row[key], ops.lte) <= 0;
+      if ('gt' in ops) return compareValues(row[key], ops.gt) > 0;
+      if ('gte' in ops) return compareValues(row[key], ops.gte) >= 0;
+      if ('equals' in ops) return row[key] === ops.equals;
+    }
+    return row[key] === value;
+  });
 }
 
 export function createFakePrisma(db: FakeDb) {
@@ -70,6 +96,23 @@ export function createFakePrisma(db: FakeDb) {
           code: 'P2025',
         });
       },
+      findMany: async ({ where }: { where: Record<string, unknown> }) => {
+        const out: Array<Record<string, unknown>> = [];
+        for (const row of db.users.values()) {
+          if (matchWhere(row, where)) out.push({ ...row });
+        }
+        return out;
+      },
+      deleteMany: async ({ where }: { where: Record<string, unknown> }) => {
+        let count = 0;
+        for (const [id, row] of db.users) {
+          if (matchWhere(row, where)) {
+            db.users.delete(id);
+            count += 1;
+          }
+        }
+        return { count };
+      },
     },
     session: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -93,6 +136,43 @@ export function createFakePrisma(db: FakeDb) {
       },
     },
     emailCode: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const row = { id: `c-${db.emailCodes.length + 1}`, ...data };
+        db.emailCodes.push(row);
+        return { ...row };
+      },
+      findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+        const row = db.emailCodes.find((r) => matchWhere(r, where));
+        return row ? { ...row } : null;
+      },
+      update: async ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        const index = db.emailCodes.findIndex((r) => matchWhere(r, where));
+        if (index < 0) {
+          throw Object.assign(new Error('Record not found'), {
+            code: 'P2025',
+          });
+        }
+        const current = db.emailCodes[index] as Record<string, unknown>;
+        const next = { ...current, ...data };
+        db.emailCodes[index] = next;
+        return { ...next };
+      },
+      delete: async ({ where }: { where: Record<string, unknown> }) => {
+        const index = db.emailCodes.findIndex((r) => matchWhere(r, where));
+        if (index < 0) {
+          throw Object.assign(new Error('Record not found'), {
+            code: 'P2025',
+          });
+        }
+        const [row] = db.emailCodes.splice(index, 1);
+        return row;
+      },
       deleteMany: async ({ where }: { where: Record<string, unknown> }) => {
         const before = db.emailCodes.length;
         db.emailCodes = db.emailCodes.filter((row) => !matchWhere(row, where));
@@ -128,9 +208,29 @@ export function createVerifyStub(): TestTurnstile {
   };
 }
 
+export type MailOutbox = {
+  sender: {
+    send: (input: Record<string, unknown>) => Promise<void>;
+  };
+  sent: Array<Record<string, unknown>>;
+};
+
+export function createMailOutbox(): MailOutbox {
+  const sent: Array<Record<string, unknown>> = [];
+  return {
+    sent,
+    sender: {
+      send: async (input: Record<string, unknown>) => {
+        sent.push({ ...input });
+      },
+    },
+  };
+}
+
 export async function createTestApp(
   db: FakeDb = createFakeDb(),
   turnstile: TestTurnstile = createVerifyStub(),
+  mail: MailOutbox = createMailOutbox(),
 ) {
   // Nilai uji (tanpa rahasia asli). Dibaca AppConfigService asli saat modul
   // di-compile, sama seperti produksi.
@@ -147,6 +247,8 @@ export async function createTestApp(
     .useValue(createFakePrisma(db))
     .overrideProvider(TurnstileService)
     .useValue({ verify: turnstile.verify.bind(turnstile) })
+    .overrideProvider(MAIL_SERVICE)
+    .useValue(mail.sender)
     .compile();
 
   const app = moduleFixture.createNestApplication<NestFastifyApplication>(
@@ -156,7 +258,7 @@ export async function createTestApp(
   await setupApp(app, moduleFixture.get(APP_CONFIG));
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  return { app, db, turnstile };
+  return { app, db, turnstile, mail };
 }
 
 export type TestApp = Awaited<ReturnType<typeof createTestApp>>;

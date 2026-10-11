@@ -163,7 +163,11 @@ describe('Auth (e2e)', () => {
       expect(createdBaru.getTime()).toBeGreaterThanOrEqual(sebelum);
       expect(db.sessions.has(tokenLama)).toBe(false);
       expect(db.sessions.size).toBe(0);
-      expect(db.emailCodes.length).toBe(0);
+      // Kode lama terhapus, kode verifikasi baru terbit (satu baris segar).
+      expect(db.emailCodes).toHaveLength(1);
+      const kodeBaru = db.emailCodes[0] as Record<string, unknown>;
+      expect(kodeBaru.attempts).toBe(0);
+      expect(kodeBaru.codeHash).toMatch(/^[0-9a-f]{64}$/);
       // Password baru bisa dipakai login (setelah verifikasi).
       (baru as Record<string, unknown>).emailVerifiedAt = new Date();
       await post(app, '/auth/login')
