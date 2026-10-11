@@ -1,13 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
-import { setupCors } from './../src/cors';
-import { PrismaService } from './../src/prisma.service';
-import {
-  FastifyAdapter,
-  NestFastifyApplication,
-} from '@nestjs/platform-fastify';
+import { createTestApp, type TestApp } from './test-app';
 
 // Origin yang diizinkan CORS selama e2e (hanya pencocokan string,
 // tanpa request keluar). Dibaca saat bootstrap aplikasi.
@@ -15,33 +7,24 @@ process.env.FRONTEND_ORIGIN ??= 'https://galeriku.hafizfajar.com';
 const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN as string;
 
 describe('AppController (e2e)', () => {
-  let app: NestFastifyApplication<App>;
+  let app: TestApp['app'];
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      // Tanpa database di e2e: PrismaService asli diganti mock.
-      .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: async () => [{ '?column?': 1 }] })
-      .compile();
-
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-    );
-    setupCors(app);
-    await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    ({ app } = await createTestApp());
   });
 
-  it('/ (GET)', () => {
+  it('/ (GET) default-deny tanpa sesi', () => {
     return request(app.getHttpAdapter().getInstance().server)
       .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .expect(401)
+      .expect((res) => {
+        if (res.body.code !== 'UNAUTHENTICATED') {
+          throw new Error(`respons tak terduga: ${res.text}`);
+        }
+      });
   });
 
-  it('/health (GET) tanpa database', () => {
+  it('/health (GET) tetap publik tanpa database', () => {
     return request(app.getHttpAdapter().getInstance().server)
       .get('/health')
       .expect(200)
