@@ -3,8 +3,11 @@ import "./globals.css";
 import { serifFont, sansFont } from "./fonts";
 import { ThemeProvider } from "@/components/theme-provider";
 import { THEME_INIT_SCRIPT } from "@/components/theme";
+import { getSiteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
+  // Basis URL situs untuk canonical dan gambar sosial di semua rute.
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: "Galeriku",
     template: "%s · Galeriku",
