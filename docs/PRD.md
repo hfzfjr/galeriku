@@ -1,12 +1,12 @@
 # PRD — Galeriku: Aplikasi Cloud Storage Pribadi (Berbagi Foto & Video)
 
-Versi 1.1 · 10 Oktober 2026 · Product Owner & Developer: Hafiz · Status: Draft siap dikerjakan
+Versi 1.2 · 11 Oktober 2026 · Product Owner & Developer: Hafiz · Status: Draft siap dikerjakan
 
 ## 1. Ringkasan
 
 Galeriku adalah aplikasi web untuk menyimpan foto dan video, lalu membagikannya ke teman lewat link publik tanpa bergantung pada kuota Google Drive. Frontend (Next.js) di-deploy ke Vercel pada galeriku.hafizfajar.com (subdomain sementara dari domain pribadi), sedangkan backend (NestJS) dan database PostgreSQL berjalan di server lokal (Debian 13) sebagai container Docker terpisah, diakses lewat Cloudflare Tunnel pada galeriku-api.hafizfajar.com. Mayoritas pengguna membuka aplikasi dari HP, sehingga desain mobile-first menjadi syarat utama. Halaman root domain berupa landing page publik, sedangkan area aplikasi berada di balik login. Tanpa login, pengunjung hanya dapat membuka dan mengunduh dari link publik; upload dan file pribadi hanya tersedia setelah login.
 
-Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarga). Penerima link tidak perlu punya akun.
+Skala: pribadi dengan registrasi terbuka. Siapa pun boleh mendaftar dan memakai aplikasi. Penerima link tidak perlu punya akun.
 
 ## 2. Latar Belakang dan Masalah
 
@@ -19,7 +19,7 @@ Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarg
 **Tujuan v1.0**
 
 - Landing page publik di root domain yang memperkenalkan Galeriku dan mengarahkan pengunjung ke halaman masuk.
-- Login ganda (email + password atau Google) dengan akses terbatas pada email yang diizinkan (allowlist).
+- Registrasi terbuka (email + password atau Google) dengan verifikasi email dan perlindungan antispam (Turnstile, rate limit).
 - Aturan akses ditegakkan di backend: tanpa login hanya boleh membuka dan mengunduh dari link publik; upload, galeri pribadi, dan pengelolaan link hanya setelah login.
 - Upload foto/video dari HP yang tahan koneksi tidak stabil (resumable).
 - Galeri dan album yang nyaman di layar kecil.
@@ -45,20 +45,20 @@ Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarg
 
 | Peran | Deskripsi |
 | --- | --- |
-| Owner | Pemilik aplikasi. Mengelola allowlist, kuota, dan semua tautan. |
-| Member | Pengguna yang emailnya diizinkan. Login dengan email + password atau Google, upload, buat album dan link, serta mengunduh file sendiri maupun dari link publik orang lain. |
+| ADMIN | Admin situs. Mengelola pengguna, kuota, dan semua tautan. |
+| USER | Pengguna terdaftar. Login dengan email + password atau Google, upload, buat album dan link, serta mengunduh file sendiri maupun dari link publik orang lain. |
 | Penerima (viewer) | Siapa pun yang memegang link. Tanpa login, sebagian besar dari HP. Dapat membuka dan mengunduh, tidak dapat upload. |
 
 **Matriks akses.** Aturan ini ditegakkan di backend pada setiap request. Menyembunyikan tombol di frontend hanya untuk kenyamanan, bukan pengamanan.
 
-| Aksi | Tanpa login | Member/Owner login |
+| Aksi | Tanpa login | USER/ADMIN login |
 | --- | --- | --- |
 | Membuka link publik | Ya | Ya |
 | Mengunduh foto/video dari link publik (izin unduh aktif secara default) | Ya | Ya |
 | Upload foto/video | Tidak | Ya |
 | Melihat dan mengunduh file sendiri | Tidak | Ya |
 | Membuat album dan link publik | Tidak | Ya |
-| Mengelola allowlist dan undangan | Tidak | Owner saja |
+| Mengelola pengguna dan kuota | Tidak | ADMIN saja |
 
 ## 5. Kelayakan Teknis (Perangkat Server)
 
@@ -84,7 +84,7 @@ Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarg
 **Anggaran disk**
 
 - Batas pemakaian media: ± 120 GB (menyisakan ruang untuk OS, database, dan log).
-- Kuota default per pengguna: 30 GB (dapat diubah owner).
+- Kuota default akun baru: 5 GB (env DEFAULT_QUOTA_BYTES=5368709120, dapat diubah admin per pengguna). Kuota adalah batas, bukan reservasi; disk guard global tetap berlaku di atas kuota.
 - Disk guard: upload ditolak otomatis jika sisa disk < 15 GB.
 - Mount volume media dengan opsi `noatime` untuk mengurangi beban tulis HDD.
 
@@ -93,9 +93,9 @@ Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarg
 | ID | Fitur | Prioritas | Sprint |
 | --- | --- | --- | --- |
 | FR-00 | Landing page publik di root domain dengan tombol masuk | Must | 1 |
-| FR-01 | Registrasi (lewat undangan) dan login dengan email + password | Must | 1 |
+| FR-01 | Registrasi terbuka dan login dengan email + password | Must | 1 |
 | FR-02 | Registrasi dan login dengan Google, satu email satu akun | Must | 2 |
-| FR-03 | Allowlist email, undangan, dan role (owner/member) | Must | 2 |
+| FR-03 | Peran (USER/ADMIN), status akun, dan kelola pengguna | Must | 2 |
 | FR-04 | Proteksi akses di backend (sesi, guard, kepemilikan) | Must | 1–2 |
 | FR-05 | Upload resumable, multi-file, dengan progress | Must | 3 |
 | FR-06 | Validasi file, kuota, dan disk guard | Must | 3 |
@@ -116,6 +116,7 @@ Skala: pribadi. Satu pemilik dan beberapa pengguna yang diizinkan (teman/keluarg
 | FR-21 | Folder bersarang dan trash | Won't (v1.0) | Backlog |
 | FR-22 | Dashboard pemakaian storage | Could | Backlog |
 | FR-23 | Hapus metadata lokasi (EXIF GPS) dari file yang dibagikan | Could | Backlog |
+| FR-24 | Verifikasi email (OTP) dan lupa password | Must | 1 |
 
 ## 7. Kebutuhan Non-Fungsional
 
@@ -174,32 +175,42 @@ HP / Browser
 
 | Tabel | Kolom penting |
 | --- | --- |
-| users | id, email (unik), name, avatar\_url, password\_hash (opsional), google\_sub (opsional, unik), role (owner/member), quota\_bytes, created\_at, last\_login\_at |
+| users | id, email (unik), email\_verified\_at (null = belum verifikasi), name, avatar\_url, password\_hash (opsional), google\_sub (opsional, unik), role (USER/ADMIN), status (ACTIVE/SUSPENDED), quota\_bytes, created\_at, last\_login\_at |
 | sessions | id (hash token sesi), user\_id, expires\_at, created\_at, ip\_hash, user\_agent |
-| allowed\_emails | email (PK), invited\_by, invite\_token\_hash, invite\_expires\_at, used\_at, created\_at |
+| ~~allowed\_emails~~ | DIHAPUS di migrasi US-09 (registrasi terbuka tidak memakai allowlist) |
 | files | id, owner\_id, original\_name, storage\_key (UUID), mime\_type, size\_bytes, kind (image/video), width, height, duration\_s, thumb\_key, status (uploading/ready/failed), taken\_at, created\_at, deleted\_at |
 | albums | id, owner\_id, title, cover\_file\_id, created\_at |
 | album\_files | album\_id, file\_id, position, added\_at |
 | share\_links | id, token (unik), owner\_id, target\_type (file/album), target\_id, expires\_at, password\_hash, allow\_download (default aktif), view\_count, revoked\_at, created\_at |
 | share\_access\_logs | id, link\_id, accessed\_at, ip\_hash, user\_agent (opsional) |
+| email\_codes (baru di migrasi US-09) | id, email, jenis (VERIFY\_EMAIL/RESET\_PASSWORD), code\_hash, expires\_at, attempts, last\_sent\_at |
 
 Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`, `album_files(album_id, position)`.
+
+**Kepemilikan dan berbagi.** Pembuat file/album adalah pemilik lewat `owner_id`. Membagikan link TIDAK mengubah role siapa pun: `share_links` adalah capability baca anonim untuk satu target — penerima boleh melihat/mengunduh bila diizinkan, tidak pernah upload/ubah/hapus.
+
+**Catatan migrasi US-09** (skema saat ini belum berubah): nilai enum `role` `owner/member` menjadi `USER/ADMIN`; kolom baru `users.email_verified_at`, `users.status`, dan tabel `email_codes`; tabel `allowed_emails` dihapus.
 
 ## 10. Rute dan Endpoint
 
 | Lapisan | Rute / endpoint | Fungsi | Akses |
 | --- | --- | --- | --- |
 | Frontend | `/` | Landing page Galeriku: pengenalan singkat dan tombol Masuk | Publik |
-| Frontend | `/login`, `/register` | Form login, registrasi (undangan), tombol Google | Publik |
+| Frontend | `/login`, `/register` | Form login, registrasi terbuka, tombol Google | Publik |
 | Frontend | `/app` | Galeri milik pengguna | Login |
 | Frontend | `/app/albums/[id]` | Detail album | Login |
 | Frontend | `/app/shares` | Daftar dan kelola link | Login |
-| Frontend | `/app/settings` | Profil, kuota, undangan dan allowlist (owner) | Login |
+| Frontend | `/app/settings` | Profil dan kuota | Login |
+| Frontend | `/app/admin` | Daftar pengguna, kuota, suspend/aktifkan | ADMIN |
 | Frontend | `/s/[token]` | Halaman publik file/album (SSR, noindex) | Token valid |
-| API | `POST /auth/register` | Registrasi email + password lewat undangan | Undangan valid |
-| API | `POST /auth/login` | Login email + password | Publik (rate limit) |
+| API | `POST /auth/register` | Registrasi email + password (akun belum terverifikasi + kirim OTP) | Publik (rate limit, Turnstile) |
+| API | `POST /auth/login` | Login email + password | Publik (rate limit, Turnstile) |
 | API | `GET /auth/google`, `/auth/google/callback` | Alur Google OAuth | Publik |
 | API | `POST /auth/logout`, `GET /auth/me` | Keluar dan status sesi | Login |
+| API | `POST /auth/verify-email` | Verifikasi kode OTP, langsung buat sesi | Publik (rate limit) |
+| API | `POST /auth/resend-code` | Kirim ulang OTP (jeda 60 detik) | Publik (rate limit) |
+| API | `POST /auth/forgot-password` | Minta OTP reset (respons tidak membocorkan email) | Publik (rate limit) |
+| API | `POST /auth/reset-password` | Reset password + cabut semua sesi | Publik (rate limit) |
 | API | `/uploads/*` | Upload resumable (tus) | Login |
 | API | `GET /files`, `DELETE /files/:id` | Daftar dan hapus file | Login + pemilik |
 | API | `GET /files/:id/thumb`, `/files/:id/content` | Thumbnail dan isi file (Range, `?download=1`) | Login + pemilik |
@@ -209,7 +220,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | API | `GET /public/s/:token/files/:fileId` | Isi dan unduhan file untuk penerima (Range) | Token valid |
 | API | `GET /public/s/:token/zip` | Unduh ZIP album | Token valid + izin unduh |
 | API | `GET /public/s/:token/cover` | Gambar sampul untuk preview Open Graph | Token valid, tanpa password |
-| API | `/admin/invitations` | Kelola allowlist dan undangan | Owner |
+| API | `/admin/users` (+ sub-path) | Daftar pengguna, ubah kuota, suspend/aktifkan, hapus pengguna | ADMIN |
 | API | `GET /health` | Status DB dan sisa disk | Internal |
 
 ## 11. Keamanan dan Privasi
@@ -218,13 +229,20 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 - Sesi: ID acak 32 byte yang disimpan sebagai hash di PostgreSQL; cookie HttpOnly, Secure, SameSite=Lax, host-only di host API; berlaku 30 hari. JavaScript tidak pernah memegang token (tanpa localStorage).
 - CORS hanya untuk origin frontend dengan credentials, dan request yang mengubah data memeriksa header Origin (perlindungan CSRF bersama SameSite). Preview `*.vercel.app` berbeda site, sehingga login tidak berlaku di sana.
 - Password di-hash dengan argon2id; rate limit per IP dan per email, dengan penundaan setelah beberapa kali gagal. Pesan error login tidak membocorkan keberadaan email.
-- Registrasi hanya untuk email di allowlist. Registrasi manual lewat link undangan sekali pakai yang dibuat owner (mencegah akun dibajak oleh orang yang mendaftar lebih dulu dengan email korban). Google hanya menautkan ke akun yang sudah ada bila email dari Google terverifikasi. Satu email satu akun.
+- Registrasi terbuka: siapa pun boleh mendaftar dengan email + password atau Google, tanpa undangan. Pendaftaran membuat akun belum terverifikasi (`email_verified_at` null) dan mengirim kode OTP 6 digit (berlaku 10 menit, hanya hash yang disimpan, maks 5 percobaan lalu hangus; kirim ulang berjeda 60 detik; rate limit per email dan per IP). Login sebelum verifikasi ditolak dan mengarah ke layar kode; setelah verifikasi sukses sesi langsung dibuat. Pendaftaran ulang dengan email yang akunnya belum terverifikasi menimpa akun tersebut (tanpa mewarisi peran apa pun) agar pemilik email asli tidak terkunci; akun belum terverifikasi dibersihkan otomatis setelah 24 jam. Login/daftar via Google dianggap terverifikasi bila email Google terverifikasi. Satu email satu akun.
+- Lupa password lewat OTP email: `POST /auth/forgot-password` dan `POST /auth/reset-password` (kode OTP terpisah dari verifikasi, aturan kedaluwarsa/percobaan sama; reset mencabut semua sesi aktif; respons tidak membocorkan apakah email terdaftar).
+- Peran ADMIN dari env `ADMIN_EMAIL` hanya diberikan SETELAH email itu terverifikasi (lewat OTP atau Google), bukan saat pendaftaran. Akun yang belum terverifikasi tidak pernah mendapat peran istimewa.
+- Email dikirim lewat MailService (satu antarmuka) yang memanggil REST API penyedia transaksional dengan `fetch`, tanpa dependency npm baru. Env: `MAIL_PROVIDER`, `MAIL_API_KEY` (generik; mis. kunci Resend), `MAIL_FROM` (mis. "Galeriku <noreply@send.hafizfajar.com>"). Di non-produksi tanpa kunci API, kode dicetak ke log (jangan pernah di produksi). Operasional: domain pengirim diverifikasi lewat record DNS di Cloudflare (DNS only). Risiko: form publik disalahgunakan untuk spam email ke alamat orang lain sehingga merusak reputasi domain; mitigasi wajib Turnstile + rate limit.
+- Akun SUSPENDED: login ditolak, semua sesi dicabut, dan link publik miliknya tidak aktif.
+- Kuota default akun baru 5 GB (`DEFAULT_QUOTA_BYTES=5368709120`); admin dapat menaikkan per pengguna. Kuota adalah batas, bukan reservasi; disk guard global (sisa < 15 GB) tetap berlaku di atas kuota. Menurunkan kuota di bawah pemakaian saat ini hanya menghalangi upload baru, tidak menghapus file.
+- Form registrasi dan login memakai Cloudflare Turnstile dengan verifikasi server-side lewat `fetch` (tanpa dependency npm baru). Env: `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Rate limit registrasi per IP.
+- Kepemilikan per resource ditegakkan di backend: pengguna hanya boleh mengakses file/album/link miliknya sendiri (mencegah IDOR lintas pengguna). Berbagi link tidak mengubah role siapa pun.
 - Google OAuth: daftarkan redirect URI `https://galeriku-api.hafizfajar.com/auth/google/callback` dan origin frontend di Google Cloud Console. Ubah status aplikasi ke In production (scope dasar openid/email/profile umumnya tidak memerlukan verifikasi) agar tidak terbatas pada test user.
-- Token link berupa 32 byte acak (base64url) dan disimpan apa adanya agar owner bisa menyalin ulang link (trade-off diterima untuk skala pribadi). Password link di-hash; kedaluwarsa dan pencabutan berlaku seketika.
+- Token link berupa 32 byte acak (base64url) dan disimpan apa adanya agar pemilik link bisa menyalin ulang link (trade-off diterima untuk skala pribadi). Password link di-hash; kedaluwarsa dan pencabutan berlaku seketika.
 - Setiap akses file di area login memeriksa kepemilikan (mencegah IDOR). Nama file asli tidak dipakai di disk; `storage_key` berupa UUID.
 - Validasi tipe file dengan MIME sniffing, bukan hanya ekstensi. Whitelist: JPEG, PNG, WebP, GIF, HEIC, MP4, MOV, WebM. SVG ditolak. Respons memakai `X-Content-Type-Options: nosniff`.
 - Landing page boleh diindeks. `/login`, `/register`, `/app/*`, dan `/s/*` diberi noindex; API mengirim `X-Robots-Tag: noindex`; robots.txt melarang `/s/` dan `/app/`.
-- Rate limit pada login dan endpoint publik (`@nestjs/throttler`), ditambah aturan WAF di Cloudflare.
+- Rate limit pada registrasi (per IP), login, dan endpoint publik (`@nestjs/throttler`), ditambah aturan WAF di Cloudflare.
 - IP pada log akses disimpan dalam bentuk hash. Secret disimpan di `.env` di luar repository (dan di dashboard Vercel untuk frontend). PostgreSQL tidak diekspos ke host.
 - Foto dari HP biasanya memuat koordinat GPS. Fitur penghapusan metadata lokasi dicatat di backlog (FR-23).
 
@@ -250,13 +268,13 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | Sprint | Fokus | SP | Hasil |
 | --- | --- | --- | --- |
 | 0 | Fondasi infrastruktur | 14 | Monorepo, backend dan frontend ter-deploy, tunnel dan Vercel berjalan |
-| 1 | UI dasar, landing page, login email + password | 14 | Landing tampil; daftar lewat undangan dan login manual |
-| 2 | Google login, allowlist, dan profil | 15 | Login ganda dan akses terkunci |
+| 1 | UI dasar, landing page, login + verifikasi email | 16 | Landing tampil; registrasi + login manual dan OTP lewat API |
+| 2 | Layar auth, Google login, dan kelola pengguna | 15 | Layar auth lengkap; login ganda; akses terkunci |
 | 3 | Upload dan penyimpanan | 16 | Upload resumable dan thumbnail foto |
-| 4 | Galeri dan viewer | 13 | Melihat, memutar, mengunduh, dan menghapus file |
+| 4 | Galeri dan viewer | 15 | Melihat, memutar, mengunduh, dan menghapus file; halaman pengaturan |
 | 5 | Album dan link publik inti | 15 | Link publik dapat dibuka dan diunduh tanpa login |
 | 6 | Opsi berbagi dan pengerasan | 14 | Kedaluwarsa, password, ZIP, PWA |
-| 7 | Stabilisasi dan rilis | 13 | **Rilis v1.0 (MVP)** |
+| 7 | Stabilisasi dan rilis | 16 | **Rilis v1.0 (MVP)** |
 | 8–9 | Pemrosesan video (Fase 2) | 21 | Thumbnail video dan transcode |
 
 ### 12.4 Detail Sprint
@@ -266,30 +284,29 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
 | US-01 | Sebagai developer, saya ingin monorepo yang rapi | 2 | Folder `frontend`, `backend`, `packages`, `infrastructure`; workspace pnpm berjalan; `AGENTS.md`, `opencode.json`, `docs/PRD.md`, `docs/DESIGN.md` ada di repo; `.env.example` untuk tiap aplikasi; port dev: frontend 3000, backend 4000 |
-| US-02 | Sebagai owner, saya ingin Docker Compose di server lokal | 3 | `docker compose up -d` di `infrastructure` menjalankan `backend` dan `postgres` (tanpa `cloudflared`); data Postgres di volume persisten dan media di bind mount; `restart: unless-stopped`; backend hanya dipublish di `127.0.0.1:4000`; image backend memakai Node LTS |
-| US-03 | Sebagai owner, saya ingin tunnel dan CORS yang benar | 3 | Route `galeriku-api.hafizfajar.com` -> `http://localhost:4000` ditambahkan pada tunnel `cf-tunnel` yang sudah ada (lewat dashboard Cloudflare); backend dapat diakses lewat HTTPS; tidak ada port yang dibuka di router; CORS hanya mengizinkan origin frontend dengan credentials |
+| US-02 | Sebagai admin, saya ingin Docker Compose di server lokal | 3 | `docker compose up -d` di `infrastructure` menjalankan `backend` dan `postgres` (tanpa `cloudflared`); data Postgres di volume persisten dan media di bind mount; `restart: unless-stopped`; backend hanya dipublish di `127.0.0.1:4000`; image backend memakai Node LTS |
+| US-03 | Sebagai admin, saya ingin tunnel dan CORS yang benar | 3 | Route `galeriku-api.hafizfajar.com` -> `http://localhost:4000` ditambahkan pada tunnel `cf-tunnel` yang sudah ada (lewat dashboard Cloudflare); backend dapat diakses lewat HTTPS; tidak ada port yang dibuka di router; CORS hanya mengizinkan origin frontend dengan credentials |
 | US-04 | Sebagai developer, saya ingin frontend ter-deploy ke Vercel | 3 | Root Directory `frontend`; domain `galeriku.hafizfajar.com` aktif (DNS sesuai petunjuk Vercel); `NEXT_PUBLIC_API_URL` terisi; build dilewati bila hanya `backend` yang berubah |
 | US-05 | Sebagai developer, saya ingin skema database awal | 2 | Skema Prisma untuk users, sessions, allowed\_emails, files, albums, album\_files, share\_links; migrasi dijalankan otomatis oleh deploy.sh sebelum container baru naik |
-| US-06 | Sebagai owner, saya ingin health check | 1 | `GET /health` menampilkan status DB dan sisa disk; frontend menampilkan pesan layanan tidak tersedia bila API tidak terjangkau |
+| US-06 | Sebagai admin, saya ingin health check | 1 | `GET /health` menampilkan status DB dan sisa disk; frontend menampilkan pesan layanan tidak tersedia bila API tidak terjangkau |
 
-**Sprint 1 — UI Dasar, Landing Page, dan Login Email + Password** (Goal: pengunjung melihat landing page, dan pengguna yang diundang dapat mendaftar dan login manual)
+**Sprint 1 — UI Dasar, Landing Page, Login, dan Verifikasi Email** (Goal: pengunjung melihat landing page, dan siapa pun dapat mendaftar dan login manual via API)
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
 | US-07 | Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman | 3 | Token warna, tipografi, spacing, dan radius dari `DESIGN.md` masuk ke tema Tailwind; bottom navigation; komponen dasar (tombol, input, kartu); area sentuh ≥ 44 px; tema terang/gelap |
 | US-08 | Sebagai pengunjung, saya ingin landing page Galeriku di root domain | 3 | Halaman `/` statis dan mobile-first: judul, penjelasan singkat, tiga keunggulan (upload dari HP, bagikan lewat link, penerima tanpa login), tombol Masuk ke `/login`; tag meta dan Open Graph terisi; tampil < 2,5 detik di 4G; boleh diindeks |
-| US-09 | Sebagai pengguna, saya ingin mendaftar dan login dengan email + password | 5 | `POST /auth/register` (undangan valid), `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`; password argon2id; sesi di PostgreSQL dengan cookie HttpOnly, Secure, SameSite=Lax; rate limit; pesan error tidak membocorkan keberadaan email |
-| US-10 | Sebagai pengguna, saya ingin halaman login dan registrasi | 3 | `/login` dan `/register?token=`; status sesi dari `GET /auth/me`; `/app/*` mengalihkan ke `/login` bila belum login (di sisi klien); berfungsi di Chrome Android dan Safari iOS |
+| US-09 | Sebagai pengguna, saya ingin mendaftar dan login dengan email + password | 5 | `POST /auth/register` (terbuka, tanpa token; `ADMIN_EMAIL` dicatat untuk penetapan peran setelah verifikasi), `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`; password argon2id; Turnstile terverifikasi server-side; rate limit register per IP; email yang sudah terdaftar boleh dijawab jelas saat registrasi; login tetap tidak membocorkan keberadaan email; pendaftaran ulang email yang belum terverifikasi menimpa akun tanpa mewarisi peran; sesi di PostgreSQL dengan cookie HttpOnly, Secure, SameSite=Lax |
+| US-09b | Sebagai pengguna, saya ingin verifikasi email dan lupa password | 5 | `POST /auth/verify-email`, `POST /auth/resend-code`, `POST /auth/forgot-password`, `POST /auth/reset-password`; kode OTP 6 digit, berlaku 10 menit, hanya hash disimpan, maks 5 percobaan lalu hangus, kirim ulang berjeda 60 detik, rate limit per email dan IP; login sebelum verifikasi ditolak dan mengarah ke layar kode; verifikasi sukses langsung membuat sesi; peran ADMIN dari `ADMIN_EMAIL` ditetapkan setelah verifikasi (tidak untuk akun belum terverifikasi); reset mencabut semua sesi; respons lupa password tidak membocorkan email; MailService via fetch tanpa dependency baru (kode dicetak ke log di non-produksi); akun belum terverifikasi dibersihkan otomatis setelah 24 jam |
+| US-10 | Sebagai pengguna, saya ingin halaman login dan registrasi | 5 | `/login` dan `/register` (tanpa query token) dengan widget Turnstile; layar kode verifikasi, layar lupa password, dan layar reset password; login akun belum terverifikasi mengarah ke layar kode; status sesi dari `GET /auth/me`; `/app/*` mengalihkan ke `/login` bila belum login (di sisi klien); berfungsi di Chrome Android dan Safari iOS |
 
-**Sprint 2 — Google Login, Allowlist, dan Profil** (Goal: login ganda berfungsi dan akses terkunci rapat)
+**Sprint 2 — Layar Auth, Google Login, dan Kelola Pengguna** (Goal: layar auth lengkap, login ganda berfungsi, dan akses terkunci rapat)
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| US-11 | Sebagai pengguna, saya ingin login dengan Google | 5 | Alur OAuth di backend (`/auth/google` dan callback di host API); akun dibuat atau dicocokkan per email; penautan ke akun yang ada hanya jika email Google terverifikasi; cookie sesi sama dengan login manual |
-| US-12 | Sebagai owner, saya ingin allowlist dan undangan | 3 | Owner menambah email dan membuat link undangan sekali pakai yang kedaluwarsa; Google dan registrasi manual hanya untuk email di allowlist; email di luar allowlist ditolak dengan pesan jelas |
-| US-13 | Sebagai owner, saya ingin akses yang terkunci di backend | 2 | Semua endpoint privat menolak akses tanpa sesi (401); endpoint admin hanya untuk owner (403); uji otomatis untuk matriks akses |
-| US-14 | Sebagai pengguna, saya ingin tombol Google dan status sesi di UI | 3 | Tombol Masuk dengan Google di `/login` dan `/register`; error ditangani; logout; sesi bertahan 30 hari |
-| US-15 | Sebagai pengguna, saya ingin halaman profil dan pengaturan | 2 | `/app/settings` menampilkan nama, avatar, dan pemakaian storage terhadap kuota; akun Google dapat menambahkan password |
+| US-11 | Sebagai pengguna, saya ingin login dengan Google | 3 | Alur OAuth di backend (`/auth/google` dan callback di host API); akun dibuat untuk siapa pun dengan email Google terverifikasi (dianggap terverifikasi); peran ADMIN dari `ADMIN_EMAIL` ditetapkan setelah verifikasi; cookie sesi sama dengan login manual |
+| US-12 | Sebagai admin, saya ingin mengelola pengguna dan kuota | 5 | Halaman `/app/admin`: daftar pengguna + pemakaian storage; ubah kuota per pengguna (batas bukan reservasi; penurunan di bawah pemakaian hanya menghalangi upload baru); suspend/aktifkan (login ditolak, sesi dicabut, link publik miliknya nonaktif); hapus pengguna beserta datanya; hanya untuk ADMIN (403 bila bukan) |
+| US-13 | Sebagai admin, saya ingin akses yang terkunci di backend | 2 | Semua endpoint privat menolak akses tanpa sesi (401); endpoint admin hanya untuk ADMIN (403); pengguna ditolak mengakses milik pengguna lain; uji otomatis matriks auth/admin; kepemilikan per resource diuji di tiap story resource (pola A-vs-B) |
 
 **Sprint 3 — Upload dan Penyimpanan** (Goal: foto dan video dari HP dapat diunggah dengan andal)
 
@@ -297,7 +314,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | --- | --- | --- | --- |
 | US-16 | Spike: tus di dalam NestJS | 2 | `@tus/server` berjalan di NestJS; prototipe upload 100 MB dari browser langsung ke host API melalui tunnel berhasil; keputusan tertulis |
 | US-17 | Sebagai pengguna, saya ingin upload banyak file sekaligus yang bisa dilanjutkan | 8 | Pilih banyak file dari galeri HP; progress per file; dapat dilanjutkan setelah koneksi putus; chunk 5 MB; dapat dibatalkan; pengguna tanpa login ditolak (401) |
-| US-18 | Sebagai owner, saya ingin validasi, kuota, dan disk guard | 3 | MIME sniffing dengan whitelist; batas foto 25 MB dan video 2 GB (konfigurasi env); ditolak bila kuota habis atau sisa disk < 15 GB |
+| US-18 | Sebagai admin, saya ingin validasi, kuota, dan disk guard | 3 | MIME sniffing dengan whitelist; batas foto 25 MB dan video 2 GB (konfigurasi env); ditolak bila kuota habis atau sisa disk < 15 GB |
 | US-19 | Sebagai pengguna, saya ingin thumbnail foto | 3 | Thumbnail WebP ± 400 px dibuat setelah upload selesai; orientasi EXIF dihormati; konkurensi pemrosesan ≤ 2 |
 
 **Sprint 4 — Galeri dan Viewer** (Goal: melihat, mengunduh, dan mengelola file dengan nyaman di HP)
@@ -307,6 +324,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | US-20 | Sebagai pengguna, saya ingin grid galeri | 5 | 3 kolom di HP; thumbnail lazy-load; infinite scroll 24 item per halaman; urut terbaru; video diberi ikon penanda |
 | US-21 | Sebagai pengguna, saya ingin viewer layar penuh | 5 | Foto dapat di-swipe dan di-zoom; video diputar dengan streaming (Range) dan bisa di-seek; cookie sesi ikut terkirim untuk gambar dan video dari host API |
 | US-22 | Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri | 3 | Tombol unduh (`?download=1`, Content-Disposition attachment); mode pilih dengan long-press; hapus banyak file dengan konfirmasi; file dan thumbnail fisik terhapus; pemakaian storage diperbarui |
+| US-15 | Sebagai pengguna, saya ingin halaman profil dan pengaturan | 2 | `/app/settings` menampilkan nama, avatar, dan pemakaian storage terhadap kuota; akun Google dapat menambahkan password; tautan ke `/app/admin` untuk ADMIN |
 
 **Sprint 5 — Album dan Link Publik Inti** (Goal: link dapat dibuat, dibuka, dan diunduh tanpa login)
 
@@ -314,7 +332,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | --- | --- | --- | --- |
 | US-23 | Sebagai pengguna, saya ingin membuat album | 5 | Buat, ubah nama, hapus album; tambah/keluarkan file; cover otomatis dari file pertama |
 | US-24 | Sebagai pengguna, saya ingin membuat link publik | 5 | Dari file atau album, tombol Bagikan membuat `/s/<token>` dan menyalinnya ke clipboard; izin unduh aktif secara default |
-| US-25 | Sebagai penerima, saya ingin membuka dan mengunduh tanpa login | 5 | `/s/[token]` dirender di Vercel dan mengambil data dari API; galeri/file tampil mobile-first; pemutar video berfungsi; unduh per file tanpa login; link tidak valid atau kedaluwarsa menampilkan halaman ramah; `noindex` aktif; tanpa login tidak ada akses upload |
+| US-25 | Sebagai penerima, saya ingin membuka dan mengunduh tanpa login | 5 | `/s/[token]` dirender di Vercel dan mengambil data dari API; galeri/file tampil mobile-first; pemutar video berfungsi; unduh per file tanpa login; link tidak valid atau kedaluwarsa menampilkan halaman ramah; `noindex` aktif; tanpa login tidak ada akses upload; tombol Laporkan konten (mailto ke alamat kontak dari env) |
 
 **Sprint 6 — Opsi Berbagi dan Pengerasan** (Goal: berbagi aman dan nyaman dari HP)
 
@@ -323,17 +341,18 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | US-26 | Sebagai pengguna, saya ingin mengatur opsi link | 3 | Kedaluwarsa (1 hari / 7 hari / 30 hari / tanpa batas, default 30 hari); password opsional; toggle izin unduh |
 | US-27 | Sebagai pengguna, saya ingin mengelola dan mencabut link | 2 | Daftar link aktif dengan jumlah dilihat; pencabutan berlaku seketika |
 | US-28 | Sebagai penerima, saya ingin mengunduh album sebagai ZIP | 3 | ZIP di-stream tanpa kompresi dan tanpa file sementara; hanya jika izin unduh aktif |
-| US-29 | Sebagai owner, saya ingin rate limit dan header keamanan | 3 | `@nestjs/throttler` pada login, endpoint publik, dan percobaan password; CSP, nosniff, dan `X-Robots-Tag` aktif |
+| US-29 | Sebagai admin, saya ingin rate limit dan header keamanan | 3 | `@nestjs/throttler` pada login, endpoint publik, dan percobaan password; CSP, nosniff, dan `X-Robots-Tag` aktif |
 | US-30 | Sebagai pengguna HP, saya ingin PWA dan Web Share | 3 | Aplikasi dapat dipasang ke layar utama; tombol Bagikan memakai share sheet bawaan HP bila tersedia |
 
 **Sprint 7 — Stabilisasi dan Rilis v1.0** (Goal: aplikasi siap dipakai harian)
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| US-31 | Sebagai owner, saya ingin backup otomatis | 3 | `pg_dump` harian (retensi 14 hari) ke lokasi di luar volume utama; prosedur restore diuji sekali |
-| US-32 | Sebagai owner, saya ingin pengujian di perangkat nyata | 5 | Diuji di minimal 1 Android (Chrome) dan 1 iPhone (Safari) lewat jaringan seluler, termasuk login ganda, upload, dan link publik; bug kritis diperbaiki |
-| US-33 | Sebagai owner, saya ingin dokumentasi | 2 | README dan runbook (deploy frontend dan backend, update, restore, tambah pengguna) |
-| US-34 | Sebagai owner, saya ingin monitoring | 3 | Uptime check untuk frontend dan API; notifikasi bila sisa disk < 20% atau SMART bermasalah |
+| US-31 | Sebagai admin, saya ingin backup otomatis | 3 | `pg_dump` harian (retensi 14 hari) ke lokasi di luar volume utama; prosedur restore diuji sekali |
+| US-32 | Sebagai admin, saya ingin pengujian di perangkat nyata | 5 | Diuji di minimal 1 Android (Chrome) dan 1 iPhone (Safari) lewat jaringan seluler, termasuk login ganda, upload, dan link publik; bug kritis diperbaiki |
+| US-33 | Sebagai admin, saya ingin dokumentasi | 2 | README dan runbook (deploy frontend dan backend, update, restore, tambah pengguna) |
+| US-34 | Sebagai admin, saya ingin monitoring | 3 | Uptime check untuk frontend dan API; notifikasi bila sisa disk < 20% atau SMART bermasalah |
+| US-14 | Sebagai pengguna, saya ingin tombol Google dan status sesi di UI | 3 | Tombol Masuk dengan Google di `/login` dan `/register` untuk semua pengunjung; error ditangani; logout; sesi bertahan 30 hari |
 
 ## 13. Fase 2 — Pemrosesan Video (Dicatat, Dikerjakan Setelah v1.0 Stabil)
 
@@ -364,27 +383,30 @@ Pemrosesan video baru dimulai setelah v1.0 berjalan lancar minimal 2–4 minggu 
 | Batas 4,5 MB body Vercel Functions | Upload/unduh gagal bila lewat Vercel | Byte file langsung ke host API; Next.js hanya merender UI |
 | Cookie dan preview Vercel berbeda site | Login gagal di preview deployment | Frontend dan API sama-sama di `hafizfajar.com`; uji di domain produksi |
 | Host API bertingkat dua tidak tercakup SSL Universal Cloudflare | Error SSL | Pakai `galeriku-api.hafizfajar.com` (tingkat pertama) |
-| Akun dibajak lewat registrasi manual sebelum pemilik email mendaftar | Akun diambil alih | Undangan sekali pakai, allowlist, penautan Google hanya dengan email terverifikasi |
+| Akun dibuat dengan email orang lain | Akun diambil alih | Verifikasi OTP sebelum akun aktif; pendaftaran ulang menimpa akun belum terverifikasi; Google hanya dengan email terverifikasi |
 | Server rumah mati (listrik atau internet) | Aplikasi tidak bisa dipakai | Frontend menampilkan pesan layanan tidak tersedia; auto-restart container; UPS opsional |
 | Versi Node bukan LTS | Masalah kompatibilitas | Pakai Node LTS (24.x) di lokal, Docker, dan Vercel |
 | Foto HEIC dari iPhone: `sharp` bawaan umumnya tidak membaca HEIC | Thumbnail gagal | Uji di Sprint 3; solusi dengan libheif/ImageMagick di container, atau simpan tanpa thumbnail sementara |
 | Link bocor | Konten terlihat orang lain | Token 256 bit, kedaluwarsa default 30 hari, password opsional, cabut seketika |
 | Transcode membebani i3 | Server lambat | Ditunda ke Fase 2, konkurensi 1, QSV, jadwal malam |
 | OAuth dalam mode Testing | Login dibatasi test user | Ubah ke In production dengan scope dasar |
+| Registrasi terbuka disalahgunakan (bot, spam) | Akun palsu membanjiri DB; spam email | Turnstile di form publik; rate limit per IP/email; kuota default kecil 5 GB; akun belum terverifikasi dibersihkan 24 jam |
+| Konten ilegal diunggah pendaftar | Risiko hukum dan reputasi; disk habis | Kuota 5 GB + disk guard; suspend/aktifkan + hapus pengguna oleh admin; tombol Laporkan konten (mailto); opsi pengetatan: registrasi hanya via Google |
+| Penyedia email down | Pendaftaran dan reset password terhenti | Login sesi yang sudah ada tetap jalan; kirim ulang setelah pulih; pantau status penyedia |
+| Reputasi domain pengirim rusak (spam via form) | Email OTP masuk spam/tidak terkirim | Turnstile + rate limit wajib di semua endpoint pengirim email; verifikasi DNS Cloudflare; batasi kirim ulang (jeda 60 dtk) |
 
 ## 15. Asumsi dan Pertanyaan Terbuka
 
 **Asumsi yang dipakai dalam PRD ini**
 
-1. Member dalam allowlist boleh upload; penerima link tidak perlu login dan dapat mengunduh (izin unduh aktif secara default).
-2. Registrasi dibatasi allowlist dan undangan, bukan pendaftaran terbuka.
+1. Pengguna terdaftar boleh upload; penerima link tidak perlu login dan dapat mengunduh (izin unduh aktif secara default).
+2. Registrasi terbuka dengan verifikasi email OTP; tanpa undangan.
 3. Struktur v1.0 memakai album datar, bukan folder bersarang.
 4. Domain `hafizfajar.com` memakai Cloudflare: frontend di `galeriku.hafizfajar.com` (Vercel) dan API di `galeriku-api.hafizfajar.com` (tunnel).
 5. Media di server adalah salinan; file asli masih ada di HP.
 
 **Perlu dikonfirmasi**
 
-1. Apakah batas 2 GB per video dan kuota 30 GB per pengguna sudah sesuai?
+1. Apakah batas 2 GB per video dan kuota default 5 GB per pengguna sudah sesuai?
 2. Lokasi backup database (HDD eksternal, cloud, atau perangkat lain)?
-3. Perlukah verifikasi email lewat layanan email di masa depan (saat ini diganti undangan sekali pakai)?
-4. Identitas visual Galeriku (logo dan warna utama) mengikuti arah desain di `DESIGN.md`.
+3. Identitas visual Galeriku (logo dan warna utama) mengikuti arah desain di `DESIGN.md`.

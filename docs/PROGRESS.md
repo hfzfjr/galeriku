@@ -6,34 +6,33 @@ Aturan: centang pada commit terakhir story tersebut.
 ## Sprint 0 — Fondasi Infrastruktur
 
 - [x] US-01 Sebagai developer, saya ingin monorepo yang rapi
-- [x] US-02 Sebagai owner, saya ingin Docker Compose di server lokal
-- [x] US-03 Sebagai owner, saya ingin tunnel dan CORS yang benar
+- [x] US-02 Sebagai admin, saya ingin Docker Compose di server lokal
+- [x] US-03 Sebagai admin, saya ingin tunnel dan CORS yang benar
 - [x] US-04 Sebagai developer, saya ingin frontend ter-deploy ke Vercel
 - [x] US-05 Sebagai developer, saya ingin skema database awal
-- [x] US-06 Sebagai owner, saya ingin health check
+- [x] US-06 Sebagai admin, saya ingin health check
 
 Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-06) dikerjakan di Sprint 1.
 
-## Sprint 1 — UI Dasar, Landing Page, dan Login Email + Password
+## Sprint 1 — UI Dasar, Landing Page, Login, dan Verifikasi Email
 
 - [ ] US-07 Sebagai pengguna HP, saya ingin tampilan yang konsisten dan nyaman
 - [ ] US-08 Sebagai pengunjung, saya ingin landing page Galeriku di root domain
 - [ ] US-09 Sebagai pengguna, saya ingin mendaftar dan login dengan email + password
+- [ ] US-09b Sebagai pengguna, saya ingin verifikasi email dan lupa password
+
+## Sprint 2 — Layar Auth, Google Login, dan Kelola Pengguna
+
 - [ ] US-10 Sebagai pengguna, saya ingin halaman login dan registrasi
-
-## Sprint 2 — Google Login, Allowlist, dan Profil
-
 - [ ] US-11 Sebagai pengguna, saya ingin login dengan Google
-- [ ] US-12 Sebagai owner, saya ingin allowlist dan undangan
-- [ ] US-13 Sebagai owner, saya ingin akses yang terkunci di backend
-- [ ] US-14 Sebagai pengguna, saya ingin tombol Google dan status sesi di UI
-- [ ] US-15 Sebagai pengguna, saya ingin halaman profil dan pengaturan
+- [ ] US-12 Sebagai admin, saya ingin mengelola pengguna dan kuota
+- [ ] US-13 Sebagai admin, saya ingin akses yang terkunci di backend
 
 ## Sprint 3 — Upload dan Penyimpanan
 
 - [ ] US-16 Spike: tus di dalam NestJS
 - [ ] US-17 Sebagai pengguna, saya ingin upload banyak file sekaligus yang bisa dilanjutkan
-- [ ] US-18 Sebagai owner, saya ingin validasi, kuota, dan disk guard
+- [ ] US-18 Sebagai admin, saya ingin validasi, kuota, dan disk guard
 - [ ] US-19 Sebagai pengguna, saya ingin thumbnail foto
 
 ## Sprint 4 — Galeri dan Viewer
@@ -41,6 +40,7 @@ Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-
 - [ ] US-20 Sebagai pengguna, saya ingin grid galeri
 - [ ] US-21 Sebagai pengguna, saya ingin viewer layar penuh
 - [ ] US-22 Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri
+- [ ] US-15 Sebagai pengguna, saya ingin halaman profil dan pengaturan
 
 ## Sprint 5 — Album dan Link Publik Inti
 
@@ -53,15 +53,16 @@ Catatan carry-over: Pesan fallback di frontend bila API tidak terjangkau (AC US-
 - [ ] US-26 Sebagai pengguna, saya ingin mengatur opsi link
 - [ ] US-27 Sebagai pengguna, saya ingin mengelola dan mencabut link
 - [ ] US-28 Sebagai penerima, saya ingin mengunduh album sebagai ZIP
-- [ ] US-29 Sebagai owner, saya ingin rate limit dan header keamanan
+- [ ] US-29 Sebagai admin, saya ingin rate limit dan header keamanan
 - [ ] US-30 Sebagai pengguna HP, saya ingin PWA dan Web Share
 
 ## Sprint 7 — Stabilisasi dan Rilis v1.0
 
-- [ ] US-31 Sebagai owner, saya ingin backup otomatis
-- [ ] US-32 Sebagai owner, saya ingin pengujian di perangkat nyata
-- [ ] US-33 Sebagai owner, saya ingin dokumentasi
-- [ ] US-34 Sebagai owner, saya ingin monitoring
+- [ ] US-31 Sebagai admin, saya ingin backup otomatis
+- [ ] US-32 Sebagai admin, saya ingin pengujian di perangkat nyata
+- [ ] US-33 Sebagai admin, saya ingin dokumentasi
+- [ ] US-34 Sebagai admin, saya ingin monitoring
+- [ ] US-14 Sebagai pengguna, saya ingin tombol Google dan status sesi di UI
 
 ## Fase 2 — Pemrosesan Video
 
