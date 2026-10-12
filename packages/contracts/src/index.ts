@@ -14,6 +14,7 @@ export const AUTH_ERROR_CODES = {
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   FORBIDDEN_ORIGIN: 'FORBIDDEN_ORIGIN',
   INVALID_CODE: 'INVALID_CODE',
+  GOOGLE_UNCONFIGURED: 'GOOGLE_UNCONFIGURED',
 } as const;
 
 export type AuthErrorCode =
@@ -25,6 +26,21 @@ export type ApiErrorBody = {
   message: string;
   details?: unknown;
 };
+
+// Kode error alur Google OAuth untuk parameter ?error= pada redirect ke
+// /login (US-11). Daftar bersama agar backend dan frontend memakai
+// kode yang sama. Bukan bagian ApiErrorBody (redirect, bukan JSON).
+export const GOOGLE_ERROR_CODES = {
+  google_cancelled: 'google_cancelled',
+  google_failed: 'google_failed',
+  google_unverified: 'google_unverified',
+  google_unavailable: 'google_unavailable',
+  suspended: 'suspended',
+  rate_limited: 'rate_limited',
+} as const;
+
+export type GoogleErrorCode =
+  (typeof GOOGLE_ERROR_CODES)[keyof typeof GOOGLE_ERROR_CODES];
 
 // Normalisasi email dipakai di batas API dan di rate limit login
 // (kunci per email) agar konsisten: trim + lowercase.
