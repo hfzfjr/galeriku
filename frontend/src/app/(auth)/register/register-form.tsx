@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { registerRequestSchema } from "@galeriku/contracts";
 import { useRef, useState, type FormEvent } from "react";
 import { AuthCard } from "@/components/auth/auth-card";
+import { AuthDivider } from "@/components/auth/auth-divider";
 import { FormError } from "@/components/auth/form-message";
+import { GoogleButton } from "@/components/auth/google-button";
 import { GuestOnly } from "@/components/auth/guest-only";
 import { PasswordInput } from "@/components/auth/password-input";
 import {
@@ -15,7 +17,7 @@ import {
 } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { registerAccount } from "@/lib/api";
+import { getGoogleLoginUrl, registerAccount } from "@/lib/api";
 import {
   isApiRequestError,
   toFieldErrorMap,
@@ -114,18 +116,28 @@ export function RegisterForm() {
   return (
     <GuestOnly>
       <AuthCard title="Buat akun">
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <Input
-            label="Nama"
-            type="text"
-            autoComplete="name"
-            placeholder="Namamu"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            error={fieldErrors.name}
-            disabled={pending}
-            required
+        <div className="flex flex-col gap-4">
+          <GoogleButton
+            href={getGoogleLoginUrl()}
+            label="Daftar dengan Google"
           />
+          <AuthDivider />
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="flex flex-col gap-4"
+          >
+            <Input
+              label="Nama"
+              type="text"
+              autoComplete="name"
+              placeholder="Namamu"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              error={fieldErrors.name}
+              disabled={pending}
+              required
+            />
           <Input
             label="Email"
             type="email"
@@ -188,7 +200,8 @@ export function RegisterForm() {
               Masuk
             </Link>
           </p>
-        </form>
+          </form>
+        </div>
       </AuthCard>
     </GuestOnly>
   );

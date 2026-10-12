@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { loginRequestSchema } from "@galeriku/contracts";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthCard } from "@/components/auth/auth-card";
+import { AuthDivider } from "@/components/auth/auth-divider";
 import { FormError, FormInfo } from "@/components/auth/form-message";
+import { GoogleButton } from "@/components/auth/google-button";
 import { GuestOnly } from "@/components/auth/guest-only";
 import { PasswordInput } from "@/components/auth/password-input";
 import {
@@ -16,8 +18,9 @@ import {
 } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { loginAccount } from "@/lib/api";
+import { getGoogleLoginUrl, loginAccount } from "@/lib/api";
 import {
+  googleErrorMessage,
   isApiRequestError,
   toFieldErrorMap,
   toIndonesianMessage,
@@ -51,6 +54,16 @@ export function LoginForm() {
 
   const showResetInfo = searchParams.get("info") === "reset";
   const captchaBroken = captchaStatus === "gagal";
+  // Galat redirect Google (?error=): tampilkan sekali, lalu bersihkan
+  // parameter dari URL. Pesan dipertahankan di state agar tetap terlihat
+  // setelah URL dibersihkan.
+  const [googleErrorCode] = useState(() => searchParams.get("error"));
+
+  useEffect(() => {
+    if (searchParams.get("error")) {
+      router.replace("/login");
+    }
+  }, [searchParams, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -111,62 +124,76 @@ export function LoginForm() {
   return (
     <GuestOnly>
       <AuthCard title="Masuk">
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          {showResetInfo ? <FormInfo message={RESET_INFO_MESSAGE} /> : null}
-          <Input
-            label="Email"
-            type="email"
-            autoComplete="email"
-            placeholder="nama@contoh.id"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            error={fieldErrors.email}
-            disabled={pending}
-            required
+        <div className="flex flex-col gap-4">
+          <GoogleButton
+            href={getGoogleLoginUrl()}
+            label="Masuk dengan Google"
           />
-          <PasswordInput
-            label="Password"
-            autoComplete="current-password"
-            placeholder="Password kamu"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            error={fieldErrors.password}
-            disabled={pending}
-            required
-          />
-          <TurnstileField
-            ref={captchaRef}
-            onToken={setCaptchaToken}
-            onStatusChange={setCaptchaStatus}
-          />
-          {formError ? <FormError message={formError} /> : null}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={pending}
-            disabled={captchaBroken}
-            className="w-full"
+          <AuthDivider />
+          {googleErrorCode ? (
+            <FormError message={googleErrorMessage(googleErrorCode)} />
+          ) : null}
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="flex flex-col gap-4"
           >
-            Masuk
-          </Button>
-          <div className="flex flex-col gap-1">
-            <Link
-              href="/forgot-password"
-              className="inline-flex min-h-11 items-center text-label font-medium text-accent"
+            {showResetInfo ? <FormInfo message={RESET_INFO_MESSAGE} /> : null}
+            <Input
+              label="Email"
+              type="email"
+              autoComplete="email"
+              placeholder="nama@contoh.id"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              error={fieldErrors.email}
+              disabled={pending}
+              required
+            />
+            <PasswordInput
+              label="Password"
+              autoComplete="current-password"
+              placeholder="Password kamu"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              error={fieldErrors.password}
+              disabled={pending}
+              required
+            />
+            <TurnstileField
+              ref={captchaRef}
+              onToken={setCaptchaToken}
+              onStatusChange={setCaptchaStatus}
+            />
+            {formError ? <FormError message={formError} /> : null}
+            <Button
+              type="submit"
+              variant="primary"
+              loading={pending}
+              disabled={captchaBroken}
+              className="w-full"
             >
-              Lupa password?
-            </Link>
-            <p className="text-body text-ink-muted">
-              Belum punya akun?{" "}
+              Masuk
+            </Button>
+            <div className="flex flex-col gap-1">
               <Link
-                href="/register"
+                href="/forgot-password"
                 className="inline-flex min-h-11 items-center text-label font-medium text-accent"
               >
-                Daftar
+                Lupa password?
               </Link>
-            </p>
-          </div>
-        </form>
+              <p className="text-body text-ink-muted">
+                Belum punya akun?{" "}
+                <Link
+                  href="/register"
+                  className="inline-flex min-h-11 items-center text-label font-medium text-accent"
+                >
+                  Daftar
+                </Link>
+              </p>
+            </div>
+          </form>
+        </div>
       </AuthCard>
     </GuestOnly>
   );

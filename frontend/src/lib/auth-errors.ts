@@ -3,6 +3,7 @@ import {
   NETWORK_ERROR_CODE,
   UNKNOWN_ERROR_CODE,
 } from "./api";
+import { GOOGLE_ERROR_CODES } from "@galeriku/contracts";
 
 /**
  * Pemetaan kode galat API ke pesan Bahasa Indonesia (DESIGN.md §8).
@@ -72,6 +73,29 @@ export function toIndonesianMessage(error: unknown): string {
 }
 
 export type FieldError = { field: string; message: string };
+
+/**
+ * Pesan untuk ?error= redirect Google OAuth (US-11, DESIGN.md §8).
+ * Kode tak dikenal -> pesan umum. Daftar kode dari packages/contracts.
+ */
+export function googleErrorMessage(code: string | null): string {
+  switch (code) {
+    case GOOGLE_ERROR_CODES.google_cancelled:
+      return "Login dengan Google dibatalkan.";
+    case GOOGLE_ERROR_CODES.google_failed:
+      return "Login dengan Google gagal. Coba lagi.";
+    case GOOGLE_ERROR_CODES.google_unverified:
+      return "Email Google kamu belum terverifikasi, jadi belum bisa dipakai masuk.";
+    case GOOGLE_ERROR_CODES.google_unavailable:
+      return "Google sedang tidak bisa dihubungi. Coba lagi sebentar lagi.";
+    case GOOGLE_ERROR_CODES.suspended:
+      return "Akunmu sedang ditangguhkan. Hubungi admin.";
+    case GOOGLE_ERROR_CODES.rate_limited:
+      return "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.";
+    default:
+      return GENERIC_ERROR_MESSAGE;
+  }
+}
 
 /**
  * details VALIDATION_ERROR backend: { fields: [{ field, message }] }.

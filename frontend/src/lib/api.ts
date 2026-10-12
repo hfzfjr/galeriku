@@ -50,6 +50,11 @@ function getApiBase(): string {
   return raw && raw.length > 0 ? raw : "http://localhost:4000";
 }
 
+// URL mulai login Google (US-11): navigasi penuh, bukan fetch.
+export function getGoogleLoginUrl(): string {
+  return `${getApiBase()}/auth/google`;
+}
+
 function isErrorBodyShape(value: unknown): value is {
   statusCode: number;
   code: string;
