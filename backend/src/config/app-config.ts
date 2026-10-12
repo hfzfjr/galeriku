@@ -9,6 +9,8 @@ import { z } from 'zod';
 // TURNSTILE_SECRET_KEY selalu wajib; CONTACT_EMAIL opsional.
 // US-09b: MAIL_PROVIDER resend/log; MAIL_API_KEY dan MAIL_FROM wajib bila
 // provider resend. Di produksi provider wajib resend (log ditolak).
+// US-11: GOOGLE_CLIENT_ID/SECRET/CALLBACK_URL wajib di produksi; di
+// non-produksi boleh kosong (alur Google menjawab belum dikonfigurasi).
 
 export type MailProvider = 'resend' | 'log';
 
@@ -23,6 +25,9 @@ export type AppConfig = {
   mailProvider: MailProvider;
   mailApiKey: string | undefined;
   mailFrom: string | undefined;
+  googleClientId: string | undefined;
+  googleClientSecret: string | undefined;
+  googleCallbackUrl: string | undefined;
 };
 
 export const APP_CONFIG = 'APP_CONFIG';
@@ -129,6 +134,32 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     throw new Error('MAIL_FROM wajib diisi bila MAIL_PROVIDER=resend.');
   }
 
+  const googleClientId = optional(env, 'GOOGLE_CLIENT_ID');
+  const googleClientSecret = optional(env, 'GOOGLE_CLIENT_SECRET');
+  const googleCallbackUrl = optional(env, 'GOOGLE_CALLBACK_URL');
+  if (isProduction) {
+    if (!googleClientId) {
+      throw new Error('GOOGLE_CLIENT_ID wajib diisi di production.');
+    }
+    if (!googleClientSecret) {
+      throw new Error('GOOGLE_CLIENT_SECRET wajib diisi di production.');
+    }
+    if (!googleCallbackUrl) {
+      throw new Error('GOOGLE_CALLBACK_URL wajib diisi di production.');
+    }
+  }
+  if (googleCallbackUrl !== undefined) {
+    let parsed: URL;
+    try {
+      parsed = new URL(googleCallbackUrl);
+    } catch {
+      throw new Error('GOOGLE_CALLBACK_URL tidak valid.');
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      throw new Error('GOOGLE_CALLBACK_URL tidak valid.');
+    }
+  }
+
   return {
     isProduction,
     frontendOrigin,
@@ -140,6 +171,9 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     mailProvider,
     mailApiKey,
     mailFrom,
+    googleClientId,
+    googleClientSecret,
+    googleCallbackUrl,
   };
 }
 
@@ -151,4 +185,6 @@ export const appConfigSchema = z.object({
   turnstileSecretKey: z.string().min(1),
   mailProvider: z.enum(['resend', 'log']),
   mailFrom: z.string().min(1).optional(),
+  googleClientId: z.string().min(1).optional(),
+  googleCallbackUrl: z.string().min(1).optional(),
 });

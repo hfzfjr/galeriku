@@ -56,6 +56,9 @@ services:
       MAIL_PROVIDER: ${MAIL_PROVIDER}
       MAIL_API_KEY: ${MAIL_API_KEY}
       MAIL_FROM: ${MAIL_FROM}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
       MEDIA_DIR: /data/media
     volumes:
       # MEDIA_HOST_DIR wajib diisi di .env (tanpa default) agar salah

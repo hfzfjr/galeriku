@@ -20,5 +20,10 @@ export const FORGOT_EMAIL_LIMIT = { limit: 3, windowMs: 60 * 60 * 1000 };
 export const RESET_IP_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
 export const RESET_EMAIL_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 };
 
+// US-11: alur Google (start + callback) dibatasi per IP dengan limiter
+// buatan sendiri (RateLimitService), dicek manual di GoogleService agar
+// kelebihan menjawab redirect ?error=rate_limited, bukan JSON.
+export const GOOGLE_IP_LIMIT = { limit: 20, windowMs: 15 * 60 * 1000 };
+
 // Jeda kirim ulang kode OTP (diterapkan di sisi server).
 export const RESEND_WINDOW_MS = 60 * 1000;

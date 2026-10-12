@@ -117,4 +117,51 @@ describe('loadAppConfig', () => {
       }),
     ).toThrow('MAIL_FROM');
   });
+
+  it('Google opsional di non-produksi, wajib + valid di produksi', () => {
+    const tanpa = loadAppConfig({ ...BASE_ENV });
+    expect(tanpa.googleClientId).toBeUndefined();
+    expect(tanpa.googleClientSecret).toBeUndefined();
+    expect(tanpa.googleCallbackUrl).toBeUndefined();
+    const prod = {
+      NODE_ENV: 'production',
+      FRONTEND_ORIGIN: 'https://galeriku.hafizfajar.com',
+      ADMIN_EMAIL: 'admin@contoh.id',
+      IP_HASH_SECRET: 'rahasia-ip-hash-minimal-32-karakter',
+      TURNSTILE_SECRET_KEY: 'kunci-uji',
+      MAIL_PROVIDER: 'resend',
+      MAIL_API_KEY: 'kunci-uji',
+      MAIL_FROM: 'Galeriku <noreply@contoh.id>',
+    } as NodeJS.ProcessEnv;
+    expect(() => loadAppConfig({ ...prod })).toThrow('GOOGLE_CLIENT_ID');
+    expect(() =>
+      loadAppConfig({ ...prod, GOOGLE_CLIENT_ID: 'client-uji' }),
+    ).toThrow('GOOGLE_CLIENT_SECRET');
+    expect(() =>
+      loadAppConfig({
+        ...prod,
+        GOOGLE_CLIENT_ID: 'client-uji',
+        GOOGLE_CLIENT_SECRET: 'rahasia-uji',
+      }),
+    ).toThrow('GOOGLE_CALLBACK_URL');
+    expect(() =>
+      loadAppConfig({
+        ...prod,
+        GOOGLE_CLIENT_ID: 'client-uji',
+        GOOGLE_CLIENT_SECRET: 'rahasia-uji',
+        GOOGLE_CALLBACK_URL: 'bukan-url',
+      }),
+    ).toThrow('GOOGLE_CALLBACK_URL');
+    const penuh = loadAppConfig({
+      ...prod,
+      GOOGLE_CLIENT_ID: 'client-uji',
+      GOOGLE_CLIENT_SECRET: 'rahasia-uji',
+      GOOGLE_CALLBACK_URL:
+        'https://galeriku-api.hafizfajar.com/auth/google/callback',
+    });
+    expect(penuh.googleClientId).toBe('client-uji');
+    expect(penuh.googleCallbackUrl).toBe(
+      'https://galeriku-api.hafizfajar.com/auth/google/callback',
+    );
+  });
 });
