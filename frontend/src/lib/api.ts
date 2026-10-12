@@ -80,13 +80,16 @@ async function request<T>(
   options?: { method?: string; body?: unknown },
 ): Promise<T> {
   const method = options?.method ?? "GET";
+  const hasBody = options?.body !== undefined;
   let response: Response;
   try {
     response = await fetch(`${getApiBase()}${path}`, {
       method,
       credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+      // Fastify menolak body kosong ber-Content-Type JSON (400), jadi
+      // header ini hanya dikirim bila request benar-benar punya body.
+      headers: hasBody ? { "content-type": "application/json" } : undefined,
+      body: hasBody ? JSON.stringify(options.body) : undefined,
     });
   } catch {
     // Jaringan putus / server mati: tanpa kode HTTP, tanpa stack trace.
