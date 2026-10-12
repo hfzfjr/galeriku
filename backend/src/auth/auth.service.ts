@@ -26,6 +26,21 @@ import { OtpService } from './services/otp.service';
 import { PasswordService } from './services/password.service';
 import { hashSessionToken, SessionService } from './services/session.service';
 import { TurnstileService } from './services/turnstile.service';
+import {
+  GoogleAuthError,
+  type GoogleProfile,
+} from './services/google.service';
+
+// Peran ADMIN hanya SETELAH email terverifikasi (OTP maupun Google).
+// Dipakai jalur verifikasi OTP dan login Google agar aturannya satu.
+// Email sudah ternormalisasi di kedua sisi (lowercase).
+export function resolveRoleAfterVerification(
+  adminEmail: string | undefined,
+  email: string,
+  currentRole: Role,
+): Role {
+  return adminEmail && email === adminEmail ? Role.ADMIN : currentRole;
+}
 
 export type SessionUserRow = {
   id: string;
@@ -203,7 +218,11 @@ export class AuthService {
       where: { id: user.id },
       data: {
         emailVerifiedAt: new Date(),
-        role: adminEmail && user.email === adminEmail ? Role.ADMIN : user.role,
+        role: resolveRoleAfterVerification(
+          adminEmail,
+          user.email,
+          user.role,
+        ),
         lastLoginAt: new Date(),
       },
     });
@@ -370,5 +389,91 @@ export class AuthService {
     if (typeof token === 'string' && token.length > 0) {
       await this.sessions.revokeSession(hashSessionToken(token));
     }
+  }
+
+  // Login Google (US-11). Satu email satu akun: cari google_sub dulu,
+  // lalu email. Email Google selalu terverifikasi (diperiksa di service).
+  async googleLogin(
+    profile: GoogleProfile,
+    clientIp: string,
+    userAgent: string,
+  ): Promise<{ me: MeResponse; token: string }> {
+    let user = await this.prisma.user.findUnique({
+      where: { googleSub: profile.sub },
+    });
+    if (!user) {
+      user = await this.linkOrCreateGoogleUser(profile);
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      // Sesi TIDAK dibuat untuk akun ditangguhkan.
+      throw new GoogleAuthError('suspended');
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        role: resolveRoleAfterVerification(
+          this.config.adminEmail,
+          user.email,
+          user.role,
+        ),
+        lastLoginAt: new Date(),
+      },
+    });
+    const session = await this.sessions.createSession(
+      user.id,
+      hashIp(clientIp, this.config.ipHashSecret),
+      userAgent,
+    );
+    return { me: toMeResponse(updated), token: session.token };
+  }
+
+  // Tautkan google_sub ke akun ber-email sama, atau buat akun baru.
+  // Akun yang sudah ada TIDAK ditimpa nama/avatarnya. Akun yang belum
+  // terverifikasi dibersihkan dari jejak pendaftaran manual (hash, kode,
+  // sesi) karena Google membuktikan kepemilikan email; akun terverifikasi
+  // mempertahankan password_hash-nya.
+  private async linkOrCreateGoogleUser(profile: GoogleProfile) {
+    const byEmail = await this.prisma.user.findUnique({
+      where: { email: profile.email },
+    });
+    if (!byEmail) {
+      return this.prisma.user.create({
+        data: {
+          email: profile.email,
+          name: profile.name ?? profile.email.split('@')[0],
+          avatarUrl: profile.avatarUrl,
+          googleSub: profile.sub,
+          passwordHash: null,
+          role: Role.USER,
+          status: UserStatus.ACTIVE,
+          quotaBytes: this.config.defaultQuotaBytes,
+          emailVerifiedAt: new Date(),
+        },
+      });
+    }
+    if (byEmail.status === UserStatus.SUSPENDED) {
+      throw new GoogleAuthError('suspended');
+    }
+    if (byEmail.googleSub && byEmail.googleSub !== profile.sub) {
+      throw new GoogleAuthError('google_failed');
+    }
+    if (byEmail.emailVerifiedAt === null) {
+      await this.prisma.emailCode.deleteMany({
+        where: { email: byEmail.email },
+      });
+      await this.sessions.revokeUserSessions(byEmail.id);
+      return this.prisma.user.update({
+        where: { id: byEmail.id },
+        data: {
+          googleSub: profile.sub,
+          passwordHash: null,
+          emailVerifiedAt: new Date(),
+        },
+      });
+    }
+    return this.prisma.user.update({
+      where: { id: byEmail.id },
+      data: { googleSub: profile.sub },
+    });
   }
 }

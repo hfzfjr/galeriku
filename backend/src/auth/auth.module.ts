@@ -5,6 +5,7 @@ import { SessionAuthGuard } from './guards/auth.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { EmailRateLimitGuard } from '../common/rate-limit/email-rate-limit.guard';
+import { GoogleService } from './services/google.service';
 import { OriginGuard } from '../common/guards/origin.guard';
 import { OtpService } from './services/otp.service';
 import { PasswordService } from './services/password.service';
@@ -18,6 +19,7 @@ import { TurnstileService } from './services/turnstile.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    GoogleService,
     OtpService,
     PasswordService,
     SessionService,

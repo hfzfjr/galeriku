@@ -1,5 +1,6 @@
 import {
   forgotPasswordRequestSchema,
+  GOOGLE_ERROR_CODES,
   loginRequestSchema,
   registerRequestSchema,
   resendCodeRequestSchema,
@@ -126,5 +127,18 @@ describe('skema login', () => {
         turnstileToken: 't',
       }),
     ).toThrow();
+  });
+});
+
+describe('kode error Google (US-11)', () => {
+  it('daftar bersama backend-frontend berisi enam kode pendek', () => {
+    expect(GOOGLE_ERROR_CODES).toEqual({
+      google_cancelled: 'google_cancelled',
+      google_failed: 'google_failed',
+      google_unverified: 'google_unverified',
+      google_unavailable: 'google_unavailable',
+      suspended: 'suspended',
+      rate_limited: 'rate_limited',
+    });
   });
 });
