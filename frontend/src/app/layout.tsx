@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { serifFont, sansFont } from "./fonts";
 import { ThemeProvider } from "@/components/theme-provider";
+import { QueryProvider } from "@/components/query-provider";
 import { THEME_INIT_SCRIPT } from "@/components/theme";
 import { getSiteUrl } from "@/lib/site";
 
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             parsing, sebelum paint. App Router mengelola <head> lewat
             Metadata API, jadi skrip ditaruh di sini dengan efek setara. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
