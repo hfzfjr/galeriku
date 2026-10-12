@@ -135,7 +135,7 @@ Tinggi 48, latar `surface`, border 1 px `line`, radius `md`, teks 16 px. Label d
 
 ### Input kode OTP
 
-Satu input teks sungguhan (`inputmode="numeric"`, `autocomplete="one-time-code"`, `maxlength="6"`, teks ≥ 16 px) yang ditampilkan sebagai 6 sel: tiap sel 48×56 dengan jarak 8 px (muat di lebar 360 px), latar `surface`, border 1 px `line`, radius `md`, angka Fraunces 28 bobot 600. Sel aktif memakai ring fokus 2 px `accent`. Mendukung tempel (paste) dan isian otomatis dari email. Error: border semua sel `danger` dan pesan dengan ikon di bawahnya (tanpa animasi goyang). Tombol **Kirim ulang kode** berupa ghost dengan hitung mundur ("Kirim ulang kode (45 dtk)"), nonaktif sampai hitungan habis; hitungan mundur hanya diumumkan ke pembaca layar saat selesai.
+Satu input teks sungguhan (`inputmode="numeric"`, `autocomplete="one-time-code"`, `maxlength="6"`, teks ≥ 16 px) yang ditampilkan sebagai 6 sel: tiap sel 48×56 dengan jarak 8 px (muat di lebar 360 px), latar `surface`, border 1 px `line`, radius `md`, angka Fraunces 28 bobot 600. Sel aktif memakai ring fokus 2 px `accent`. Mendukung tempel (paste) dan isian otomatis dari email. Error: border semua sel `danger` dan pesan dengan ikon di bawahnya (tanpa animasi goyang). Tombol **Kirim ulang kode** berupa ghost dengan hitung mundur ("Kirim ulang kode (60 dtk)"), nonaktif sampai hitungan habis; hitungan mundur hanya diumumkan ke pembaca layar saat selesai.
 
 ### Widget Turnstile
 
@@ -199,7 +199,7 @@ Kartu tunggal di tengah, wordmark di atas. **Login:** h1 "Masuk", tombol **Masuk
 
 ### Verifikasi email
 
-Layar kartu tunggal setelah daftar. h1 "Cek email kamu", satu kalimat ("Kami mengirim kode 6 digit ke {email}. Kode berlaku 10 menit."), input kode OTP (bagian 6), tombol utama **Verifikasi**, ghost **Kirim ulang kode** dengan hitung mundur 60 detik, dan tautan teks "Salah email? Ubah". Kode benar: langsung masuk ke `/app` tanpa layar tambahan. Kode salah: tampilkan sisa percobaan; setelah 5 kali salah atau kedaluwarsa, kode lama hangus dan layar mengajak meminta kode baru.
+Layar kartu tunggal setelah daftar. h1 "Cek email kamu", satu kalimat ("Kami mengirim kode 6 digit ke {email}. Kode berlaku 10 menit."), input kode OTP (bagian 6), tombol utama **Verifikasi**, ghost **Kirim ulang kode** dengan hitung mundur 60 detik, dan tautan teks "Salah email? Ubah". Kode benar: langsung masuk ke `/app` tanpa layar tambahan. Kode salah atau kedaluwarsa: tampilkan "Kode salah atau sudah tidak berlaku. Minta kode baru jika perlu.", kosongkan input dan fokus kembali; tombol **Kirim ulang kode** meminta kode baru.
 
 ### Lupa dan atur ulang password
 
@@ -238,8 +238,7 @@ Dipakai saat API tidak terjangkau (server rumah mati). Judul "Galeriku lagi isti
 | Upload terputus | Koneksi terputus, akan dilanjutkan otomatis. |
 | Login gagal | Email atau password tidak cocok. |
 | Email sudah terdaftar | Email ini sudah terdaftar. Masuk atau atur ulang password. |
-| Kode OTP salah | Kode salah. Sisa {n} percobaan. |
-| Kode OTP kedaluwarsa | Kode sudah tidak berlaku. Kirim kode baru. |
+| Kode OTP salah atau kedaluwarsa | Kode salah atau sudah tidak berlaku. Minta kode baru jika perlu. |
 | Email belum diverifikasi | Email kamu belum diverifikasi. Masukkan kode yang kami kirim. |
 | Lupa password terkirim | Kalau email itu terdaftar, kode sudah kami kirim. |
 | Akun ditangguhkan | Akunmu sedang ditangguhkan. Hubungi admin lewat {email kontak}. |

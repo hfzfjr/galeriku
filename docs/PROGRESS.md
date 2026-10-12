@@ -23,7 +23,7 @@ Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10
 
 ## Sprint 2 — Layar Auth, Google Login, dan Kelola Pengguna
 
-- [ ] US-10 Sebagai pengguna, saya ingin halaman login dan registrasi
+- [x] US-10 Sebagai pengguna, saya ingin halaman login dan registrasi
 - [ ] US-11 Sebagai pengguna, saya ingin login dengan Google
 - [ ] US-12 Sebagai admin, saya ingin mengelola pengguna dan kuota
 - [ ] US-13 Sebagai admin, saya ingin akses yang terkunci di backend
