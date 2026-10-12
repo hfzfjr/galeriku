@@ -205,7 +205,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | Frontend | `/s/[token]` | Halaman publik file/album (SSR, noindex) | Token valid |
 | API | `POST /auth/register` | Registrasi email + password (akun belum terverifikasi + kirim OTP) | Publik (rate limit, Turnstile) |
 | API | `POST /auth/login` | Login email + password | Publik (rate limit, Turnstile) |
-| API | `GET /auth/google`, `/auth/google/callback` | Alur Google OAuth | Publik |
+| API | `GET /auth/google`, `/auth/google/callback` | Alur Google OAuth (env `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`; wajib di produksi) | Publik |
 | API | `POST /auth/logout`, `GET /auth/me` | Keluar dan status sesi | Login |
 | API | `POST /auth/verify-email` | Verifikasi kode OTP, langsung buat sesi | Publik (rate limit) |
 | API | `POST /auth/resend-code` | Kirim ulang OTP (jeda 60 detik) | Publik (rate limit) |
@@ -237,7 +237,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 - Kuota default akun baru 5 GB (`DEFAULT_QUOTA_BYTES=5368709120`); admin dapat menaikkan per pengguna. Kuota adalah batas, bukan reservasi; disk guard global (sisa < 15 GB) tetap berlaku di atas kuota. Menurunkan kuota di bawah pemakaian saat ini hanya menghalangi upload baru, tidak menghapus file.
 - Form registrasi dan login memakai Cloudflare Turnstile dengan verifikasi server-side lewat `fetch` (tanpa dependency npm baru). Env: `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Rate limit registrasi per IP.
 - Kepemilikan per resource ditegakkan di backend: pengguna hanya boleh mengakses file/album/link miliknya sendiri (mencegah IDOR lintas pengguna). Berbagi link tidak mengubah role siapa pun.
-- Google OAuth: daftarkan redirect URI `https://galeriku-api.hafizfajar.com/auth/google/callback` dan origin frontend di Google Cloud Console. Ubah status aplikasi ke In production (scope dasar openid/email/profile umumnya tidak memerlukan verifikasi) agar tidak terbatas pada test user.
+- Google OAuth: daftarkan redirect URI `https://galeriku-api.hafizfajar.com/auth/google/callback` dan origin frontend di Google Cloud Console. Ubah status aplikasi ke In production (scope dasar openid/email/profile umumnya tidak memerlukan verifikasi) agar tidak terbatas pada test user. Env backend: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` (URL callback penuh, wajib diisi di production; backend menolak start bila kurang, deploy.sh akan rollback).
 - Token link berupa 32 byte acak (base64url) dan disimpan apa adanya agar pemilik link bisa menyalin ulang link (trade-off diterima untuk skala pribadi). Password link di-hash; kedaluwarsa dan pencabutan berlaku seketika.
 - Setiap akses file di area login memeriksa kepemilikan (mencegah IDOR). Nama file asli tidak dipakai di disk; `storage_key` berupa UUID.
 - Validasi tipe file dengan MIME sniffing, bukan hanya ekstensi. Whitelist: JPEG, PNG, WebP, GIF, HEIC, MP4, MOV, WebM. SVG ditolak. Respons memakai `X-Content-Type-Options: nosniff`.
