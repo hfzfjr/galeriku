@@ -449,10 +449,21 @@ export function createMailOutbox(): MailOutbox {
   };
 }
 
+export type TestAppHooks = {
+  // Dipanggil untuk SETIAP route yang didaftarkan Fastify (US-13:
+  // enumerasi matriks). Dipasang sebelum app.init() sehingga tidak
+  // ada route yang terlewat.
+  onRoute?: (route: { method: string; url: string }) => void;
+  // Controller khusus-tes (mis. route mainan untuk helper ownership).
+  // Tidak ada di kode produksi; hanya dipakai spek yang mendaftarkannya.
+  extraControllers?: Array<new (...args: never[]) => unknown>;
+};
+
 export async function createTestApp(
   db: FakeDb = createFakeDb(),
   turnstile: TestTurnstile = createVerifyStub(),
   mail: MailOutbox = createMailOutbox(),
+  hooks: TestAppHooks = {},
 ) {
   // Nilai uji (tanpa rahasia asli). Dibaca AppConfigService asli saat modul
   // di-compile, sama seperti produksi.
@@ -464,6 +475,7 @@ export async function createTestApp(
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
+    controllers: [...(hooks.extraControllers ?? [])],
   })
     .overrideProvider(PrismaService)
     .useValue(createFakePrisma(db))
@@ -476,6 +488,17 @@ export async function createTestApp(
   const app = moduleFixture.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter(),
   );
+  if (hooks.onRoute) {
+    const catat = hooks.onRoute;
+    app.getHttpAdapter().getInstance().addHook('onRoute', (route) => {
+      const methods = Array.isArray(route.method)
+        ? route.method
+        : [route.method];
+      for (const method of methods) {
+        catat({ method: String(method).toUpperCase(), url: route.url });
+      }
+    });
+  }
   // Fungsi konfigurasi yang SAMA dengan main.ts.
   await setupApp(app, moduleFixture.get(APP_CONFIG));
   await app.init();
