@@ -16,7 +16,9 @@ const SLOT_LAYOUT: Record<string, { frame: string; rotation: string }> = {
     rotation: "motion-safe:rotate-[2deg]",
   },
   jatiluwih: {
-    frame: "left-[6%] top-[44%] w-[48%]",
+    // Top 49% (bukan 44% acuan): memberi ruang agar keterangan kartu
+    // Bromo terbaca penuh; tumpang tindih lain tidak berubah.
+    frame: "left-[6%] top-[49%] w-[48%]",
     rotation: "motion-safe:rotate-[-1deg]",
   },
   "pasar-malam": {
