@@ -65,6 +65,12 @@ export function toIndonesianMessage(error: unknown): string {
       }
       return "Data yang dikirim tidak valid.";
     }
+    case "FORBIDDEN":
+      return "Kamu tidak punya akses ke halaman ini.";
+    case "CANNOT_MODIFY_SELF":
+      return "Kamu tidak bisa melakukannya pada akunmu sendiri.";
+    case "USER_NOT_FOUND":
+      return "Pengguna tidak ditemukan. Mungkin sudah dihapus.";
     case UNKNOWN_ERROR_CODE:
     case "FORBIDDEN_ORIGIN":
     default:

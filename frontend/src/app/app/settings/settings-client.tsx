@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { getButtonClassName } from "@/components/ui/button-styles";
 import { Card } from "@/components/ui/card";
 import { logoutAccount } from "@/lib/api";
 import { toIndonesianMessage } from "@/lib/auth-errors";
@@ -48,6 +50,15 @@ export function SettingsClient() {
       <Card heading={name} description={email}>
         <div className="mt-4 flex flex-col gap-4">
           {error ? <FormError message={error} /> : null}
+          {session.data?.role === "ADMIN" ? (
+            <Link
+              href="/app/admin"
+              aria-label="Kelola pengguna (khusus admin)"
+              className={getButtonClassName("secondary", "w-full sm:w-auto")}
+            >
+              Kelola pengguna
+            </Link>
+          ) : null}
           <Button
             type="button"
             variant="secondary"

@@ -1,5 +1,7 @@
 import type {
   AcceptedResponse,
+  AdminUserItem,
+  AdminUsersResponse,
   ForgotPasswordRequest,
   LoginRequest,
   MeResponse,
@@ -7,6 +9,7 @@ import type {
   RegisterResponse,
   ResendCodeRequest,
   ResetPasswordRequest,
+  UpdateQuotaRequest,
   VerifyEmailRequest,
 } from "@galeriku/contracts";
 
@@ -174,4 +177,52 @@ export function forgotPassword(body: ForgotPasswordRequest): Promise<AcceptedRes
 
 export function resetPassword(body: ResetPasswordRequest): Promise<void> {
   return request<void>("/auth/reset-password", { method: "POST", body });
+}
+
+// Dashboard admin (US-12). Semua butuh peran ADMIN di backend.
+export function fetchAdminUsers(params?: {
+  q?: string;
+  limit?: number;
+  cursor?: string;
+}): Promise<AdminUsersResponse> {
+  const search = new URLSearchParams();
+  if (params?.q) {
+    search.set("q", params.q);
+  }
+  if (params?.limit !== undefined) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.cursor) {
+    search.set("cursor", params.cursor);
+  }
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return request<AdminUsersResponse>(`/admin/users${suffix}`);
+}
+
+export function suspendUser(id: string): Promise<AdminUserItem> {
+  return request<AdminUserItem>(`/admin/users/${encodeURIComponent(id)}/suspend`, {
+    method: "POST",
+  });
+}
+
+export function activateUser(id: string): Promise<AdminUserItem> {
+  return request<AdminUserItem>(`/admin/users/${encodeURIComponent(id)}/activate`, {
+    method: "POST",
+  });
+}
+
+export function updateUserQuota(
+  id: string,
+  body: UpdateQuotaRequest,
+): Promise<AdminUserItem> {
+  return request<AdminUserItem>(`/admin/users/${encodeURIComponent(id)}/quota`, {
+    method: "PATCH",
+    body,
+  });
+}
+
+export function deleteUser(id: string): Promise<void> {
+  return request<void>(`/admin/users/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
