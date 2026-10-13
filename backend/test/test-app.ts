@@ -8,7 +8,7 @@ import { APP_CONFIG } from '../src/config/app-config';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TurnstileService } from '../src/auth/services/turnstile.service';
 import { MAIL_SERVICE } from '../src/mail/mail.service';
-import { setupApp } from '../src/setup';
+import { registerFastifyErrorHandler, setupApp } from '../src/setup';
 
 // DB palsu dalam memori untuk e2e tanpa Postgres.
 export type FakeDb = {
@@ -502,6 +502,7 @@ export async function createTestApp(
   // Fungsi konfigurasi yang SAMA dengan main.ts.
   await setupApp(app, moduleFixture.get(APP_CONFIG));
   await app.init();
+  registerFastifyErrorHandler(app);
   await app.getHttpAdapter().getInstance().ready();
   return { app, db, turnstile, mail };
 }

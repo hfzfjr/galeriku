@@ -1,4 +1,9 @@
-import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  NotFoundException,
+} from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { ApiError } from '../errors/api-error';
 
@@ -17,5 +22,21 @@ export class ApiExceptionFilter implements ExceptionFilter {
       body.details = exception.details;
     }
     reply.status(exception.statusCode).send(body);
+  }
+}
+
+// Route tak dikenal: not-found handler bawaan Nest melempar
+// NotFoundException lewat rantai filter global (bukan lewat error handler
+// adapter). Dipetakan ke bentuk standar 404 tanpa membocorkan path
+// ("Cannot GET /x" asli Nest dibuang).
+@Catch(NotFoundException)
+export class NotFoundExceptionFilter implements ExceptionFilter {
+  catch(_exception: NotFoundException, host: ArgumentsHost) {
+    const reply = host.switchToHttp().getResponse<FastifyReply>();
+    reply.status(404).send({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+      message: 'Tidak ditemukan.',
+    });
   }
 }

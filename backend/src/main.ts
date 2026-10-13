@@ -6,7 +6,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { loadAppConfig } from './config/app-config';
 import { AppModule } from './app.module';
-import { setupApp } from './setup';
+import { registerFastifyErrorHandler, setupApp } from './setup';
 
 // Muat backend/.env untuk dev lokal tanpa dependency tambahan.
 // Di container produksi file ini tidak ada: env datang dari Compose.
@@ -22,7 +22,10 @@ async function bootstrap() {
     new FastifyAdapter(),
   );
   // Konfigurasi yang sama dipakai tes e2e (lihat setupApp).
+  // init() idempoten; error handler adapter dipasang setelahnya.
   await setupApp(app, config);
+  await app.init();
+  registerFastifyErrorHandler(app);
   await app.listen(
     Number(process.env.PORT ?? 4000),
     process.env.HOST ?? '0.0.0.0',

@@ -71,6 +71,12 @@ export function toIndonesianMessage(error: unknown): string {
       return "Kamu tidak bisa melakukannya pada akunmu sendiri.";
     case "USER_NOT_FOUND":
       return "Pengguna tidak ditemukan. Mungkin sudah dihapus.";
+    case "NOT_FOUND":
+      return "Tidak ditemukan.";
+    case "PAYLOAD_TOO_LARGE":
+      return "Data yang dikirim terlalu besar.";
+    case "UNSUPPORTED_MEDIA_TYPE":
+      return "Tipe konten permintaan tidak didukung.";
     case UNKNOWN_ERROR_CODE:
     case "FORBIDDEN_ORIGIN":
     default:
