@@ -28,6 +28,8 @@ Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10
 - [x] US-12 Sebagai admin, saya ingin mengelola pengguna dan kuota
 - [x] US-13 Sebagai admin, saya ingin akses yang terkunci di backend
 
+Sprint 2 selesai; catatan penutupan dikerjakan di branch sprint-2-penutupan.
+
 ## Sprint 3 — Upload dan Penyimpanan
 
 Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file fisik di disk wajib ikut dihapus saat hapus pengguna (US-17).

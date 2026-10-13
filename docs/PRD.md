@@ -196,8 +196,11 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | Lapisan | Rute / endpoint | Fungsi | Akses |
 | --- | --- | --- | --- |
 | Frontend | `/` | Landing page Galeriku: pengenalan singkat dan tombol Masuk | Publik |
+| Frontend | `/privasi` | Kebijakan privasi (statis, noindex) | Publik |
 | Frontend | `/login`, `/register` | Form login, registrasi terbuka, tombol Google | Publik |
+| Frontend | `/verify-email`, `/forgot-password`, `/reset-password` | Verifikasi OTP, minta dan atur ulang password | Publik |
 | Frontend | `/app` | Galeri milik pengguna | Login |
+| Frontend | `/app/albums` | Daftar album | Login |
 | Frontend | `/app/albums/[id]` | Detail album | Login |
 | Frontend | `/app/shares` | Daftar dan kelola link | Login |
 | Frontend | `/app/settings` | Profil dan kuota | Login |
@@ -241,8 +244,9 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 - Token link berupa 32 byte acak (base64url) dan disimpan apa adanya agar pemilik link bisa menyalin ulang link (trade-off diterima untuk skala pribadi). Password link di-hash; kedaluwarsa dan pencabutan berlaku seketika.
 - Setiap akses file di area login memeriksa kepemilikan (mencegah IDOR). Nama file asli tidak dipakai di disk; `storage_key` berupa UUID.
 - Validasi tipe file dengan MIME sniffing, bukan hanya ekstensi. Whitelist: JPEG, PNG, WebP, GIF, HEIC, MP4, MOV, WebM. SVG ditolak. Respons memakai `X-Content-Type-Options: nosniff`.
-- Landing page boleh diindeks. `/login`, `/register`, `/app/*`, dan `/s/*` diberi noindex; API mengirim `X-Robots-Tag: noindex`; robots.txt melarang `/s/` dan `/app/`.
+- Landing page boleh diindeks. `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`, `/privasi`, `/app/*`, dan `/s/*` diberi noindex; API mengirim `X-Robots-Tag: noindex`; robots.txt melarang `/s/` dan `/app/`.
 - Rate limit pada registrasi (per IP), login, dan endpoint publik (`@nestjs/throttler`), ditambah aturan WAF di Cloudflare.
+- Semua galat API berbentuk standar `{statusCode, code, message, details?}`, termasuk galat level adapter Fastify (body kosong/JSON rusak, Content-Type tak didukung, payload berlebih: `VALIDATION_ERROR`/`UNSUPPORTED_MEDIA_TYPE`/`PAYLOAD_TOO_LARGE`; route tak dikenal: `NOT_FOUND`), tanpa detail internal.
 - IP pada log akses disimpan dalam bentuk hash. Secret disimpan di `.env` di luar repository (dan di dashboard Vercel untuk frontend). PostgreSQL tidak diekspos ke host.
 - Foto dari HP biasanya memuat koordinat GPS. Fitur penghapusan metadata lokasi dicatat di backlog (FR-23).
 

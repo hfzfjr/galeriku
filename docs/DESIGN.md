@@ -139,7 +139,7 @@ Satu input teks sungguhan (`inputmode="numeric"`, `autocomplete="one-time-code"`
 
 ### Widget Turnstile
 
-Cloudflare Turnstile dipasang di form daftar, login, dan lupa password, di atas tombol utama, lebar penuh, dengan tema mengikuti tema aktif (terang/gelap) dan mode ringkas agar tidak mengganggu. Bila gagal dimuat: "Pemeriksaan keamanan gagal dimuat. Muat ulang halaman." dan tombol utama nonaktif.
+Cloudflare Turnstile dipasang di form daftar, login, dan lupa password, di atas tombol utama, lebar penuh, dengan tema mengikuti tema aktif (terang/gelap) dan mode ringkas. Opsi `appearance: "interaction-only"`: widget tidak terlihat kecuali interaksi dibutuhkan, jadi tidak mengganggu tampilan; token tetap terbit diam-diam. Ruang dicadangkan hanya saat memuat agar layout tidak melompat. Tombol utama nonaktif sampai token ada. Bila gagal dimuat: "Pemeriksaan keamanan gagal dimuat. Muat ulang halaman." dan tombol utama nonaktif.
 
 ### Navigasi
 
@@ -193,6 +193,8 @@ Judul Fraunces h2 satu kalimat, satu baris penjelasan, satu tombol utama. Hiasan
 
 Tanpa carousel testimoni, tanpa harga, tanpa gradien.
 
+Catatan gaya khusus landing (memang berbeda dari area `/app`): lebar konten 560 px di HP dan 960 px di desktop; header ramping dengan wordmark + tombol Masuk; hero dua kolom di desktop (teks 400 px + tumpukan 4 foto cetak miring ±2°); bagian "Cara kerja" bernomor serif aksen dengan mock UI; bagian "Aturan main" memakai garis titik-titik dan kartu catatan miring; footer minimal (logo kecil + hak cipta + tautan Kebijakan privasi). Posisi tumpukan foto disetel agar semua keterangan terbaca penuh di 360–1440 px.
+
 ### Login `/login` dan Daftar `/register`
 
 Kartu tunggal di tengah, wordmark di atas. **Login:** h1 "Masuk", tombol **Masuk dengan Google** (sekunder, logo Google resmi), pemisah "atau", form email + password, widget Turnstile, tombol utama **Masuk**. Tautan bantuan: "Lupa password?" dan "Belum punya akun? Daftar". **Daftar:** h1 "Buat akun", tombol **Daftar dengan Google**, pemisah "atau", form nama, email, dan password (dengan tombol tampilkan/sembunyikan password dan petunjuk aturan password), widget Turnstile, tombol utama **Daftar**; setelah berhasil menuju layar verifikasi email. Tautan bantuan: "Sudah punya akun? Masuk". Login oleh akun yang belum terverifikasi mengarahkan ke layar verifikasi email. Pesan error login tetap umum; pada pendaftaran boleh jelas ("Email ini sudah terdaftar").
@@ -220,6 +222,10 @@ Tanpa bottom nav. Header kecil: wordmark kiri. Judul h1 album (atau nama file), 
 ### Layanan tidak tersedia
 
 Dipakai saat API tidak terjangkau (server rumah mati). Judul "Galeriku lagi istirahat", penjelasan satu kalimat, tombol **Coba lagi**. Jangan tampilkan stack trace atau kode HTTP.
+
+### Kebijakan privasi `/privasi` (statis, `noindex`)
+
+Halaman teks Bahasa Indonesia: h1 "Kebijakan Privasi", tanggal pembaruan, bagian pendek (data yang disimpan, tujuan, cookie, pihak ketiga, lokasi data, link publik, retensi, hak pengguna). Lebar nyaman dibaca (mengikuti gutter landing), terang dan gelap terbaca. Tautan "Kebijakan privasi" ada di footer landing dan di bawah kartu setiap layar auth (kecil, area sentuh ≥ 44 px).
 
 ## 8. Gaya Bahasa
 
@@ -294,3 +300,8 @@ Hilangkan tekstur di tema gelap atau bila memengaruhi performa HP lawas.
 5. Teks dalam Bahasa Indonesia sesuai gaya di bagian 8.
 6. Safe-area dan `100dvh` dipakai pada elemen yang menempel di tepi.
 7. Layar autentikasi: login dan lupa password tidak membocorkan apakah email terdaftar; hanya pendaftaran yang boleh menyebut email sudah terdaftar.
+
+## 14. Batasan yang diketahui
+
+- `theme-color` browser mengikuti tema sistem, tidak ikut pilihan tema manual Terang/Gelap (keterbatasan metadata; diterima).
+- Font gambar Open Graph bukan Fraunces: Satori (`next/og`) tidak bisa memakai font web; dipakai Georgia/sans sistem dengan warna token yang sama (diterima).
