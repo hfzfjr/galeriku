@@ -57,4 +57,11 @@ RUN apt-get update \
 
 USER node
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+# Migrasi dijalankan saat container start (pengganti deploy.sh di Coolify).
+# Syarat: migrasi harus kompatibel mundur (container lama masih jalan saat
+# image baru start). Kegagalan migrasi membuat container keluar dengan kode
+# bukan nol (jangan ditutupi): Coolify menandai deploy gagal dan backend
+# lama tetap jalan. `exec` wajib agar SIGTERM sampai ke node (shutdown rapi).
+# CLI prisma + folder prisma/migrations terbukti ada di image ini
+# (prisma dependency production; lihat laporan infra-coolify).
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy && exec node dist/main.js"]
