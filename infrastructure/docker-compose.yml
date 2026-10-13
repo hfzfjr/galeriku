@@ -1,25 +1,28 @@
-# Galeriku — Compose utama untuk server Debian.
-# Dijalankan dari direktori ini: docker compose up -d
-# Variabel dibaca dari infrastructure/.env (lihat .env.example).
+# Galeriku — Compose untuk Coolify (resource Docker Compose dari Git).
+# Base Directory "/", Docker Compose Location "/infrastructure/docker-compose.yml".
+# Variabel diisi di UI Coolify (bukan infrastructure/.env).
 # TIDAK ada service cloudflared: tunnel "cf-tunnel" jalan sebagai layanan
-# host dengan route galeriku-api.hafizfajar.com -> http://localhost:4000
-# (didaftarkan manual lewat dashboard Cloudflare, lihat US-03).
+# host dengan route galeriku-api.hafizfajar.com -> http://localhost:80
+# (proxy Coolify/Traefik; didaftarkan manual lewat dashboard Cloudflare).
+# Tanpa container_name (Coolify mengelola nama sendiri agar tidak bentrok
+# dengan container lama) dan tanpa ports pada backend (akses lewat proxy
+# Coolify). Variabel wajib memakai ${VAR:?} supaya deploy diblokir bila
+# kosong. postgres tetap tanpa publish port.
 name: galeriku
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: galeriku-postgres
     restart: unless-stopped
     mem_limit: 384m
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
     volumes:
       - galeriku_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?} -d ${POSTGRES_DB:?}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,36 +37,32 @@ services:
     build:
       context: ..
       dockerfile: backend/Dockerfile
-    # Tag latest dipakai deploy.sh untuk rollback (previous).
     image: galeriku-backend:latest
-    container_name: galeriku-backend
     restart: unless-stopped
     mem_limit: 512m
-    # Hanya loopback: diakses publik lewat route tunnel cf-tunnel.
-    ports:
-      - "127.0.0.1:4000:4000"
     environment:
       PORT: "4000"
       HOST: 0.0.0.0
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      DEFAULT_QUOTA_BYTES: ${DEFAULT_QUOTA_BYTES}
-      IP_HASH_SECRET: ${IP_HASH_SECRET}
-      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
-      CONTACT_EMAIL: ${CONTACT_EMAIL}
-      MAIL_PROVIDER: ${MAIL_PROVIDER}
-      MAIL_API_KEY: ${MAIL_API_KEY}
-      MAIL_FROM: ${MAIL_FROM}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?}
+      DEFAULT_QUOTA_BYTES: ${DEFAULT_QUOTA_BYTES:?}
+      IP_HASH_SECRET: ${IP_HASH_SECRET:?}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:?}
+      MAIL_API_KEY: ${MAIL_API_KEY:?}
+      MAIL_FROM: ${MAIL_FROM:?}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:?}
       MEDIA_DIR: /data/media
     volumes:
-      # MEDIA_HOST_DIR wajib diisi di .env (tanpa default) agar salah
-      # konfigurasi langsung ketahuan saat compose di-render.
-      - ${MEDIA_HOST_DIR}:/data/media
+      # MEDIA_HOST_DIR harus path absolut di host, sudah dibuat dan dimiliki
+      # uid 1000 SEBELUM deploy; tanpa default agar salah konfigurasi
+      # langsung ketahuan saat compose di-render.
+      - ${MEDIA_HOST_DIR:?}:/data/media
     depends_on:
       postgres:
         condition: service_healthy
