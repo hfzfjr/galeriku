@@ -220,7 +220,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | API | `GET /public/s/:token/files/:fileId` | Isi dan unduhan file untuk penerima (Range) | Token valid |
 | API | `GET /public/s/:token/zip` | Unduh ZIP album | Token valid + izin unduh |
 | API | `GET /public/s/:token/cover` | Gambar sampul untuk preview Open Graph | Token valid, tanpa password |
-| API | `/admin/users` (+ sub-path) | Daftar pengguna, ubah kuota, suspend/aktifkan, hapus pengguna | ADMIN |
+| API | `GET /admin/users`, `POST /admin/users/:id/suspend`, `POST /admin/users/:id/activate`, `PATCH /admin/users/:id/quota`, `DELETE /admin/users/:id` | Daftar pengguna (paginasi cursor), suspend/aktifkan (cabut sesi), ubah kuota, hapus pengguna beserta datanya | ADMIN |
 | API | `GET /health` | Status DB dan sisa disk | Internal |
 
 ## 11. Keamanan dan Privasi

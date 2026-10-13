@@ -25,10 +25,12 @@ Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10
 
 - [x] US-10 Sebagai pengguna, saya ingin halaman login dan registrasi
 - [x] US-11 Sebagai pengguna, saya ingin login dengan Google
-- [ ] US-12 Sebagai admin, saya ingin mengelola pengguna dan kuota
+- [x] US-12 Sebagai admin, saya ingin mengelola pengguna dan kuota
 - [ ] US-13 Sebagai admin, saya ingin akses yang terkunci di backend
 
 ## Sprint 3 — Upload dan Penyimpanan
+
+Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file fisik di disk wajib ikut dihapus saat hapus pengguna (US-17).
 
 - [ ] US-16 Spike: tus di dalam NestJS
 - [ ] US-17 Sebagai pengguna, saya ingin upload banyak file sekaligus yang bisa dilanjutkan
@@ -43,6 +45,8 @@ Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10
 - [ ] US-15 Sebagai pengguna, saya ingin halaman profil dan pengaturan
 
 ## Sprint 5 — Album dan Link Publik Inti
+
+Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (aturan baca US-25); US-12 tidak menandai revoked_at saat menangguhkan.
 
 - [ ] US-23 Sebagai pengguna, saya ingin membuat album
 - [ ] US-24 Sebagai pengguna, saya ingin membuat link publik
