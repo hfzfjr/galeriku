@@ -15,10 +15,24 @@ export type FakeDb = {
   users: Map<string, Record<string, unknown>>;
   sessions: Map<string, Record<string, unknown>>;
   emailCodes: Array<Record<string, unknown>>;
+  files: Map<string, Record<string, unknown>>;
+  albums: Map<string, Record<string, unknown>>;
+  albumFiles: Map<string, Record<string, unknown>>;
+  shareLinks: Map<string, Record<string, unknown>>;
+  shareAccessLogs: Map<string, Record<string, unknown>>;
 };
 
 export function createFakeDb(): FakeDb {
-  return { users: new Map(), sessions: new Map(), emailCodes: [] };
+  return {
+    users: new Map(),
+    sessions: new Map(),
+    emailCodes: [],
+    files: new Map(),
+    albums: new Map(),
+    albumFiles: new Map(),
+    shareLinks: new Map(),
+    shareAccessLogs: new Map(),
+  };
 }
 
 function compareValues(a: unknown, b: unknown): number {
@@ -28,34 +42,171 @@ function compareValues(a: unknown, b: unknown): number {
   return (left as number) < (right as number) ? -1 : 1;
 }
 
+function matchField(actual: unknown, filter: unknown): boolean {
+  if (
+    typeof filter === 'object' &&
+    filter !== null &&
+    !(filter instanceof Date) &&
+    !Array.isArray(filter)
+  ) {
+    const ops = filter as Record<string, unknown>;
+    if ('in' in ops) {
+      return (ops.in as unknown[]).includes(actual);
+    }
+    if ('lt' in ops) return compareValues(actual, ops.lt) < 0;
+    if ('lte' in ops) return compareValues(actual, ops.lte) <= 0;
+    if ('gt' in ops) return compareValues(actual, ops.gt) > 0;
+    if ('gte' in ops) return compareValues(actual, ops.gte) >= 0;
+    if ('equals' in ops) return actual === ops.equals;
+    if ('contains' in ops) {
+      if (typeof actual !== 'string' || typeof ops.contains !== 'string') {
+        return false;
+      }
+      // contains Prisma literal: wildcard % dan _ dari input TIDAK
+      // berperilaku sebagai wildcard (diuji di admin.e2e-spec).
+      if (ops.mode === 'insensitive') {
+        return actual.toLowerCase().includes(ops.contains.toLowerCase());
+      }
+      return actual.includes(ops.contains);
+    }
+    if ('not' in ops) {
+      const nested = ops.not;
+      if (
+        typeof nested === 'object' &&
+        nested !== null &&
+        !(nested instanceof Date) &&
+        !Array.isArray(nested)
+      ) {
+        return !matchField(actual, nested);
+      }
+      return actual !== nested;
+    }
+    return false;
+  }
+  return actual === filter;
+}
+
 function matchWhere(
   row: Record<string, unknown>,
   where: Record<string, unknown>,
 ): boolean {
   return Object.entries(where).every(([key, value]) => {
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      !(value instanceof Date) &&
-      !Array.isArray(value)
-    ) {
-      const ops = value as Record<string, unknown>;
-      if ('in' in ops) {
-        return (ops.in as unknown[]).includes(row[key]);
-      }
-      if ('lt' in ops) return compareValues(row[key], ops.lt) < 0;
-      if ('lte' in ops) return compareValues(row[key], ops.lte) <= 0;
-      if ('gt' in ops) return compareValues(row[key], ops.gt) > 0;
-      if ('gte' in ops) return compareValues(row[key], ops.gte) >= 0;
-      if ('equals' in ops) return row[key] === ops.equals;
+    if (key === 'AND' && Array.isArray(value)) {
+      return (value as Record<string, unknown>[]).every((w) =>
+        matchWhere(row, w),
+      );
     }
-    return row[key] === value;
+    if (key === 'OR' && Array.isArray(value)) {
+      return (value as Record<string, unknown>[]).some((w) =>
+        matchWhere(row, w),
+      );
+    }
+    if (key === 'NOT') {
+      const clauses = (
+        Array.isArray(value) ? value : [value]
+      ) as Record<string, unknown>[];
+      return !clauses.some((w) => matchWhere(row, w));
+    }
+    return matchField(row[key], value);
   });
 }
 
 export function createFakePrisma(db: FakeDb) {
-  return {
+  // Model generik untuk tabel relasi (US-12): find/create/update/
+  // updateMany/delete/deleteMany + groupBy agregat sederhana.
+  function recordNotFound(): Error {
+    return Object.assign(new Error('Record not found'), { code: 'P2025' });
+  }
+  function makeModel(store: Map<string, Record<string, unknown>>) {
+    return {
+      findUnique: async ({ where }: { where: Record<string, unknown> }) => {
+        for (const row of store.values()) {
+          if (matchWhere(row, where)) return { ...row };
+        }
+        return null;
+      },
+      findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+        for (const row of store.values()) {
+          if (matchWhere(row, where ?? {})) return { ...row };
+        }
+        return null;
+      },
+      findMany: async (args?: { where?: Record<string, unknown> }) => {
+        const out: Array<Record<string, unknown>> = [];
+        for (const row of store.values()) {
+          if (matchWhere(row, args?.where ?? {})) out.push({ ...row });
+        }
+        return out;
+      },
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const id =
+          typeof data.id === 'string' ? data.id : `x-${store.size + 1}`;
+        const row = { ...data, id };
+        store.set(id, row);
+        return { ...row };
+      },
+      update: async ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        for (const [id, row] of store) {
+          if (matchWhere(row, where)) {
+            const next = { ...row, ...data };
+            store.set(id, next);
+            return { ...next };
+          }
+        }
+        throw recordNotFound();
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        let count = 0;
+        for (const [id, row] of store) {
+          if (matchWhere(row, where)) {
+            store.set(id, { ...row, ...data });
+            count += 1;
+          }
+        }
+        return { count };
+      },
+      delete: async ({ where }: { where: Record<string, unknown> }) => {
+        for (const [id, row] of store) {
+          if (matchWhere(row, where)) {
+            store.delete(id);
+            return { ...row };
+          }
+        }
+        throw recordNotFound();
+      },
+      deleteMany: async ({ where }: { where: Record<string, unknown> }) => {
+        let count = 0;
+        for (const [id, row] of store) {
+          if (matchWhere(row, where)) {
+            store.delete(id);
+            count += 1;
+          }
+        }
+        return { count };
+      },
+    };
+  }
+
+  const prisma = {
     $queryRaw: async () => [{ '?column?': 1 }],
+    // Transaksi array: SQLite-Serializable tidak tersedia di mock;
+    // janji sudah terbentuk, jadi Promise.all setara untuk uji.
+    $transaction: async (ops: unknown) =>
+      Array.isArray(ops)
+        ? Promise.all(ops as Array<Promise<unknown>>)
+        : (ops as (tx: unknown) => Promise<unknown>)(prisma),
     user: {
       findUnique: async ({ where }: { where: Record<string, unknown> }) => {
         for (const row of db.users.values()) {
@@ -96,12 +247,52 @@ export function createFakePrisma(db: FakeDb) {
           code: 'P2025',
         });
       },
-      findMany: async ({ where }: { where: Record<string, unknown> }) => {
-        const out: Array<Record<string, unknown>> = [];
-        for (const row of db.users.values()) {
-          if (matchWhere(row, where)) out.push({ ...row });
+      findMany: async (args?: {
+        where?: Record<string, unknown>;
+        orderBy?: Record<string, string> | Array<Record<string, string>>;
+        cursor?: Record<string, unknown>;
+        skip?: number;
+        take?: number;
+      }) => {
+        let rows = [...db.users.values()].filter((row) =>
+          matchWhere(row, args?.where ?? {}),
+        );
+        const rules = args?.orderBy
+          ? Array.isArray(args.orderBy)
+            ? args.orderBy
+            : [args.orderBy]
+          : [];
+        for (const rule of rules.reverse()) {
+          const [field, arah] = Object.entries(rule)[0];
+          rows = [...rows].sort(
+            (a, b) =>
+              (arah === 'desc' ? -1 : 1) *
+              compareValues(a[field], b[field]),
+          );
         }
-        return out;
+        if (args?.cursor) {
+          // Seperti Prisma: baris cursor TERMASUK, lalu skip menyingkirkannya.
+          const posisi = rows.findIndex((row) => matchWhere(row, args.cursor as Record<string, unknown>));
+          rows = posisi >= 0 ? rows.slice(posisi) : [];
+        }
+        if (args?.skip) {
+          rows = rows.slice(args.skip);
+        }
+        if (args?.take !== undefined) {
+          rows = rows.slice(0, args.take);
+        }
+        return rows.map((row) => ({ ...row }));
+      },
+      delete: async ({ where }: { where: Record<string, unknown> }) => {
+        for (const [id, row] of db.users) {
+          if (matchWhere(row, where)) {
+            db.users.delete(id);
+            return { ...row };
+          }
+        }
+        throw Object.assign(new Error('Record not found'), {
+          code: 'P2025',
+        });
       },
       deleteMany: async ({ where }: { where: Record<string, unknown> }) => {
         let count = 0;
@@ -179,7 +370,38 @@ export function createFakePrisma(db: FakeDb) {
         return { count: before - db.emailCodes.length };
       },
     },
+    file: {
+      ...makeModel(db.files),
+      // Agregat pemakaian (US-12): groupBy ownerId + sum sizeBytes.
+      groupBy: async (args: {
+        by: string[];
+        where?: Record<string, unknown>;
+        _sum?: { sizeBytes?: boolean };
+      }) => {
+        const jumlah = new Map<string, bigint>();
+        for (const row of db.files.values()) {
+          if (!matchWhere(row, args.where ?? {})) {
+            continue;
+          }
+          const kunci = args.by.map((k) => String(row[k])).join('|');
+          const ukuran =
+            typeof row.sizeBytes === 'bigint'
+              ? row.sizeBytes
+              : BigInt(Number(row.sizeBytes ?? 0));
+          jumlah.set(kunci, (jumlah.get(kunci) ?? 0n) + ukuran);
+        }
+        return [...jumlah.entries()].map(([pemilik, total]) => ({
+          ownerId: pemilik,
+          _sum: { sizeBytes: total },
+        }));
+      },
+    },
+    album: makeModel(db.albums),
+    albumFile: makeModel(db.albumFiles),
+    shareLink: makeModel(db.shareLinks),
+    shareAccessLog: makeModel(db.shareAccessLogs),
   };
+  return prisma;
 }
 
 // Stub Turnstile tanpa global jest (tak tersedia di modul ESM): antrean
