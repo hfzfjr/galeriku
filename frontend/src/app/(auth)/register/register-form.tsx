@@ -23,10 +23,7 @@ import {
   toFieldErrorMap,
   toIndonesianMessage,
 } from "@/lib/auth-errors";
-import {
-  TURNSTILE_REQUIRED_MESSAGE,
-  zodToFieldErrors,
-} from "@/lib/form-validation";
+import { zodToFieldErrors } from "@/lib/form-validation";
 import { saveVerifyEmail } from "@/lib/pending-email";
 
 // Aturan password diambil dari contracts: 8–128 karakter, tanpa komposisi.
@@ -70,13 +67,11 @@ export function RegisterForm() {
     if (!parsed.success) {
       const mapped = zodToFieldErrors(parsed.error.issues);
       setFieldErrors({
-        name: mapped.fields.name,
-        email: mapped.fields.email,
-        password: mapped.fields.password,
+        name: mapped.name,
+        email: mapped.email,
+        password: mapped.password,
       });
-      if (mapped.turnstileMissing) {
-        setFormError(TURNSTILE_REQUIRED_MESSAGE);
-      }
+      // Token selalu ada saat tombol bisa diklik (nonaktif tanpanya).
       return;
     }
 
@@ -186,7 +181,7 @@ export function RegisterForm() {
             type="submit"
             variant="primary"
             loading={pending}
-            disabled={captchaBroken}
+            disabled={captchaBroken || !captchaToken}
             className="w-full"
           >
             Daftar

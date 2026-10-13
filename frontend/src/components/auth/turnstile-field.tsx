@@ -114,8 +114,10 @@ function useResolvedTheme(): "light" | "dark" {
 /**
  * Widget Cloudflare Turnstile (DESIGN.md §6): di atas tombol utama,
  * lebar penuh, mode ringkas, tema mengikuti tema aktif (ikut berubah
- * saat tema diganti). Token sekali pakai: parent memanggil reset()
- * setelah setiap submit yang gagal.
+ * saat tema diganti). appearance "interaction-only" (terverifikasi di
+ * dokumentasi resmi): widget tak terlihat kecuali interaksi dibutuhkan,
+ * jadi tidak mengganggu tampilan. Token sekali pakai: parent memanggil
+ * reset() setelah setiap submit yang gagal.
  *
  * Bila script gagal dimuat atau token kedaluwarsa: status "gagal",
  * parent menonaktifkan tombol utama.
@@ -197,6 +199,9 @@ export function TurnstileField({
           sitekey: siteKey,
           theme: resolvedTheme,
           size: "compact",
+          // Hanya tampil bila interaksi dibutuhkan; token tetap terbit
+          // diam-diam lewat callback bila tidak dibutuhkan.
+          appearance: "interaction-only",
           callback: (token: string) => {
             if (!cancelled) {
               callbacksRef.current.onToken(token);
@@ -249,8 +254,16 @@ export function TurnstileField({
 
   return (
     <div className="flex w-full flex-col gap-2">
-      {/* Lebar penuh; widget ringkas dirender di sini. */}
-      <div ref={containerRef} className="min-h-11 w-full" aria-hidden="true" />
+      {/* Lebar penuh; widget ringkas dirender di sini. Ruang dicadangkan
+          hanya saat memuat agar layout tidak melompat; setelah siap
+          wadah mengempis (widget tak terlihat kecuali dibutuhkan). */}
+      <div
+        ref={containerRef}
+        data-turnstile
+        className={
+          status === "memuat" ? "min-h-11 w-full" : "min-h-0 w-full"
+        }
+      />
       <span className="sr-only" role="status">
         {status === "memuat"
           ? "Pemeriksaan keamanan sedang dimuat."

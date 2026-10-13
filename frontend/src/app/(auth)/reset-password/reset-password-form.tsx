@@ -64,9 +64,9 @@ export function ResetPasswordForm() {
     });
     if (!parsed.success) {
       const mapped = zodToFieldErrors(parsed.error.issues);
-      setCodeError(mapped.fields.code);
-      setPasswordError(mapped.fields.newPassword);
-      if (mapped.fields.code) {
+      setCodeError(mapped.code);
+      setPasswordError(mapped.newPassword);
+      if (mapped.code) {
         inputRef.current?.focus();
       }
       return;

@@ -25,10 +25,7 @@ import {
   toFieldErrorMap,
   toIndonesianMessage,
 } from "@/lib/auth-errors";
-import {
-  TURNSTILE_REQUIRED_MESSAGE,
-  zodToFieldErrors,
-} from "@/lib/form-validation";
+import { zodToFieldErrors } from "@/lib/form-validation";
 import { saveVerifyEmail } from "@/lib/pending-email";
 import { ME_QUERY_KEY } from "@/lib/session";
 
@@ -81,12 +78,10 @@ export function LoginForm() {
     if (!parsed.success) {
       const mapped = zodToFieldErrors(parsed.error.issues);
       setFieldErrors({
-        email: mapped.fields.email,
-        password: mapped.fields.password,
+        email: mapped.email,
+        password: mapped.password,
       });
-      if (mapped.turnstileMissing) {
-        setFormError(TURNSTILE_REQUIRED_MESSAGE);
-      }
+      // Token selalu ada saat tombol bisa diklik (nonaktif tanpanya).
       return;
     }
 
@@ -170,7 +165,7 @@ export function LoginForm() {
               type="submit"
               variant="primary"
               loading={pending}
-              disabled={captchaBroken}
+              disabled={captchaBroken || !captchaToken}
               className="w-full"
             >
               Masuk

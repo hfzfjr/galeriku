@@ -27,16 +27,14 @@ function fieldMessage(field: string, code: string): string {
   }
 }
 
-export function zodToFieldErrors(issues: readonly IssueLike[]): {
-  fields: Record<string, string>;
-  turnstileMissing: boolean;
-} {
+export function zodToFieldErrors(
+  issues: readonly IssueLike[],
+): Record<string, string> {
   const fields: Record<string, string> = {};
-  let turnstileMissing = false;
   for (const issue of issues) {
     const top = issue.path[0];
+    // Token selalu ada saat tombol bisa diklik; isu token diabaikan.
     if (top === "turnstileToken") {
-      turnstileMissing = true;
       continue;
     }
     if (typeof top !== "string" || fields[top] !== undefined) {
@@ -44,7 +42,5 @@ export function zodToFieldErrors(issues: readonly IssueLike[]): {
     }
     fields[top] = fieldMessage(top, issue.code);
   }
-  return { fields, turnstileMissing };
+  return fields;
 }
-
-export const TURNSTILE_REQUIRED_MESSAGE = "Selesaikan pemeriksaan keamanan dulu.";
