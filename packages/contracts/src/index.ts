@@ -15,6 +15,9 @@ export const AUTH_ERROR_CODES = {
   FORBIDDEN_ORIGIN: 'FORBIDDEN_ORIGIN',
   INVALID_CODE: 'INVALID_CODE',
   GOOGLE_UNCONFIGURED: 'GOOGLE_UNCONFIGURED',
+  FORBIDDEN: 'FORBIDDEN',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  CANNOT_MODIFY_SELF: 'CANNOT_MODIFY_SELF',
 } as const;
 
 export type AuthErrorCode =
@@ -132,3 +135,63 @@ export const meResponseSchema = z.object({
 });
 
 export type MeResponse = z.output<typeof meResponseSchema>;
+
+// Batas kuota maksimum per pengguna (US-12): 1000 GB dalam byte.
+export const ADMIN_MAX_QUOTA_BYTES = 1000n * 1024n * 1024n * 1024n;
+
+// Daftar pengguna (US-12): pencarian server, 20 per halaman (maks 50),
+// urut created_at DESC lalu id, cursor buram berisi id terakhir.
+export const adminUsersQuerySchema = z.object({
+  q: z.string().max(100).default(''),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().min(1).max(200).optional(),
+});
+
+export type AdminUsersQuery = z.output<typeof adminUsersQuerySchema>;
+
+// Satu baris daftar: tanpa password_hash, google_sub, atau data sesi.
+// BigInt selalu string.
+export const adminUserItemSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  email: z.string().email(),
+  avatarUrl: z.string().nullable(),
+  role: z.string(),
+  status: z.string(),
+  emailVerified: z.boolean(),
+  quotaBytes: z.string().regex(/^\d+$/),
+  usedBytes: z.string().regex(/^\d+$/),
+  createdAt: z.string(),
+  lastLoginAt: z.string().nullable(),
+});
+
+export type AdminUserItem = z.output<typeof adminUserItemSchema>;
+
+export const adminUsersResponseSchema = z.object({
+  items: z.array(adminUserItemSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type AdminUsersResponse = z.output<typeof adminUsersResponseSchema>;
+
+// Ubah kuota (US-12): string angka byte tak negatif, maks 1000 GB.
+// String agar BigInt aman di JSON.
+const quotaBytesString = z
+  .string()
+  .regex(/^\d+$/, 'Kuota harus bilangan bulat tak negatif dalam byte.')
+  .refine(
+    (value) => {
+      try {
+        return BigInt(value) <= ADMIN_MAX_QUOTA_BYTES;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Kuota maksimal 1000 GB.' },
+  );
+
+export const updateQuotaRequestSchema = z.object({
+  quotaBytes: quotaBytesString,
+});
+
+export type UpdateQuotaRequest = z.output<typeof updateQuotaRequestSchema>;
