@@ -48,6 +48,7 @@ Do not rename these folders.
 9. **Share tokens** are 32 random bytes, base64url. Public and login endpoints are rate limited. Public pages are `noindex`; only the landing page is indexable.
 10. **Configuration comes from env** (`NEXT_PUBLIC_API_URL`, `FRONTEND_ORIGIN`, and so on). Never hardcode domains. Never commit `.env*` files except `.env.example`.
 11. Auth error messages must not reveal whether an email exists.
+12. **Ownership answers 404, not 403.** Accessing another user's file/album/link responds exactly like a nonexistent id (404 with an identical body), never 403, so data existence doesn't leak. Every resource story must call the A-vs-B helper in `backend/test/ownership.ts` (see `backend/test/ownership.e2e-spec.ts` for usage).
 
 ## Code conventions
 
