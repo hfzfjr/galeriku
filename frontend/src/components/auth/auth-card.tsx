@@ -36,6 +36,14 @@ export function AuthCard({
         ) : null}
         <div className="mt-6">{children}</div>
       </section>
+      <p className="text-center">
+        <Link
+          href="/privasi"
+          className="inline-flex min-h-11 items-center text-caption text-ink-muted underline underline-offset-4"
+        >
+          Kebijakan privasi
+        </Link>
+      </p>
     </main>
   );
 }

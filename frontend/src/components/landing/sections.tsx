@@ -256,6 +256,12 @@ export function SiteFooter() {
       <p className="mt-3 text-caption text-ink-muted md:mt-0">
         © 2026 Galeriku. Simpan foto dan video perjalananmu.
       </p>
+      <a
+        href="/privasi"
+        className="mt-1 inline-flex min-h-11 items-center text-caption text-ink-muted underline underline-offset-4 md:mt-0"
+      >
+        Kebijakan privasi
+      </a>
     </footer>
   );
 }
