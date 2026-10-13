@@ -62,7 +62,7 @@ services:
       # MEDIA_HOST_DIR harus path absolut di host, sudah dibuat dan dimiliki
       # uid 1000 SEBELUM deploy; tanpa default agar salah konfigurasi
       # langsung ketahuan saat compose di-render.
-      - ${MEDIA_HOST_DIR:?}:/data/media
+      - ${MEDIA_HOST_DIR}:/data/media
     depends_on:
       postgres:
         condition: service_healthy
