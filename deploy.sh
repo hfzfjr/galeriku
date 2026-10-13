@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 #
+# DEPRECATED setelah migrasi ke Coolify: tidak kompatibel dengan
+# docker-compose.yml terbaru (container_name dan ports dihapus, variabel
+# wajib memakai ${VAR:?}). Akan dihapus setelah cutover Coolify berhasil.
+#
 # Deploy Galeriku ke server Debian. Dijalankan DI SERVER, bukan di laptop.
 #   ./deploy.sh [--no-pull]
 #
