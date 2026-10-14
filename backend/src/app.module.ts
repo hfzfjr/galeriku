@@ -7,9 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import { AccountCleanupService } from './cleanup/account-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
-  imports: [PrismaModule, AppConfigModule, AuthModule, AdminModule],
+  imports: [PrismaModule, AppConfigModule, AuthModule, AdminModule, UploadsModule],
   controllers: [AppController, HealthController],
   providers: [AppService, AccountCleanupService],
 })

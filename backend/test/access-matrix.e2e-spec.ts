@@ -168,9 +168,14 @@ describe('Matriks akses (US-13)', () => {
           origin: mutasi ? ORIGIN : undefined,
           body: mutasi ? {} : undefined,
         }).expect(401);
+        // HEAD tidak membawa body (semantik HTTP): cukup status 401.
+        // Lihat uploads.e2e-spec.ts untuk pola yang sama.
+        if (r.method === 'HEAD') {
+          continue;
+        }
         if (res.body.code !== 'UNAUTHENTICATED') {
           throw new Error(
-            `${r.method} ${r.url}: kode ${res.body.code}, bukan UNAUTHENTICATED (${res.text.slice(0, 200)})`,
+            `${r.method} ${r.url}: kode ${res.body.code}, bukan UNAUTHENTICATED (${(res.text ?? '').slice(0, 200)})`,
           );
         }
       }

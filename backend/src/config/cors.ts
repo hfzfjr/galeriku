@@ -17,8 +17,34 @@ export function setupCors(
     origin: [frontendOrigin],
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'X-Requested-With'],
-    // Header khusus tus (mis. Tus-Resumable, Upload-*) ditambahkan
-    // di story upload (Sprint 3).
+    // tus (US-16, upload resumable): browser mengirim header di bawah saat
+    // preflight ke /uploads. Preflight dijawab @fastify/cors di hook
+    // onRequest (tanpa sesi); response aktual dijawab @tus/server dengan
+    // header CORS-nya sendiri (Allow-Origin dari FRONTEND_ORIGIN,
+    // Allow-Credentials, Expose). Keduanya tidak ganda: saat controller
+    // meng-hijack reply, header yang di-stage @fastify/cors untuk request
+    // aktual gugur dan hanya header tus yang terkirim. Penegakan nyata
+    // (sesi + Origin) tetap di guard Nest dan hook tus.
+    allowedHeaders: [
+      'Content-Type',
+      'X-Requested-With',
+      'Tus-Resumable',
+      'Upload-Length',
+      'Upload-Offset',
+      'Upload-Metadata',
+      'Upload-Defer-Length',
+      'Upload-Concat',
+      'X-HTTP-Method-Override',
+    ],
+    exposedHeaders: [
+      'Location',
+      'Upload-Offset',
+      'Upload-Length',
+      'Tus-Version',
+      'Tus-Resumable',
+      'Tus-Max-Size',
+      'Tus-Extension',
+      'Upload-Metadata',
+    ],
   });
 }

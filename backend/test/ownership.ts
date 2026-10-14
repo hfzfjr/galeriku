@@ -13,7 +13,10 @@ export type OwnershipMethod = 'get' | 'post' | 'patch' | 'put' | 'delete';
 export type OwnershipRequest = {
   method: OwnershipMethod;
   url: string;
-  body?: Record<string, unknown>;
+  body?: Record<string, unknown> | Buffer;
+  // Header tambahan per request (mis. Tus-Resumable untuk route tus US-16).
+  // Opsional; dipasang setelah body agar menang atas bawaan supertest.
+  headers?: Record<string, string>;
 };
 
 export type OwnershipCheck = {
@@ -44,6 +47,11 @@ export async function expectOwnerOnly(
     }
     if (r.body !== undefined) {
       req = req.send(r.body);
+    }
+    if (r.headers !== undefined) {
+      for (const [nama, nilai] of Object.entries(r.headers)) {
+        req = req.set(nama, nilai);
+      }
     }
     return req;
   };

@@ -18,6 +18,20 @@ export async function setupApp(
 ): Promise<void> {
   await app.getHttpAdapter().getInstance().register(cookie);
   setupCors(app, config.frontendOrigin);
+  // Passthrough tus (US-16): body PATCH (application/offset+octet-stream)
+  // tidak dibuffer/di-parse Fastify; stream mentah dibaca @tus/server di
+  // UploadsController. Tanpa parseAs string/buffer, Fastify tidak
+  // menerapkan bodyLimit di sini (chunk 5 MB lolos); parser JSON bawaan
+  // tidak tersentuh.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addContentTypeParser(
+      'application/offset+octet-stream',
+      (_request, _payload, done) => {
+        done(null);
+      },
+    );
   app.useGlobalFilters(
     new ApiExceptionFilter(),
     new NotFoundExceptionFilter(),
