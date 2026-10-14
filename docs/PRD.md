@@ -4,7 +4,7 @@ Versi 1.2 · 11 Oktober 2026 · Product Owner & Developer: Hafiz · Status: Draf
 
 ## 1. Ringkasan
 
-Galeriku adalah aplikasi web untuk menyimpan foto dan video, lalu membagikannya ke teman lewat link publik tanpa bergantung pada kuota Google Drive. Frontend (Next.js) di-deploy ke Vercel pada galeriku.hafizfajar.com (subdomain sementara dari domain pribadi), sedangkan backend (NestJS) dan database PostgreSQL berjalan di server lokal (Debian 13) sebagai container Docker terpisah, diakses lewat Cloudflare Tunnel pada galeriku-api.hafizfajar.com. Mayoritas pengguna membuka aplikasi dari HP, sehingga desain mobile-first menjadi syarat utama. Halaman root domain berupa landing page publik, sedangkan area aplikasi berada di balik login. Tanpa login, pengunjung hanya dapat membuka dan mengunduh dari link publik; upload dan file pribadi hanya tersedia setelah login.
+Galeriku adalah aplikasi web untuk menyimpan foto dan video, lalu membagikannya ke teman lewat link publik tanpa bergantung pada kuota Google Drive. Frontend (Next.js) di-deploy ke Vercel pada galeriku.hafizfajar.com (subdomain sementara dari domain pribadi), sedangkan backend (NestJS) berjalan di server lokal (Debian 13) sebagai container Docker yang di-deploy lewat Coolify dan database PostgreSQL sebagai resource Database Coolify terpisah yang dijangkau lewat DATABASE_URL (Internal URL), diakses lewat Cloudflare Tunnel pada galeriku-api.hafizfajar.com. Mayoritas pengguna membuka aplikasi dari HP, sehingga desain mobile-first menjadi syarat utama. Halaman root domain berupa landing page publik, sedangkan area aplikasi berada di balik login. Tanpa login, pengunjung hanya dapat membuka dan mengunduh dari link publik; upload dan file pribadi hanya tersedia setelah login.
 
 Skala: pribadi dengan registrasi terbuka. Siapa pun boleh mendaftar dan memakai aplikasi. Penerima link tidak perlu punya akun.
 
@@ -137,9 +137,9 @@ HP / Browser
   '-- API, upload, unduh, streaming (langsung, tidak lewat Vercel)
         --HTTPS--> Cloudflare --Tunnel--> cloudflared (layanan host "cf-tunnel")
                                               |
-                        host API: galeriku-api.hafizfajar.com -> http://localhost:4000
+                        host API: galeriku-api.hafizfajar.com -> http://localhost:80 (proxy Traefik Coolify)
                                               |
-                       backend NestJS (Docker, 127.0.0.1:4000) ---> PostgreSQL (Docker)
+                       backend NestJS (Docker via Coolify) ---> PostgreSQL (resource Database Coolify terpisah)
                                               |
                        Volume /data/media (HDD)
 ```
@@ -155,13 +155,13 @@ HP / Browser
 | Upload | Protokol tus: klien `tus-js-client`/Uppy, server `@tus/server di dalam NestJS` dengan hook penyimpanan metadata ke database |  |
 | Media | `sharp` untuk thumbnail WebP; Fase 2: ffmpeg/ffprobe |  |
 | Antrian job | Fase 2: pg-boss (memakai PostgreSQL, tanpa Redis) |  |
-| Infrastruktur | Docker Compose (backend, postgres) di Debian 13; tunnel Cloudflare sebagai layanan host; frontend di Vercel |  |
+| Infrastruktur | Docker Compose (backend saja) di Debian 13 via Coolify; PostgreSQL sebagai resource Database Coolify terpisah; tunnel Cloudflare sebagai layanan host; frontend di Vercel | |
 | Backup/monitoring | `pg_dump` terjadwal, restic/rclone, smartmontools, Uptime Kuma |  |
 
 **Keputusan arsitektur**
 
 - **AD-1 Monorepo pnpm workspaces.** Folder `frontend/` (Next.js), `backend/` (NestJS), `packages/` (opsional, untuk skema bersama), dan `infrastructure/` (Docker Compose, backup). Tunnel `cf-tunnel` dikelola di host, bukan dari repo.
-- **AD-2 Frontend di Vercel, backend dan database di server lokal.** Container di server: `backend` dan `postgres` saja. Tunnel Cloudflare (`cf-tunnel`) jalan sebagai layanan host (bukan container Compose) dengan route `galeriku-api.hafizfajar.com` -> `http://localhost:4000`; backend hanya dipublish di loopback. Frontend tetap tampil saat server mati dan menampilkan pesan layanan tidak tersedia.
+- **AD-2 Frontend di Vercel, backend dan database di server lokal.** Container di server: `backend` saja; PostgreSQL sebagai resource Database Coolify terpisah. Tunnel Cloudflare (`cf-tunnel`) jalan sebagai layanan host (bukan container Compose) dengan route `galeriku-api.hafizfajar.com` -> `http://localhost:80` (proxy Traefik Coolify). Frontend tetap tampil saat server mati dan menampilkan pesan layanan tidak tersedia.
 - **AD-3 Byte file tidak melewati Vercel.** Body request dan response Vercel Functions dibatasi 4,5 MB, sehingga browser upload, unduh, dan streaming langsung ke host API. Next.js hanya merender UI.
 - **AD-4 Auth sepenuhnya di backend.** Sesi server-side di PostgreSQL dengan cookie HttpOnly, Secure, SameSite=Lax di host API. Frontend dan API sama-sama di `hafizfajar.com` (same-site), sehingga cookie ikut terkirim untuk fetch, gambar, video, dan link unduh. Token tidak pernah dipegang JavaScript. CORS hanya mengizinkan origin frontend, dan request yang mengubah data memeriksa header Origin. Halaman privat dirender di sisi klien.
 - **AD-5 Host API satu tingkat di bawah domain** (`galeriku-api.hafizfajar.com`), karena sertifikat Universal SSL Cloudflare hanya mencakup root dan subdomain tingkat pertama.
@@ -352,7 +352,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| US-31 | Sebagai admin, saya ingin backup otomatis | 3 | `pg_dump` harian (retensi 14 hari) ke lokasi di luar volume utama; prosedur restore diuji sekali |
+| US-31 | Sebagai admin, saya ingin backup otomatis | 3 | Backup harian memakai fitur Backups bawaan Coolify (retensi 14 backup) ke lokasi di luar volume utama; prosedur restore diuji sekali |
 | US-32 | Sebagai admin, saya ingin pengujian di perangkat nyata | 5 | Diuji di minimal 1 Android (Chrome) dan 1 iPhone (Safari) lewat jaringan seluler, termasuk login ganda, upload, dan link publik; bug kritis diperbaiki |
 | US-33 | Sebagai admin, saya ingin dokumentasi | 2 | README dan runbook (deploy frontend dan backend, update, restore, tambah pengguna) |
 | US-34 | Sebagai admin, saya ingin monitoring | 3 | Uptime check untuk frontend dan API; notifikasi bila sisa disk < 20% atau SMART bermasalah |
