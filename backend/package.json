@@ -35,11 +35,15 @@
     "@node-rs/argon2": "2.2.2",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@tus/file-store": "2.1.1",
+    "@tus/server": "2.4.5",
     "fastify": "5.12.5",
+    "file-type": "22.1.1",
     "pg": "^8.23.1",
     "prisma": "^7.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "0.35.5",
     "zod": "4.3.6"
   },
   "devDependencies": {
