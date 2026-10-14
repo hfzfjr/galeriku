@@ -63,7 +63,15 @@ export class UploadsService implements OnModuleInit {
       path: TUS_ROUTE_PATH,
       datastore: new FileStore({ directory }),
       maxSize: TUS_SPIKE_MAX_SIZE_BYTES,
-      respectForwardedHeaders: true,
+      // Location relatif (fix US-16): "/uploads/<uuid>" tanpa skema/host,
+      // sehingga kebal terhadap header Forwarded/X-Forwarded-* dari rantai
+      // proxy (Cloudflare -> cloudflared -> Traefik) yang hop terakhirnya
+      // http dan membuat Location absolut berskema http:// (mixed content
+      // di halaman https). tus-js-client me-resolve Location relatif
+      // terhadap endpoint (new URL(location, endpoint)), jadi HEAD/PATCH
+      // berikutnya tetap ke host API yang benar. respectForwardedHeaders
+      // SENGAJA dimatikan: tak lagi dibutuhkan bila Location relatif.
+      relativeLocation: true,
       allowedOrigins: [this.config.frontendOrigin],
       allowedCredentials: true,
       // Id upload = UUID (calon storage_key); tanpa slash sehingga

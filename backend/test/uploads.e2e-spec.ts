@@ -251,6 +251,43 @@ describe('Upload tus (US-16 spike)', () => {
     }
   });
 
+  it('Location relatif di balik proxy (X-Forwarded-Proto http tidak bocor)', async () => {
+    // Regresi fix US-16: rantai Cloudflare -> cloudflared -> Traefik
+    // meneruskan proto http hop terakhir; Location wajib tetap relatif
+    // "/uploads/<uuid>" (tanpa skema http://) agar browser https tidak
+    // memblokir HEAD/PATCH berikutnya (mixed content).
+    const a = await seedUser(db, 'a@contoh.id');
+    const cookie = craftSession(db, a.id as string);
+    const res = await request(server().getHttpAdapter().getInstance().server)
+      .post('/uploads')
+      .set('Cookie', `galeriku_session=${cookie}`)
+      .set('Origin', ORIGIN)
+      .set('Tus-Resumable', TUS)
+      .set('Upload-Length', '11')
+      .set(
+        'Upload-Metadata',
+        `filename ${Buffer.from('uji.txt', 'utf8').toString('base64')}`,
+      )
+      .set('X-Forwarded-Proto', 'http')
+      .set('X-Forwarded-Host', 'galeriku-api.hafizfajar.com')
+      .set('Forwarded', 'proto=http;host="galeriku-api.hafizfajar.com"')
+      .expect(201);
+    const location = res.headers['location'] as string;
+    if (typeof location !== 'string' || location.length === 0) {
+      throw new Error('Location hilang');
+    }
+    if (/^https?:\/\//i.test(location)) {
+      throw new Error(`Location absolut (bocor skema proxy): ${location}`);
+    }
+    if (!location.startsWith('/uploads/')) {
+      throw new Error(`Location bukan path /uploads/<uuid>: ${location}`);
+    }
+    const id = (location.split('/').pop() ?? '').split('?')[0];
+    if (!UUID_RE.test(id)) {
+      throw new Error(`id bukan UUID: ${location}`);
+    }
+  });
+
   it('resume: PATCH sebagian -> HEAD -> PATCH sisanya', async () => {
     const a = await seedUser(db, 'a@contoh.id');
     const cookie = craftSession(db, a.id as string);
