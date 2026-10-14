@@ -36,7 +36,7 @@ Catatan penutupan: auto-deploy dan Watch Paths Coolify aktif; Google OAuth sudah
 
 Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file fisik di disk wajib ikut dihapus saat hapus pengguna (US-17).
 
-- [ ] US-16 Spike: tus di dalam NestJS
+- [x] US-16 Spike: tus di dalam NestJS
 - [ ] US-17 Sebagai pengguna, saya ingin upload banyak file sekaligus yang bisa dilanjutkan
 - [ ] US-18 Sebagai admin, saya ingin validasi, kuota, dan disk guard
 - [ ] US-19 Sebagai pengguna, saya ingin thumbnail foto
