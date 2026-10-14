@@ -77,8 +77,9 @@ pnpm --filter backend migrate:dev       # buat/terapkan migrasi (dev)
 ```
 
 `prisma:generate` juga berjalan otomatis sebelum `build`/`test` lewat
-script `prebuild`/`pretest`. Di produksi, migrasi dijalankan `deploy.sh`
-sebelum container baru naik (`migrate deploy`).
+script `prebuild`/`pretest`. Di produksi, migrasi jalan otomatis saat
+container start (`migrate deploy` via `CMD` di `backend/Dockerfile`);
+deploy lewat Coolify.
 
 ## Deployment
 

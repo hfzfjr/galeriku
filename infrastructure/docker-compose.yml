@@ -1,5 +1,5 @@
 # Galeriku — Compose untuk Coolify (resource Docker Compose dari Git).
-# Base Directory "/", Docker Compose Location "/infrastructure/docker-compose.yml".
+# Base Directory "/infrastructure", Docker Compose Location "/docker-compose.yml".
 # Variabel diisi di UI Coolify (bukan infrastructure/.env).
 # TIDAK ada service cloudflared: tunnel "cf-tunnel" jalan sebagai layanan
 # host dengan route galeriku-api.hafizfajar.com -> http://localhost:80
@@ -60,8 +60,8 @@ services:
       MEDIA_DIR: /data/media
     volumes:
       # MEDIA_HOST_DIR harus path absolut di host, sudah dibuat dan dimiliki
-      # uid 1000 SEBELUM deploy; tanpa default agar salah konfigurasi
-      # langsung ketahuan saat compose di-render.
+      # uid 1000 SEBELUM deploy. Sengaja tanpa :? karena validator
+      # Coolify menolaknya pada sumber volume.
       - ${MEDIA_HOST_DIR}:/data/media
     depends_on:
       postgres:

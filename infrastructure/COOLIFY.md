@@ -1,18 +1,19 @@
 # Deploy Backend via Coolify
 
-Backend Galeriku jalan sebagai resource Docker Compose di Coolify.
-`deploy.sh` di akar repo DEPRECATED setelah cutover berhasil dan akan
-dihapus lewat commit terpisah; ia tidak kompatibel dengan compose terbaru
-(tanpa `container_name` dan tanpa `ports`).
+Backend Galeriku jalan sebagai resource Docker Compose di Coolify
+(resource "galeriku-backend"). Inilah satu-satunya sumber kebenaran
+deploy backend.
 
 ## Pengaturan resource di UI Coolify
 
-- Sumber: Git, repo `hfzfjr/galeriku`, branch `main`.
-- Build pack: Docker Compose.
-- Base Directory: `/`.
-- Docker Compose Location: `/infrastructure/docker-compose.yml`.
-- Domain: `http://galeriku-api.hafizfajar.com:4000`.
-- Auto-deploy: MATIKAN dulu sampai cutover berhasil dan dicek.
+- Sumber: GitHub App, repo `hfzfjr/galeriku`, branch `main`.
+- Build strategy: Compose.
+- Base Directory: `/infrastructure`.
+- Docker Compose Location: `/docker-compose.yml`.
+- Domain: di service `backend`, `http://galeriku-api.hafizfajar.com:4000`.
+- Auto-deploy: diatur di tugas terpisah.
+- Route tunnel `galeriku-api.hafizfajar.com` ->
+  `http://localhost:80` (proxy Traefik Coolify).
 
 ## Variabel environment (isi nama-nama ini di UI Coolify)
 
@@ -37,18 +38,18 @@ Database di Coolify baru dan kosong; migrasi Prisma jalan otomatis saat
 container backend start (lihat `CMD` di `backend/Dockerfile`). Migrasi
 harus kompatibel mundur.
 
-## Langkah cutover
+## Deploy dan rollback via Coolify
 
-1. Hentikan stack lama TANPA menghapus volume: `docker compose stop`
-   (JANGAN `down -v`; volume `galeriku_pgdata` dipertahankan).
-2. Deploy di Coolify, tunggu status sehat.
-3. Ubah route tunnel `galeriku-api.hafizfajar.com` ke
-   `http://localhost:80` (proxy Coolify).
-4. Cek berurutan: `GET /health`, `GET /auth/me` (dengan cookie sesi),
-   `GET /admin/users` (sebagai ADMIN).
+Deploy lewat Coolify (tombol Deploy di resource "galeriku-backend").
+Cek cepat pasca-deploy, berurutan:
 
-## Rollback
+1. `GET /health` ok dan database up.
+2. `GET /auth/me` tanpa sesi -> 401.
+3. `GET /admin/users` tanpa sesi -> 401.
+4. Route tak dikenal -> `NOT_FOUND`.
 
-1. Kembalikan route tunnel ke `http://localhost:4000`.
-2. Nyalakan stack lama: `docker start galeriku-postgres galeriku-backend`.
-3. Pertahankan volume dan container lama beberapa hari sebelum dihapus.
+Catatan rollback ke stack lama (HAPUS catatan ini saat tugas
+pembersihan volume lama selesai): kembalikan route tunnel ke
+`http://localhost:4000`, lalu `docker start galeriku-postgres
+galeriku-backend`. Container dan volume lama
+(`galeriku_galeriku_pgdata`) masih ada sebagai cadangan.
