@@ -79,7 +79,10 @@ pnpm --filter backend migrate:dev       # buat/terapkan migrasi (dev)
 `prisma:generate` juga berjalan otomatis sebelum `build`/`test` lewat
 script `prebuild`/`pretest`. Di produksi, migrasi jalan otomatis saat
 container start (`migrate deploy` via `CMD` di `backend/Dockerfile`);
-deploy lewat Coolify.
+deploy lewat Coolify. Database produksi adalah resource Database
+Coolify (PostgreSQL 16) terpisah, bukan service di
+`infrastructure/docker-compose.yml`; backend terhubung lewat
+`DATABASE_URL` (Internal URL resource database, diisi di UI Coolify).
 
 ## Deployment
 

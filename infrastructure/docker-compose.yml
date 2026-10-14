@@ -1,38 +1,20 @@
 # Galeriku — Compose untuk Coolify (resource Docker Compose dari Git).
 # Base Directory "/infrastructure", Docker Compose Location "/docker-compose.yml".
 # Variabel diisi di UI Coolify (bukan infrastructure/.env).
+# Compose ini hanya service backend; database PostgreSQL 16 adalah
+# resource Database Coolify terpisah. Backend menjangkau database lewat
+# DATABASE_URL (Internal URL resource database, diisi di UI Coolify).
 # TIDAK ada service cloudflared: tunnel "cf-tunnel" jalan sebagai layanan
 # host dengan route galeriku-api.hafizfajar.com -> http://localhost:80
 # (proxy Coolify/Traefik; didaftarkan manual lewat dashboard Cloudflare).
 # Tanpa container_name (Coolify mengelola nama sendiri agar tidak bentrok
 # dengan container lama) dan tanpa ports pada backend (akses lewat proxy
 # Coolify). Variabel wajib memakai ${VAR:?} supaya deploy diblokir bila
-# kosong. postgres tetap tanpa publish port.
+# kosong, kecuali DATABASE_URL yang ditulis ${DATABASE_URL} tanpa :?
+# karena validator Coolify menolaknya di posisi itu.
 name: galeriku
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    mem_limit: 384m
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:?}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-      POSTGRES_DB: ${POSTGRES_DB:?}
-    volumes:
-      - galeriku_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?} -d ${POSTGRES_DB:?}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   backend:
     build:
       context: ..
@@ -44,7 +26,9 @@ services:
       PORT: "4000"
       HOST: 0.0.0.0
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+      # DATABASE_URL diisi dari Internal URL resource Database Coolify.
+      # Sengaja tanpa :? karena validator Coolify menolaknya di posisi ini.
+      DATABASE_URL: ${DATABASE_URL}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?}
       ADMIN_EMAIL: ${ADMIN_EMAIL:?}
       DEFAULT_QUOTA_BYTES: ${DEFAULT_QUOTA_BYTES:?}
@@ -63,9 +47,13 @@ services:
       # uid 1000 SEBELUM deploy. Sengaja tanpa :? karena validator
       # Coolify menolaknya pada sumber volume.
       - ${MEDIA_HOST_DIR}:/data/media
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # Database adalah resource terpisah; backend perlu jaringan "coolify"
+    # untuk menjangkaunya di samping jaringan default compose. Jika Coolify
+    # mengatur ini lewat opsi "Connect to Predefined Network", opsi itu juga
+    # harus aktif (belum diverifikasi di environment ini).
+    networks:
+      - default
+      - coolify
     healthcheck:
       # Image slim tanpa curl/wget; pakai fetch bawaan Node.
       test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:4000/health\").then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))'"]
@@ -79,5 +67,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  galeriku_pgdata:
+networks:
+  coolify:
+    external: true

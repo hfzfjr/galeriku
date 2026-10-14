@@ -35,8 +35,8 @@ atau Deploy Webhook berotentikasi.
 
 ## Variabel environment (isi nama-nama ini di UI Coolify)
 
-Wajib (deploy diblokir bila kosong): `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, `POSTGRES_DB`, `FRONTEND_ORIGIN`, `ADMIN_EMAIL`,
+Wajib (deploy diblokir bila kosong): `DATABASE_URL`,
+`FRONTEND_ORIGIN`, `ADMIN_EMAIL`,
 `DEFAULT_QUOTA_BYTES`, `IP_HASH_SECRET`, `TURNSTILE_SECRET_KEY`,
 `MAIL_PROVIDER`, `MAIL_API_KEY`, `MAIL_FROM`, `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `MEDIA_HOST_DIR`.
@@ -52,9 +52,38 @@ mkdir -p /home/hafiz/galeriku-data/media
 chown 1000:1000 /home/hafiz/galeriku-data/media
 ```
 
-Database di Coolify baru dan kosong; migrasi Prisma jalan otomatis saat
-container backend start (lihat `CMD` di `backend/Dockerfile`). Migrasi
-harus kompatibel mundur.
+Database adalah resource Database Coolify terpisah (lihat bagian
+"Database terpisah" di bawah), mulai kosong; migrasi Prisma jalan
+otomatis saat container backend start (lihat `CMD` di
+`backend/Dockerfile`). Migrasi harus kompatibel mundur.
+
+## Database terpisah
+
+PostgreSQL 16 jalan sebagai resource Database Coolify terpisah di
+project/environment yang sama (dibuat manual di UI Coolify, bukan
+dari repo ini), dengan destination "coolify".
+
+- `DATABASE_URL` di resource backend diisi dari Internal URL resource
+  database tersebut (salin dari dashboard resource database; jangan
+  menulis nilainya di repo ini). Di compose ditulis `${DATABASE_URL}`
+  tanpa `:?`.
+- Env `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` di resource
+  backend dihapus setelah `DATABASE_URL` terpasang (tidak lagi dipakai
+  compose).
+- Backup memakai fitur Backups bawaan Coolify di resource database
+  (jadwal harian, retensi 14 hari); restore lewat Import Backup di
+  resource yang sama.
+- Urutan deploy: buat resource database dulu, set `DATABASE_URL` di
+  resource backend, baru deploy backend.
+- Backend terhubung ke database lewat jaringan Docker "coolify"
+  (lihat `networks` di `infrastructure/docker-compose.yml`); jika
+  Coolify mengatur ini lewat opsi "Connect to Predefined Network",
+  opsi itu juga harus aktif (belum diverifikasi di environment ini,
+  perlu dicek saat deploy).
+- Coolify sejauh yang diketahui tidak menyediakan penjelajah tabel;
+  untuk melihat isi tabel pakai Terminal di dashboard Coolify
+  (`psql` dengan `DATABASE_URL` resource database) atau klien database
+  dari luar dengan kredensial resource tersebut.
 
 ## Deploy dan rollback via Coolify
 
