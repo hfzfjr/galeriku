@@ -107,9 +107,3 @@ Perbaikan terbaik = `git revert` commit bermasalah di `main` lalu
 push (auto-deploy jalan lagi) atau Redeploy manual. Deploy Compose
 di Coolify TIDAK memakai penggantian rolling, jadi layanan bisa mati
 sebentar selama deploy dan bisa tetap mati bila deploy gagal.
-
-Catatan rollback ke stack lama (HAPUS catatan ini saat tugas
-pembersihan volume lama selesai): kembalikan route tunnel ke
-`http://localhost:4000`, lalu `docker start galeriku-postgres
-galeriku-backend`. Container dan volume lama
-(`galeriku_galeriku_pgdata`) masih ada sebagai cadangan.
