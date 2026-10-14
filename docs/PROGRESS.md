@@ -29,6 +29,7 @@ Catatan carry-over: pesan fallback "Galeriku lagi istirahat" dikerjakan di US-10
 - [x] US-13 Sebagai admin, saya ingin akses yang terkunci di backend
 
 Sprint 2 selesai; catatan penutupan dikerjakan di branch sprint-2-penutupan.
+Catatan penutupan: deploy backend kini lewat Coolify (deploy.sh dihapus).
 
 ## Sprint 3 — Upload dan Penyimpanan
 
