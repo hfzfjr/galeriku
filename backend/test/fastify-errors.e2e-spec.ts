@@ -101,14 +101,31 @@ describe('Galat Fastify (e2e)', () => {
   });
 
   it('payload melebihi bodyLimit -> 413 PAYLOAD_TOO_LARGE', async () => {
+    // Server memutus koneksi saat batas terlampaui selagi klien masih
+    // mengunggah: kadang klien hanya melihat ECONNRESET (balapan socket,
+    // bukan bug). Ulangi hingga respons 413 tiba.
     const besar = `"${'x'.repeat(2 * 1024 * 1024)}"`;
-    const res = await request(server())
-      .post('/auth/login')
-      .set('Origin', ORIGIN)
-      .set('Content-Type', 'application/json')
-      .set('cf-connecting-ip', TEST_IP)
-      .send(besar)
-      .expect(413);
+    let res: { body: unknown; text: string } | null = null;
+    for (let coba = 1; coba <= 3; coba += 1) {
+      try {
+        res = (await request(server())
+          .post('/auth/login')
+          .set('Origin', ORIGIN)
+          .set('Content-Type', 'application/json')
+          .set('cf-connecting-ip', TEST_IP)
+          .send(besar)
+          .expect(413)) as unknown as { body: unknown; text: string };
+        break;
+      } catch (error) {
+        const kode = (error as { code?: unknown })?.code;
+        if (kode !== 'ECONNRESET' || coba === 3) {
+          throw error;
+        }
+      }
+    }
+    if (!res) {
+      throw new Error('tidak pernah mendapat respons 413');
+    }
     expect(res.body).toEqual({
       statusCode: 413,
       code: 'PAYLOAD_TOO_LARGE',
