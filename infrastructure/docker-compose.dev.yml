@@ -1,9 +1,25 @@
-# Override OPSIONAL untuk laptop: hanya mempublish postgres ke loopback
-# agar bisa diakses tool lokal (psql, Prisma Studio).
+# Compose DEV lokal (laptop): postgres mandiri untuk pengembangan.
 # Dipakai eksplisit dengan -f, TIDAK auto-load (bukan override.yml):
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-# Jangan dipakai di server.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+# Jangan dipakai di server. Kredensial dev bawaan cocok dengan
+# backend/.env.example (DATABASE_URL ke 127.0.0.1:5432).
 services:
   postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: galeriku
     ports:
       - "127.0.0.1:5432:5432"
+    volumes:
+      - galeriku_pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d galeriku"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  galeriku_pgdata_dev:
