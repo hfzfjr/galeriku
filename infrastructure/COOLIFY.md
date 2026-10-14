@@ -11,9 +11,27 @@ deploy backend.
 - Base Directory: `/infrastructure`.
 - Docker Compose Location: `/docker-compose.yml`.
 - Domain: di service `backend`, `http://galeriku-api.hafizfajar.com:4000`.
-- Auto-deploy: diatur di tugas terpisah.
+- Auto Deploy menyala (Configuration > Advanced > Deployment & Git); sumber GitHub App sehingga push ke main memicu deploy lewat webhook.
 - Route tunnel `galeriku-api.hafizfajar.com` ->
   `http://localhost:80` (proxy Traefik Coolify).
+
+## Watch Paths
+
+Diatur di Configuration > General > Build, satu pola per baris:
+
+```text
+backend/**
+packages/**
+infrastructure/**
+pnpm-lock.yaml
+pnpm-workspace.yaml
+package.json
+```
+
+Perubahan di luar pola ini (mis. `frontend/**`, `docs/**`)
+tidak memicu build ulang backend. Watch Paths hanya menyaring
+event webhook Git, TIDAK memblokir tombol Deploy/Redeploy manual
+atau Deploy Webhook berotentikasi.
 
 ## Variabel environment (isi nama-nama ini di UI Coolify)
 
@@ -47,6 +65,19 @@ Cek cepat pasca-deploy, berurutan:
 2. `GET /auth/me` tanpa sesi -> 401.
 3. `GET /admin/users` tanpa sesi -> 401.
 4. Route tak dikenal -> `NOT_FOUND`.
+
+### Pemantauan
+
+Lihat hasil di Coolify > galeriku-backend > Deployments, baca
+Deployment Logs; migrasi Prisma gagal berarti container keluar dan
+deploy ditandai gagal.
+
+### Rollback
+
+Perbaikan terbaik = `git revert` commit bermasalah di `main` lalu
+push (auto-deploy jalan lagi) atau Redeploy manual. Deploy Compose
+di Coolify TIDAK memakai penggantian rolling, jadi layanan bisa mati
+sebentar selama deploy dan bisa tetap mati bila deploy gagal.
 
 Catatan rollback ke stack lama (HAPUS catatan ini saat tugas
 pembersihan volume lama selesai): kembalikan route tunnel ke
