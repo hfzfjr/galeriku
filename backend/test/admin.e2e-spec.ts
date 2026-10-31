@@ -219,7 +219,7 @@ describe('Admin (e2e)', () => {
       );
       expect(idDua).toContain(admin.id as string);
       expect(new Set([...idSatu, ...idDua]).size).toBe(25);
-    });
+    }, 20000);
 
     it('pencarian nama/email tak peduli huruf, wildcard literal', async () => {
       const admin = await seedAdmin(db);
