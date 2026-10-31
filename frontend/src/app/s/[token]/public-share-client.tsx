@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { PublicViewer } from "@/components/public/public-viewer";
 import {
   fetchPublicShare,
+  getPublicAlbumZipUrl,
   getPublicFileContentUrl,
   getPublicThumbnailUrl,
   unlockPublicShare,
@@ -177,13 +178,24 @@ export function PublicShareClient({ token }: { token: string }) {
 
       {/* Konten Halaman */}
       <main className="flex-1 p-4 sm:p-8 max-w-6xl mx-auto w-full flex flex-col gap-6">
-        <div>
-          <h1 className="text-h1 font-serif text-ink">{data.title}</h1>
-          <p className="text-caption text-ink-muted mt-1">
-            Dibagikan lewat tautan publik &bull;{" "}
-            {data.files.length}{" "}
-            {data.files.length === 1 ? "foto/video" : "foto/video"}
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-h1 font-serif text-ink">{data.title}</h1>
+            <p className="text-caption text-ink-muted mt-1">
+              Dibagikan lewat tautan publik &bull;{" "}
+              {data.files.length}{" "}
+              {data.files.length === 1 ? "foto/video" : "foto/video"}
+            </p>
+          </div>
+
+          {data.targetType === "ALBUM" && data.allowDownload && data.files.length > 0 && (
+            <a href={getPublicAlbumZipUrl(token)} download={`${data.title}.zip`}>
+              <Button variant="primary" className="gap-1.5 self-start sm:self-auto">
+                <Download size={16} />
+                <span>Unduh Album (ZIP)</span>
+              </Button>
+            </a>
+          )}
         </div>
 
         {/* Jika File Tunggal */}

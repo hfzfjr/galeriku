@@ -60,7 +60,7 @@ Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (a
 
 - [x] US-26 Sebagai pengguna, saya ingin mengatur opsi link
 - [x] US-27 Sebagai pengguna, saya ingin mengelola dan mencabut link
-- [ ] US-28 Sebagai penerima, saya ingin mengunduh album sebagai ZIP
+- [x] US-28 Sebagai penerima, saya ingin mengunduh album sebagai ZIP
 - [ ] US-29 Sebagai admin, saya ingin rate limit dan header keamanan
 - [ ] US-30 Sebagai pengguna HP, saya ingin PWA dan Web Share
 

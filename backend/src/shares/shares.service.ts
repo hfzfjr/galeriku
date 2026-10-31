@@ -555,6 +555,76 @@ export class SharesService {
     };
   }
 
+  async getAlbumZipInfo(
+    token: string,
+    unlockToken?: string,
+  ): Promise<{
+    title: string;
+    files: Array<{ originalName: string; filePath: string }>;
+  }> {
+    const share = await this.validateActiveShare(token);
+
+    if (
+      share.passwordHash &&
+      !this.verifyUnlockToken(share.id, unlockToken)
+    ) {
+      throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
+    }
+
+    if (!share.allowDownload) {
+      throw new ApiError(
+        403,
+        'DOWNLOAD_FORBIDDEN',
+        'Izin unduh dinonaktifkan oleh pemilik tautan.',
+      );
+    }
+
+    if (share.targetType !== ShareTarget.ALBUM) {
+      throw new ApiError(
+        400,
+        'BAD_REQUEST',
+        'Hanya album yang dapat diunduh sebagai ZIP.',
+      );
+    }
+
+    const album = await this.prisma.album.findUnique({
+      where: { id: share.targetId },
+      include: {
+        albumFiles: {
+          include: {
+            file: true,
+          },
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+
+    if (!album) {
+      throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
+    }
+
+    const mediaDir = resolveMediaDir();
+    const readyFiles: Array<{ originalName: string; filePath: string }> = [];
+
+    for (const af of album.albumFiles) {
+      const f = af.file;
+      if (f.deletedAt === null && f.status === FileStatus.ready) {
+        const fullPath = join(mediaDir, f.storageKey);
+        if (existsSync(fullPath)) {
+          readyFiles.push({
+            originalName: f.originalName,
+            filePath: fullPath,
+          });
+        }
+      }
+    }
+
+    return {
+      title: album.title,
+      files: readyFiles,
+    };
+  }
+
   async getPublicThumbnailPath(
     token: string,
     fileId: string,

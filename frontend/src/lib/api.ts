@@ -401,6 +401,10 @@ export function getPublicFileContentUrl(
   return download ? `${base}?download=1` : base;
 }
 
+export function getPublicAlbumZipUrl(token: string): string {
+  return `${getApiBase()}/public/s/${encodeURIComponent(token)}/zip`;
+}
+
 
 
 

@@ -21,6 +21,7 @@ import { getClientIp, getUserAgent } from '../common/utils/client-ip';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
+import { createZipStream } from './zip-stream';
 
 function getUnlockTokenFromReq(req: FastifyRequest): string | undefined {
   // 1. Ambil dari header kustom jika ada
@@ -222,5 +223,38 @@ export class PublicSharesController {
     res.header('Content-Length', sizeBytes);
     const stream = createReadStream(filePath);
     return res.send(stream);
+  }
+
+  @Public()
+  @Get(':token/zip')
+  async downloadAlbumZip(
+    @Param('token') token: string,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ): Promise<void> {
+    const unlockToken = getUnlockTokenFromReq(req);
+    const { title, files } = await this.sharesService.getAlbumZipInfo(
+      token,
+      unlockToken,
+    );
+
+    const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';
+    const filename = `${safeTitle}.zip`;
+
+    res.header('Content-Type', 'application/zip');
+    res.header(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(filename)}"`,
+    );
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Robots-Tag', 'noindex, nofollow');
+
+    const entries = files.map((f) => ({
+      filename: f.originalName,
+      getStream: () => createReadStream(f.filePath),
+    }));
+
+    const zipStream = createZipStream(entries);
+    return res.send(zipStream);
   }
 }
