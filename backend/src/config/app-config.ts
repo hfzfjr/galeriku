@@ -28,6 +28,9 @@ export type AppConfig = {
   googleClientId: string | undefined;
   googleClientSecret: string | undefined;
   googleCallbackUrl: string | undefined;
+  uploadMaxImageBytes: bigint;
+  uploadMaxVideoBytes: bigint;
+  diskGuardMinFreeBytes: bigint;
 };
 
 export const APP_CONFIG = 'APP_CONFIG';
@@ -47,6 +50,9 @@ export const APP_CONFIG = 'APP_CONFIG';
 export class AppConfigModule {}
 
 const DEFAULT_QUOTA_BYTES = 5368709120n;
+const DEFAULT_UPLOAD_MAX_IMAGE_BYTES = 26214400n; // 25 MB (US-18)
+const DEFAULT_UPLOAD_MAX_VIDEO_BYTES = 2147483648n; // 2 GB (US-18)
+const DEFAULT_DISK_GUARD_MIN_FREE_BYTES = 16106127360n; // 15 GB (US-18)
 // Secret khusus dev lokal (http). Tidak pernah dipakai di produksi:
 // di produksi IP_HASH_SECRET wajib diisi (validasi di bawah).
 const DEV_IP_HASH_SECRET = 'dev-only-ip-hash-secret-minimal-32-kar';
@@ -160,6 +166,33 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     }
   }
 
+  const maxImageRaw = optional(env, 'UPLOAD_MAX_IMAGE_BYTES');
+  let uploadMaxImageBytes = DEFAULT_UPLOAD_MAX_IMAGE_BYTES;
+  if (maxImageRaw !== undefined) {
+    if (!/^\d+$/.test(maxImageRaw) || BigInt(maxImageRaw) <= 0n) {
+      throw new Error('UPLOAD_MAX_IMAGE_BYTES harus angka bulat positif.');
+    }
+    uploadMaxImageBytes = BigInt(maxImageRaw);
+  }
+
+  const maxVideoRaw = optional(env, 'UPLOAD_MAX_VIDEO_BYTES');
+  let uploadMaxVideoBytes = DEFAULT_UPLOAD_MAX_VIDEO_BYTES;
+  if (maxVideoRaw !== undefined) {
+    if (!/^\d+$/.test(maxVideoRaw) || BigInt(maxVideoRaw) <= 0n) {
+      throw new Error('UPLOAD_MAX_VIDEO_BYTES harus angka bulat positif.');
+    }
+    uploadMaxVideoBytes = BigInt(maxVideoRaw);
+  }
+
+  const diskGuardRaw = optional(env, 'DISK_GUARD_MIN_FREE_BYTES');
+  let diskGuardMinFreeBytes = DEFAULT_DISK_GUARD_MIN_FREE_BYTES;
+  if (diskGuardRaw !== undefined) {
+    if (!/^\d+$/.test(diskGuardRaw) || BigInt(diskGuardRaw) <= 0n) {
+      throw new Error('DISK_GUARD_MIN_FREE_BYTES harus angka bulat positif.');
+    }
+    diskGuardMinFreeBytes = BigInt(diskGuardRaw);
+  }
+
   return {
     isProduction,
     frontendOrigin,
@@ -174,6 +207,9 @@ export function loadAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     googleClientId,
     googleClientSecret,
     googleCallbackUrl,
+    uploadMaxImageBytes,
+    uploadMaxVideoBytes,
+    diskGuardMinFreeBytes,
   };
 }
 

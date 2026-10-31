@@ -14,15 +14,18 @@ import {
   TUS_AUTH_USER_KEY,
   TUS_OWNER_METADATA_KEY,
   TUS_ROUTE_PATH,
-  TUS_SPIKE_MAX_SIZE_BYTES,
+  TUS_SERVER_MAX_SIZE_BYTES,
 } from './uploads.constants';
 import { mapTus404ToStandard } from './uploads.errors';
 import {
-  inferKind,
+  checkDiskGuard,
+  checkUserQuotaAndStatus,
   resolveMediaDir,
   sanitizeOriginalName,
+  sniffAndValidateFile,
   TUS_ORPHAN_TTL_MS,
   tusDirOf,
+  validateUploadMetadata,
 } from './uploads.utils';
 
 // Body galat standar bila hook tus dipanggil tanpa titipan sesi (tak
@@ -51,10 +54,6 @@ export function readTusAuthUser(req: unknown): SessionUser | undefined {
   return undefined;
 }
 
-// Spike US-16: @tus/server di dalam NestJS (adapter Fastify). Autentikasi
-// dan Origin TETAP lewat guard global Nest (SessionAuthGuard, OriginGuard)
-// karena route didaftarkan sebagai controller; hook di sini hanya menegakkan
-// kepemilikan (404 identik) dan menulis ownerId sisi server.
 @Injectable()
 export class UploadsService implements OnModuleInit {
   private readonly logger = new Logger(UploadsService.name);
@@ -77,7 +76,7 @@ export class UploadsService implements OnModuleInit {
         directory,
         expirationPeriodInMilliseconds: TUS_ORPHAN_TTL_MS,
       }),
-      maxSize: TUS_SPIKE_MAX_SIZE_BYTES,
+      maxSize: Number(this.config.uploadMaxVideoBytes) || TUS_SERVER_MAX_SIZE_BYTES,
       // Location relatif (fix US-16): "/uploads/<uuid>" tanpa skema/host,
       // sehingga kebal terhadap header Forwarded/X-Forwarded-* dari rantai
       // proxy (Cloudflare -> cloudflared -> Traefik) yang hop terakhirnya
@@ -94,7 +93,7 @@ export class UploadsService implements OnModuleInit {
       namingFunction: () => randomUUID(),
       onIncomingRequest: (req, uploadId) =>
         this.checkOwnership(req, uploadId),
-      onUploadCreate: (req, upload) => this.attachOwner(req, upload),
+      onUploadCreate: (req, upload) => this.handleUploadCreate(req, upload),
       onUploadFinish: (req, upload) => this.finishUpload(req, upload),
       onResponseError: (_req, err) =>
         Promise.resolve(
@@ -163,17 +162,54 @@ export class UploadsService implements OnModuleInit {
     }
   }
 
-  // ownerId ditulis sisi server (menimpa kiriman klien bila ada).
-  private async attachOwner(
+  // Pembuatan upload (US-18): validasi metadata klien (SVG ditolak, whitelist
+  // ekstensi/tipe, batas per tipe foto 25 MB / video 2 GB), disk guard (sisa disk
+  // >= 15 GB), status akun, dan kuota pengguna. ownerId ditulis sisi server.
+  private async handleUploadCreate(
     req: unknown,
-    upload: { metadata?: Record<string, string | null> | undefined },
+    upload: {
+      size?: number;
+      metadata?: Record<string, string | null> | undefined;
+    },
   ): Promise<{ metadata: Record<string, string | null> }> {
     const user = readTusAuthUser(req);
     if (!user) {
       throw { status_code: 401, body: UNAUTHENTICATED_BODY };
     }
+
+    const uploadSize =
+      upload.size !== undefined && upload.size !== null
+        ? BigInt(upload.size)
+        : undefined;
+
+    // 1. Validasi metadata kiriman klien (SVG ditolak, whitelist, batas ukuran)
+    const { originalName } = validateUploadMetadata(
+      upload.metadata,
+      uploadSize,
+      this.config.uploadMaxImageBytes,
+      this.config.uploadMaxVideoBytes,
+    );
+
+    // 2. Disk Guard: sisa ruang disk server minimal 15 GB (PRD §11 & §12.4)
+    checkDiskGuard(
+      resolveMediaDir(),
+      uploadSize ?? 0n,
+      this.config.diskGuardMinFreeBytes,
+    );
+
+    // 3. Status akun & kuota pengguna (PRD §11 & §12.4)
+    await checkUserQuotaAndStatus(
+      user.id,
+      uploadSize ?? 0n,
+      this.prisma,
+    );
+
     return {
-      metadata: { ...upload.metadata, [TUS_OWNER_METADATA_KEY]: user.id },
+      metadata: {
+        ...upload.metadata,
+        filename: originalName,
+        [TUS_OWNER_METADATA_KEY]: user.id,
+      },
     };
   }
 
@@ -183,12 +219,13 @@ export class UploadsService implements OnModuleInit {
     return this.getServer().datastore.deleteExpired();
   }
 
-  // Penyelesaian upload (US-17): pindahkan
-  // MEDIA_DIR/_tus/<uuid> -> MEDIA_DIR/<uuid> (storage_key = UUID,
-  // bukan nama asli) lalu buat baris File status ready. Validasi
-  // MIME/kuota/disk guard BELUM ada (US-18): semua tipe diterima.
-  // Aman: bila tulis DB gagal setelah file pindah, file final dihapus
-  // lagi agar tak jadi yatim tanpa baris DB.
+  // Penyelesaian upload (US-17 & US-18):
+  // 1. Validasi MIME sniffing dengan file-type pada berkas aktual di disk
+  //    (memastikan tipe masuk whitelist: JPEG/PNG/WebP/GIF/HEIC/MP4/MOV/WebM; SVG ditolak).
+  // 2. Verifikasi ulang ukuran aktual terhadap batas tipe.
+  // 3. Pindahkan MEDIA_DIR/_tus/<uuid> -> MEDIA_DIR/<uuid> (storage_key = UUID).
+  // 4. Buat baris File status ready.
+  // Aman atomik: bila gagal sniff atau tulis DB, berkas segera dibersihkan.
   private async finishUpload(
     req: unknown,
     upload: {
@@ -209,12 +246,30 @@ export class UploadsService implements OnModuleInit {
     const tujuan = join(mediaDir, storageKey);
     const mentah = upload.metadata?.['filename'];
     const originalName = sanitizeOriginalName(mentah);
-    const mimeType =
-      typeof upload.metadata?.['filetype'] === 'string' &&
-      upload.metadata['filetype'].length > 0
-        ? upload.metadata['filetype']
-        : 'application/octet-stream';
+    const sidecar = join(tusDir, `${storageKey}.json`);
+
+    // 1. MIME sniffing & validasi file aktual di disk (US-18)
+    let sniffed: { mime: string; kind: 'image' | 'video' };
+    try {
+      sniffed = await sniffAndValidateFile(
+        asal,
+        this.config.uploadMaxImageBytes,
+        this.config.uploadMaxVideoBytes,
+      );
+    } catch (error) {
+      await rm(asal, { force: true });
+      await rm(sidecar, { force: true });
+      this.logger.warn(
+        `Upload ${storageKey} ditolak saat validasi MIME sniffing: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
+      );
+      throw error;
+    }
+
     const ukuran = upload.size ?? upload.offset;
+
+    // 2. Cek ulang kuota terhadap ukuran aktual (US-18)
+    await checkUserQuotaAndStatus(user.id, BigInt(ukuran), this.prisma);
+
     try {
       await rename(asal, tujuan);
     } catch (error) {
@@ -230,24 +285,25 @@ export class UploadsService implements OnModuleInit {
         }),
       };
     }
-    // Sidecar <uuid>.json tak lagi dibutuhkan (upload sudah selesai dan
-    // tak ikut deleteExpired); kegagalan menghapusnya hanya dicatat.
+
+    // Sidecar <uuid>.json tak lagi dibutuhkan
     try {
-      await rm(join(tusDir, `${storageKey}.json`), { force: true });
+      await rm(sidecar, { force: true });
     } catch (error) {
       this.logger.warn(
         `Sidecar ${storageKey}.json gagal dihapus: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+
     try {
       await this.prisma.file.create({
         data: {
           ownerId: user.id,
           originalName,
           storageKey,
-          mimeType,
+          mimeType: sniffed.mime,
           sizeBytes: BigInt(ukuran),
-          kind: inferKind(mimeType, originalName),
+          kind: sniffed.kind,
           status: FileStatus.ready,
         },
       });

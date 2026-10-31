@@ -26,6 +26,12 @@ import { Button } from "@/components/ui/button";
 const CHUNK_SIZE = 5242880; // 5 MB, sama dengan PRD.
 const MAKS_PARALEL = 2;
 const TUS_VERSION = "1.0.0";
+const MAKS_FOTO_BYTE = 26214400; // 25 MB (US-18)
+const MAKS_VIDEO_BYTE = 2147483648; // 2 GB (US-18)
+
+const EXT_FOTO = new Set(["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"]);
+const EXT_VIDEO = new Set(["mp4", "mov", "webm", "m4v"]);
+const EXT_DIIZINKAN = new Set([...EXT_FOTO, ...EXT_VIDEO]);
 
 type StatusItem =
   | "menunggu"
@@ -69,15 +75,28 @@ function daring(): boolean {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
 
-// Galat tus mentah (kode HTTP, stack) tidak ditampilkan ke pengguna.
+// Galat tus mentah (kode HTTP, stack) tidak ditampilkan ke pengguna (US-18).
 function pesanGalatRamah(err: unknown): string {
   if (!daring()) return "Koneksi terputus, akan dilanjutkan otomatis.";
   const teks = err instanceof Error ? err.message : String(err);
   if (/\b401\b|unauthorized/i.test(teks)) {
     return "Sesi habis. Masuk ulang lalu coba lagi.";
   }
+  if (/\b415\b|unsupported|tidak didukung|svg/i.test(teks)) {
+    if (/svg/i.test(teks)) return "Format SVG tidak diizinkan.";
+    return "Format file tidak didukung.";
+  }
   if (/\b413\b|too large|melebihi/i.test(teks)) {
+    if (/foto/i.test(teks)) return "Ukuran foto melebihi batas 25 MB.";
+    if (/video/i.test(teks)) return "Ukuran video melebihi batas 2 GB.";
     return "Berkas terlalu besar untuk diunggah.";
+  }
+  if (/\b403\b|quota|kuota|suspended|ditangguhkan/i.test(teks)) {
+    if (/suspended|ditangguhkan/i.test(teks)) return "Akun Anda sedang ditangguhkan.";
+    return "Sisa kuota penyimpanan tidak mencukupi.";
+  }
+  if (/\b507\b|insufficient|penyimpanan server/i.test(teks)) {
+    return "Penyimpanan server hampir penuh. Coba lagi nanti.";
   }
   return "Upload gagal. Coba lagi.";
 }
@@ -195,23 +214,41 @@ export function GaleriUploadClient() {
     const baru: ItemUpload[] = [];
     for (const berkas of Array.from(pilihan)) {
       const id = buatId();
+      const nama = berkas.name || "Berkas tanpa nama";
+      const ext = (nama.split(".").pop() ?? "").toLowerCase();
+      const isVideo = EXT_VIDEO.has(ext) || berkas.type.startsWith("video/");
+      const isSvg = ext === "svg" || berkas.type.includes("svg");
+
+      let galatAwal = "";
+      if (isSvg) {
+        galatAwal = "Format SVG tidak diizinkan.";
+      } else if (ext && !EXT_DIIZINKAN.has(ext)) {
+        galatAwal = "Format file tidak didukung.";
+      } else if (!isVideo && berkas.size > MAKS_FOTO_BYTE) {
+        galatAwal = "Ukuran foto melebihi batas 25 MB.";
+      } else if (isVideo && berkas.size > MAKS_VIDEO_BYTE) {
+        galatAwal = "Ukuran video melebihi batas 2 GB.";
+      }
+
       berkasRef.current.set(id, berkas);
       const pratinjau =
-        berkas.type.startsWith("image/") && typeof URL !== "undefined"
+        !isSvg && berkas.type.startsWith("image/") && typeof URL !== "undefined"
           ? URL.createObjectURL(berkas)
           : null;
       baru.push({
         id,
-        nama: berkas.name || "Berkas tanpa nama",
+        nama,
         ukuran: berkas.size,
         tipe: berkas.type,
         pratinjau,
-        status: "menunggu",
+        status: galatAwal ? "gagal" : "menunggu",
         terkirim: 0,
         total: berkas.size,
-        galat: "",
+        galat: galatAwal,
       });
-      antreRef.current.push(id);
+      if (!galatAwal) {
+        antreRef.current.push(id);
+      }
     }
     setDaftar((sebelum) => [...sebelum, ...baru]);
     setTerbuka(true);

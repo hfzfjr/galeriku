@@ -13,6 +13,9 @@ describe('loadAppConfig', () => {
     expect(config.isProduction).toBe(false);
     expect(config.frontendOrigin).toBe('https://galeriku.hafizfajar.com');
     expect(config.defaultQuotaBytes).toBe(5368709120n);
+    expect(config.uploadMaxImageBytes).toBe(26214400n);
+    expect(config.uploadMaxVideoBytes).toBe(2147483648n);
+    expect(config.diskGuardMinFreeBytes).toBe(16106127360n);
     expect(config.adminEmail).toBeUndefined();
     expect(config.contactEmail).toBeUndefined();
   });
@@ -56,6 +59,30 @@ describe('loadAppConfig', () => {
     expect(() => loadAppConfig({ ...BASE_ENV, CONTACT_EMAIL: 'salah' })).toThrow(
       'CONTACT_EMAIL',
     );
+    expect(() =>
+      loadAppConfig({ ...BASE_ENV, UPLOAD_MAX_IMAGE_BYTES: 'bukan-angka' }),
+    ).toThrow('UPLOAD_MAX_IMAGE_BYTES');
+    expect(() =>
+      loadAppConfig({ ...BASE_ENV, UPLOAD_MAX_IMAGE_BYTES: '0' }),
+    ).toThrow('UPLOAD_MAX_IMAGE_BYTES');
+    expect(() =>
+      loadAppConfig({ ...BASE_ENV, UPLOAD_MAX_VIDEO_BYTES: '-5' }),
+    ).toThrow('UPLOAD_MAX_VIDEO_BYTES');
+    expect(() =>
+      loadAppConfig({ ...BASE_ENV, DISK_GUARD_MIN_FREE_BYTES: 'nol' }),
+    ).toThrow('DISK_GUARD_MIN_FREE_BYTES');
+  });
+
+  it('membaca konfigurasi batas upload dan disk guard khusus (US-18)', () => {
+    const config = loadAppConfig({
+      ...BASE_ENV,
+      UPLOAD_MAX_IMAGE_BYTES: '10000000',
+      UPLOAD_MAX_VIDEO_BYTES: '500000000',
+      DISK_GUARD_MIN_FREE_BYTES: '20000000000',
+    });
+    expect(config.uploadMaxImageBytes).toBe(10000000n);
+    expect(config.uploadMaxVideoBytes).toBe(500000000n);
+    expect(config.diskGuardMinFreeBytes).toBe(20000000000n);
   });
 
   it('TURNSTILE_SECRET_KEY selalu wajib', () => {

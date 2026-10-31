@@ -33,6 +33,16 @@ const NOT_FOUND_TEXT = JSON.stringify({
   message: 'Tidak ditemukan.',
 });
 
+const SAMPLE_JPEG = Buffer.from([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+  0x01, 0x01, 0x00, 0x60, 0x00, 0x60, 0x00, 0x00, 0xff, 0xd9,
+]);
+
+const SAMPLE_MP4 = Buffer.from([
+  0, 0, 0, 28, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 2, 0,
+  0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32, 0x6d, 0x70, 0x34, 0x31,
+]);
+
 async function seedUser(
   db: FakeDb,
   email: string,
@@ -94,7 +104,7 @@ describe('Upload tus (US-16 spike)', () => {
   function buatUpload(
     cookie: string,
     panjang: number,
-    nama = 'uji.bin',
+    nama = 'uji.jpg',
   ): Promise<{ id: string; location: string }> {
     return request(server().getHttpAdapter().getInstance().server)
       .post('/uploads')
@@ -199,7 +209,7 @@ describe('Upload tus (US-16 spike)', () => {
     const cookie = craftSession(db, a.id as string);
     const http = () =>
       request(server().getHttpAdapter().getInstance().server);
-    const isi = Buffer.from('halo-dunia');
+    const isi = SAMPLE_JPEG;
     const buat = await http()
       .post('/uploads')
       .set('Cookie', `galeriku_session=${cookie}`)
@@ -208,7 +218,7 @@ describe('Upload tus (US-16 spike)', () => {
       .set('Upload-Length', String(isi.length))
       .set(
         'Upload-Metadata',
-        `filename ${Buffer.from('halo.txt', 'utf8').toString('base64')}`,
+        `filename ${Buffer.from('halo.jpg', 'utf8').toString('base64')}`,
       )
       .expect(201);
     if (buat.headers['x-content-type-options'] !== 'nosniff') {
@@ -274,7 +284,7 @@ describe('Upload tus (US-16 spike)', () => {
       .set('Upload-Length', '11')
       .set(
         'Upload-Metadata',
-        `filename ${Buffer.from('uji.txt', 'utf8').toString('base64')}`,
+        `filename ${Buffer.from('uji.jpg', 'utf8').toString('base64')}`,
       )
       .set('X-Forwarded-Proto', 'http')
       .set('X-Forwarded-Host', 'galeriku-api.hafizfajar.com')
@@ -301,7 +311,7 @@ describe('Upload tus (US-16 spike)', () => {
     const cookie = craftSession(db, a.id as string);
     const http = () =>
       request(server().getHttpAdapter().getInstance().server);
-    const isi = Buffer.from('01234567890');
+    const isi = SAMPLE_JPEG;
     const { id } = await buatUpload(cookie, isi.length);
     const lpatch = (offset: number, potong: Buffer) =>
       http()
@@ -359,13 +369,13 @@ describe('Upload tus (US-16 spike)', () => {
       cookieA,
       cookieB,
       origin: ORIGIN,
-      createResource: () => buatUpload(cookieA, 5).then((r) => r.id),
+      createResource: () => buatUpload(cookieA, SAMPLE_JPEG.length).then((r) => r.id),
       buildRequests: (id) => [
         { method: 'head', url: `/uploads/${id}`, headers: tusHeader },
         {
           method: 'patch',
           url: `/uploads/${id}`,
-          body: Buffer.from('12345'),
+          body: SAMPLE_JPEG,
           headers: {
             ...tusHeader,
             'Content-Type': 'application/offset+octet-stream',
@@ -424,7 +434,7 @@ describe('Upload tus (US-16 spike)', () => {
     it('selesai -> baris File ready + berkas pindah ke MEDIA_DIR/<uuid>', async () => {
       const a = await seedUser(db, 'a@contoh.id');
       const cookie = craftSession(db, a.id as string);
-      const isi = Buffer.from('foto-palsu-isi');
+      const isi = SAMPLE_JPEG;
       const { id } = await buatUploadDenganTipe(
         cookie,
         isi.length,
@@ -467,7 +477,7 @@ describe('Upload tus (US-16 spike)', () => {
     it('nama disanitasi (buang path), storage_key tetap UUID', async () => {
       const a = await seedUser(db, 'a@contoh.id');
       const cookie = craftSession(db, a.id as string);
-      const isi = Buffer.from('x'.repeat(8));
+      const isi = SAMPLE_JPEG;
       const { id } = await buatUploadDenganTipe(
         cookie,
         isi.length,
@@ -487,7 +497,7 @@ describe('Upload tus (US-16 spike)', () => {
     it('video dikenali dari mime/ekstensi', async () => {
       const a = await seedUser(db, 'a@contoh.id');
       const cookie = craftSession(db, a.id as string);
-      const isi = Buffer.from('video-palsu');
+      const isi = SAMPLE_MP4;
       const { id } = await buatUploadDenganTipe(
         cookie,
         isi.length,
@@ -504,7 +514,7 @@ describe('Upload tus (US-16 spike)', () => {
     it('gagal tulis DB setelah pindah -> berkas dibersihkan, galat ramah', async () => {
       const a = await seedUser(db, 'a@contoh.id');
       const cookie = craftSession(db, a.id as string);
-      const isi = Buffer.from('gagal-db-isi!');
+      const isi = SAMPLE_JPEG;
       const { id } = await buatUpload(cookie, isi.length);
       const service = app.get(UploadsService);
       const prisma = (
@@ -616,5 +626,169 @@ describe('Upload tus (US-16 spike)', () => {
         );
       }
     }
+  });
+
+  describe('Validasi, Kuota, dan Disk Guard (US-18)', () => {
+    it('pembuatan upload SVG ditolak keras (415 UNSUPPORTED_MEDIA_TYPE)', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const res = await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', '100')
+        .set(
+          'Upload-Metadata',
+          'filename ' + Buffer.from('ikon.svg').toString('base64'),
+        )
+        .expect(415);
+
+      const terurai = res.body && typeof (res.body as Record<string, unknown>).code === 'string'
+        ? (res.body as Record<string, unknown>)
+        : (JSON.parse(res.text) as Record<string, unknown>);
+      if (terurai.code !== 'UNSUPPORTED_MEDIA_TYPE') {
+        throw new Error(`kode: ${res.text}`);
+      }
+    });
+
+    it('pembuatan upload dengan ekstensi terlarang ditolak (415)', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', '100')
+        .set(
+          'Upload-Metadata',
+          'filename ' + Buffer.from('script.exe').toString('base64'),
+        )
+        .expect(415);
+    });
+
+    it('foto melebihi 25 MB ditolak (413 PAYLOAD_TOO_LARGE)', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const res = await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', String(26214401))
+        .set(
+          'Upload-Metadata',
+          'filename ' + Buffer.from('foto_besar.jpg').toString('base64'),
+        )
+        .expect(413);
+
+      const terurai = res.body && typeof (res.body as Record<string, unknown>).code === 'string'
+        ? (res.body as Record<string, unknown>)
+        : (JSON.parse(res.text) as Record<string, unknown>);
+      if (terurai.code !== 'PAYLOAD_TOO_LARGE') {
+        throw new Error(`kode: ${res.text}`);
+      }
+    });
+
+    it('video melebihi 2 GB ditolak (413)', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const res = await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', String(2147483649))
+        .set(
+          'Upload-Metadata',
+          'filename ' + Buffer.from('film.mp4').toString('base64'),
+        )
+        .expect(413);
+
+      if (!/exceeded|PAYLOAD_TOO_LARGE/i.test(res.text)) {
+        throw new Error(`kode: ${res.text}`);
+      }
+    });
+
+    it('upload ditolak bila kuota pengguna habis (403 QUOTA_EXCEEDED)', async () => {
+      const a = await seedUser(db, 'pelit@contoh.id');
+      // Set kuota kecil
+      (a as Record<string, unknown>).quotaBytes = 500n;
+      const cookie = craftSession(db, a.id as string);
+
+      const res = await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', '600')
+        .set(
+          'Upload-Metadata',
+          'filename ' + Buffer.from('foto.jpg').toString('base64'),
+        )
+        .expect(403);
+
+      const terurai = res.body && typeof (res.body as Record<string, unknown>).code === 'string'
+        ? (res.body as Record<string, unknown>)
+        : (JSON.parse(res.text) as Record<string, unknown>);
+      if (terurai.code !== 'QUOTA_EXCEEDED') {
+        throw new Error(`kode: ${res.text}`);
+      }
+    });
+
+    it('upload ditolak bila akun SUSPENDED (403 ACCOUNT_SUSPENDED)', async () => {
+      const a = await seedUser(db, 'suspend@contoh.id');
+      (a as Record<string, unknown>).status = 'SUSPENDED';
+      const cookie = craftSession(db, a.id as string);
+
+      const res = await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', '100')
+        .set(
+          'Upload-Metadata',
+          'filename ' + Buffer.from('foto.jpg').toString('base64'),
+        )
+        .expect(403);
+
+      const terurai = res.body && typeof (res.body as Record<string, unknown>).code === 'string'
+        ? (res.body as Record<string, unknown>)
+        : (JSON.parse(res.text) as Record<string, unknown>);
+      if (terurai.code !== 'ACCOUNT_SUSPENDED') {
+        throw new Error(`kode: ${res.text}`);
+      }
+    });
+
+    it('upload disamarkan SVG ditolak saat finish sniffing (415 UNSUPPORTED_MEDIA_TYPE)', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const svgContent = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>');
+      const { id } = await buatUpload(cookie, svgContent.length, 'palsu.jpg');
+
+      const res = await request(server().getHttpAdapter().getInstance().server)
+        .patch(`/uploads/${id}`)
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Content-Type', 'application/offset+octet-stream')
+        .set('Upload-Offset', '0')
+        .send(svgContent)
+        .expect(415);
+
+      const terurai = res.body && typeof (res.body as Record<string, unknown>).code === 'string'
+        ? (res.body as Record<string, unknown>)
+        : (JSON.parse(res.text) as Record<string, unknown>);
+      if (terurai.code !== 'UNSUPPORTED_MEDIA_TYPE') {
+        throw new Error(`kode: ${res.text}`);
+      }
+
+      // Berkas tus dan final dibersihkan
+      if (existsSync(join(tusDir, id)) || existsSync(join(mediaDir, id))) {
+        throw new Error('berkas ditolak tapi tidak dibersihkan dari disk');
+      }
+    });
   });
 });

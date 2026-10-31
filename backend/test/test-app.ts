@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -372,6 +372,26 @@ export function createFakePrisma(db: FakeDb) {
     },
     file: {
       ...makeModel(db.files),
+      // Agregat kuota per user (US-18): sum sizeBytes
+      aggregate: async (args: {
+        where?: Record<string, unknown>;
+        _sum?: { sizeBytes?: boolean };
+      }) => {
+        let total = 0n;
+        for (const row of db.files.values()) {
+          if (!matchWhere(row, args.where ?? {})) {
+            continue;
+          }
+          const ukuran =
+            typeof row.sizeBytes === 'bigint'
+              ? row.sizeBytes
+              : BigInt(Number(row.sizeBytes ?? 0));
+          total += ukuran;
+        }
+        return {
+          _sum: { sizeBytes: total },
+        };
+      },
       // Agregat pemakaian (US-12): groupBy ownerId + sum sizeBytes.
       groupBy: async (args: {
         by: string[];
