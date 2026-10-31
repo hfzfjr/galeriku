@@ -54,7 +54,7 @@ Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (a
 
 - [x] US-23 Sebagai pengguna, saya ingin membuat album
 - [x] US-24 Sebagai pengguna, saya ingin membuat link publik
-- [ ] US-25 Sebagai penerima, saya ingin membuka dan mengunduh tanpa login
+- [x] US-25 Sebagai penerima, saya ingin membuka dan mengunduh tanpa login
 
 ## Sprint 6 — Opsi Berbagi dan Pengerasan
 

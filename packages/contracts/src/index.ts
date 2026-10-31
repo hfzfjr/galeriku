@@ -335,6 +335,19 @@ export const shareLinksResponseSchema = z.object({
 
 export type ShareLinksResponse = z.output<typeof shareLinksResponseSchema>;
 
+// Public Share View (US-25)
+export const publicShareResponseSchema = z.object({
+  token: z.string(),
+  targetType: shareTargetSchema,
+  title: z.string(),
+  allowDownload: z.boolean(),
+  createdAt: z.string(),
+  files: z.array(fileItemSchema),
+});
+
+export type PublicShareResponse = z.output<typeof publicShareResponseSchema>;
+
+
 
 
 

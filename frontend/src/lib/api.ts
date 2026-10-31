@@ -12,6 +12,7 @@ import type {
   ForgotPasswordRequest,
   LoginRequest,
   MeResponse,
+  PublicShareResponse,
   RegisterRequest,
   RegisterResponse,
   ResendCodeRequest,
@@ -349,6 +350,24 @@ export function createShareLink(
 
 export function fetchShares(): Promise<ShareLinksResponse> {
   return request<ShareLinksResponse>("/shares");
+}
+
+// Public View & Download (US-25)
+export function fetchPublicShare(token: string): Promise<PublicShareResponse> {
+  return request<PublicShareResponse>(`/public/s/${encodeURIComponent(token)}`);
+}
+
+export function getPublicThumbnailUrl(token: string, fileId: string): string {
+  return `${getApiBase()}/public/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/thumb`;
+}
+
+export function getPublicFileContentUrl(
+  token: string,
+  fileId: string,
+  download = false,
+): string {
+  const base = `${getApiBase()}/public/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}`;
+  return download ? `${base}?download=1` : base;
 }
 
 

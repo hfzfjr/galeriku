@@ -184,7 +184,17 @@ export function createFakePrisma(db: FakeDb) {
       }) => {
         for (const [id, row] of store) {
           if (matchWhere(row, where)) {
-            const next = { ...row, ...data };
+            const appliedData: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(data)) {
+              if (v && typeof v === 'object' && 'increment' in v) {
+                appliedData[k] =
+                  (Number(row[k]) || 0) +
+                  Number((v as { increment: number }).increment);
+              } else {
+                appliedData[k] = v;
+              }
+            }
+            const next = { ...row, ...appliedData };
             store.set(id, next);
             return { ...next };
           }
@@ -554,7 +564,30 @@ export function createFakePrisma(db: FakeDb) {
         return { ...row };
       },
     },
-    shareLink: makeModel(db.shareLinks),
+    shareLink: {
+      ...makeModel(db.shareLinks),
+      findUnique: async ({
+        where,
+        include,
+      }: {
+        where: Record<string, unknown>;
+        include?: Record<string, unknown>;
+      }) => {
+        let found: Record<string, unknown> | null = null;
+        for (const row of db.shareLinks.values()) {
+          if (matchWhere(row, where)) {
+            found = { ...row };
+            break;
+          }
+        }
+        if (!found) return null;
+        if (include?.owner && found.ownerId) {
+          const owner = db.users.get(found.ownerId as string);
+          found.owner = owner ? { ...owner } : null;
+        }
+        return found;
+      },
+    },
     shareAccessLog: makeModel(db.shareAccessLogs),
   };
   return prisma;

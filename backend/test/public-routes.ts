@@ -22,10 +22,17 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { method: 'POST', path: '/auth/reset-password' },
   { method: 'GET', path: '/auth/google' },
   { method: 'GET', path: '/auth/google/callback' },
+  { method: 'GET', path: '/public/s/:token' },
+  { method: 'GET', path: '/public/s/:token/files/:fileId/thumb' },
+  { method: 'GET', path: '/public/s/:token/cover' },
+  { method: 'GET', path: '/public/s/:token/files/:fileId' },
 ];
 
 export function isPublicRoute(method: string, path: string): boolean {
-  return PUBLIC_ROUTES.some(
-    (r) => r.method === method.toUpperCase() && r.path === path,
-  );
+  return PUBLIC_ROUTES.some((r) => {
+    if (r.method !== method.toUpperCase()) return false;
+    if (r.path === path) return true;
+    const regexStr = '^' + r.path.replace(/:[^/]+/g, '[^/]+') + '$';
+    return new RegExp(regexStr).test(path);
+  });
 }
