@@ -129,7 +129,7 @@ export class SharesService {
         token,
         ownerId: userId,
         targetType:
-          data.targetType === 'FILE' ? ShareTarget.FILE : ShareTarget.ALBUM,
+          data.targetType === 'FILE' ? ShareTarget.file : ShareTarget.album,
         targetId: data.targetId,
         allowDownload: data.allowDownload ?? true,
         expiresAt,
@@ -140,7 +140,7 @@ export class SharesService {
     return {
       id: share.id,
       token: share.token,
-      targetType: share.targetType === ShareTarget.FILE ? 'FILE' : 'ALBUM',
+      targetType: share.targetType === ShareTarget.file ? 'FILE' : 'ALBUM',
       targetId: share.targetId,
       targetTitle,
       allowDownload: share.allowDownload,
@@ -222,10 +222,10 @@ export class SharesService {
     });
 
     const fileIds = shares
-      .filter((s) => s.targetType === ShareTarget.FILE)
+      .filter((s) => s.targetType === ShareTarget.file)
       .map((s) => s.targetId);
     const albumIds = shares
-      .filter((s) => s.targetType === ShareTarget.ALBUM)
+      .filter((s) => s.targetType === ShareTarget.album)
       .map((s) => s.targetId);
 
     const [files, albums] = await Promise.all([
@@ -248,14 +248,14 @@ export class SharesService {
 
     const items: ShareLinkItem[] = shares.map((share) => {
       const targetTitle =
-        share.targetType === ShareTarget.FILE
+        share.targetType === ShareTarget.file
           ? fileMap.get(share.targetId) ?? 'File'
           : albumMap.get(share.targetId) ?? 'Album';
 
       return {
         id: share.id,
         token: share.token,
-        targetType: share.targetType === ShareTarget.FILE ? 'FILE' : 'ALBUM',
+        targetType: share.targetType === ShareTarget.file ? 'FILE' : 'ALBUM',
         targetId: share.targetId,
         targetTitle,
         allowDownload: share.allowDownload,
@@ -283,7 +283,7 @@ export class SharesService {
     }
 
     let targetTitle = 'Tautan Berbagi';
-    if (share.targetType === ShareTarget.FILE) {
+    if (share.targetType === ShareTarget.file) {
       const file = await this.prisma.file.findUnique({
         where: { id: share.targetId },
         select: { originalName: true },
@@ -300,7 +300,7 @@ export class SharesService {
     return {
       id: share.id,
       token: share.token,
-      targetType: share.targetType === ShareTarget.FILE ? 'FILE' : 'ALBUM',
+      targetType: share.targetType === ShareTarget.file ? 'FILE' : 'ALBUM',
       targetId: share.targetId,
       targetTitle,
       allowDownload: share.allowDownload,
@@ -372,7 +372,7 @@ export class SharesService {
 
     // Ambil judul target
     let targetTitle = 'Tautan Berbagi';
-    if (share.targetType === ShareTarget.FILE) {
+    if (share.targetType === ShareTarget.file) {
       const f = await this.prisma.file.findUnique({
         where: { id: share.targetId },
         select: { originalName: true },
@@ -411,7 +411,7 @@ export class SharesService {
     if (!isUnlocked) {
       return {
         token: share.token,
-        targetType: share.targetType === ShareTarget.FILE ? 'FILE' : 'ALBUM',
+        targetType: share.targetType === ShareTarget.file ? 'FILE' : 'ALBUM',
         title: targetTitle,
         allowDownload: share.allowDownload,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
@@ -421,7 +421,7 @@ export class SharesService {
       };
     }
 
-    if (share.targetType === ShareTarget.FILE) {
+    if (share.targetType === ShareTarget.file) {
       const file = await this.prisma.file.findUnique({
         where: { id: share.targetId },
       });
@@ -507,7 +507,7 @@ export class SharesService {
     }
 
     let fileFound = false;
-    if (share.targetType === ShareTarget.FILE) {
+    if (share.targetType === ShareTarget.file) {
       if (share.targetId === fileId) {
         fileFound = true;
       }
@@ -579,7 +579,7 @@ export class SharesService {
       );
     }
 
-    if (share.targetType !== ShareTarget.ALBUM) {
+    if (share.targetType !== ShareTarget.album) {
       throw new ApiError(
         400,
         'BAD_REQUEST',
@@ -640,7 +640,7 @@ export class SharesService {
     }
 
     let fileFound = false;
-    if (share.targetType === ShareTarget.FILE) {
+    if (share.targetType === ShareTarget.file) {
       if (share.targetId === fileId) {
         fileFound = true;
       }

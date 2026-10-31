@@ -4,12 +4,12 @@ import type { AuthErrorCode } from '@galeriku/contracts';
 // { statusCode, code, message, details? }.
 export class ApiError extends Error {
   readonly statusCode: number;
-  readonly code: AuthErrorCode | 'INTERNAL_ERROR';
+  readonly code: AuthErrorCode | 'INTERNAL_ERROR' | string;
   readonly details?: unknown;
 
   constructor(
     statusCode: number,
-    code: AuthErrorCode | 'INTERNAL_ERROR',
+    code: AuthErrorCode | 'INTERNAL_ERROR' | string,
     message: string,
     details?: unknown,
   ) {

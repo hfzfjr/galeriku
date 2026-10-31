@@ -76,7 +76,7 @@ describe('SharesService', () => {
           id: 'sh-1',
           ownerId: 'u-1',
           token: 'tok-123',
-          targetType: ShareTarget.FILE,
+          targetType: ShareTarget.file,
           targetId: 'f-1',
           allowDownload: true,
           viewCount: 2,
