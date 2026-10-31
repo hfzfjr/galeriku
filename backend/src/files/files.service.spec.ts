@@ -3,6 +3,7 @@ import {
   encodeCursor,
   toFileItem,
 } from './files.service';
+import { parseRange } from './files.controller';
 
 describe('FilesService helpers', () => {
   describe('cursor buram', () => {
@@ -77,6 +78,29 @@ describe('FilesService helpers', () => {
       expect(item.sizeBytes).toBe('104857600');
       expect(item.durationS).toBe(42.5);
       expect(item.thumbKey).toBeNull();
+    });
+  });
+
+  describe('parseRange helper', () => {
+    it('mem-parsing range lengkap bytes=0-499', () => {
+      const res = parseRange('bytes=0-499', 1000);
+      expect(res).toEqual({ start: 0, end: 499 });
+    });
+
+    it('mem-parsing range terbuka bytes=500-', () => {
+      const res = parseRange('bytes=500-', 1000);
+      expect(res).toEqual({ start: 500, end: 999 });
+    });
+
+    it('mem-parsing suffix bytes=-200 (200 byte terakhir)', () => {
+      const res = parseRange('bytes=-200', 1000);
+      expect(res).toEqual({ start: 800, end: 999 });
+    });
+
+    it('menolak format tidak valid atau range melebihi ukuran total', () => {
+      expect(parseRange('invalid', 1000)).toBeNull();
+      expect(parseRange('bytes=1500-2000', 1000)).toBeNull();
+      expect(parseRange('bytes=500-400', 1000)).toBeNull();
     });
   });
 });

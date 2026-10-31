@@ -6,6 +6,7 @@ import type { FileItem } from "@galeriku/contracts";
 import { Film, Image as ImageIcon, Play, RefreshCw, Upload } from "lucide-react";
 import { fetchFiles, getThumbnailUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { FullViewer } from "./full-viewer";
 
 function formatDuration(seconds: number | null): string | null {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) {
@@ -55,6 +56,7 @@ interface GalleryGridProps {
 
 export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
+  const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
 
   const {
     data,
@@ -196,7 +198,14 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
 
           <div className="grid grid-cols-3 gap-[2px] md:grid-cols-4 lg:grid-cols-6">
             {group.items.map((file) => (
-              <GalleryItem key={file.id} file={file} />
+              <GalleryItem
+                key={file.id}
+                file={file}
+                onClick={() => {
+                  const idx = allFiles.findIndex((f) => f.id === file.id);
+                  if (idx >= 0) setActiveViewerIndex(idx);
+                }}
+              />
             ))}
           </div>
         </section>
@@ -210,11 +219,25 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
           </p>
         ) : null}
       </div>
+
+      {activeViewerIndex !== null ? (
+        <FullViewer
+          files={allFiles}
+          initialIndex={activeViewerIndex}
+          onClose={() => setActiveViewerIndex(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function GalleryItem({ file }: { file: FileItem }) {
+function GalleryItem({
+  file,
+  onClick,
+}: {
+  file: FileItem;
+  onClick?: () => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -225,9 +248,16 @@ function GalleryItem({ file }: { file: FileItem }) {
 
   return (
     <div
-      className="group relative aspect-square overflow-hidden bg-sunken select-none"
+      className="group relative aspect-square overflow-hidden bg-sunken select-none cursor-pointer"
       tabIndex={0}
       role="button"
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       aria-label={`${isVideo ? "Video" : "Foto"} ${file.originalName}`}
     >
       {hasThumb && !hasError ? (

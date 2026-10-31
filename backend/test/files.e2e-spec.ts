@@ -328,7 +328,10 @@ describe('FilesController (e2e) — US-20', () => {
           counter += 1;
           const fid = `resource-a-${counter}`;
           const thumbFile = `thumb-a-${counter}.webp`;
+          const storageFile = `key-a-${counter}`;
+          const contentBuf = Buffer.from('mockisifile');
           writeFileSync(join(mediaDir, thumbFile), Buffer.from('mockwebp'));
+          writeFileSync(join(mediaDir, storageFile), contentBuf);
 
           db.files.set(fid, {
             id: fid,
@@ -336,7 +339,7 @@ describe('FilesController (e2e) — US-20', () => {
             originalName: `gambar-${counter}.jpg`,
             storageKey: `key-a-${counter}`,
             mimeType: 'image/jpeg',
-            sizeBytes: 1024n,
+            sizeBytes: BigInt(contentBuf.length),
             kind: FileKind.image,
             width: 400,
             height: 400,
@@ -352,8 +355,163 @@ describe('FilesController (e2e) — US-20', () => {
         },
         buildRequests: (id) => [
           { method: 'get', url: `/files/${id}/thumb` },
+          { method: 'get', url: `/files/${id}/content` },
         ],
       });
+    });
+  });
+
+  describe('GET /files/:id/content — US-21 Streaming & Range', () => {
+    it('tanpa sesi -> 401 UNAUTHENTICATED', async () => {
+      const res = await http().get('/files/f-123/content');
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe('UNAUTHENTICATED');
+    });
+
+    it('mengembalikan 200 OK penuh dengan header yang benar', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const storageKey = 'storage-content-1.jpg';
+      const fileData = Buffer.from('HALODUNIAGALERIKU');
+      writeFileSync(join(mediaDir, storageKey), fileData);
+
+      db.files.set('f-content-1', {
+        id: 'f-content-1',
+        ownerId: user.id,
+        originalName: 'foto-asli.jpg',
+        storageKey,
+        mimeType: 'image/jpeg',
+        sizeBytes: BigInt(fileData.length),
+        kind: FileKind.image,
+        width: 800,
+        height: 600,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/f-content-1/content')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.header['content-type']).toBe('image/jpeg');
+      expect(res.header['accept-ranges']).toBe('bytes');
+      expect(res.header['x-content-type-options']).toBe('nosniff');
+      expect(res.header['cache-control']).toBe('private, max-age=86400');
+      expect(res.body).toEqual(fileData);
+    });
+
+    it('mendukung HTTP Range (206 Partial Content) untuk seek dan streaming video', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const storageKey = 'video-test.mp4';
+      // 10 byte: 0123456789
+      const fileData = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      writeFileSync(join(mediaDir, storageKey), fileData);
+
+      db.files.set('f-video-range', {
+        id: 'f-video-range',
+        ownerId: user.id,
+        originalName: 'cuplikan.mp4',
+        storageKey,
+        mimeType: 'video/mp4',
+        sizeBytes: 10n,
+        kind: FileKind.video,
+        width: 1920,
+        height: 1080,
+        durationS: 5.0,
+        thumbKey: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      // Minta bytes=2-5 (panjang 4: indeks 2, 3, 4, 5)
+      const res = await http()
+        .get('/files/f-video-range/content')
+        .set('Cookie', `galeriku_session=${token}`)
+        .set('Range', 'bytes=2-5');
+
+      expect(res.status).toBe(206);
+      expect(res.header['content-type']).toBe('video/mp4');
+      expect(res.header['content-range']).toBe('bytes 2-5/10');
+      expect(res.header['content-length']).toBe('4');
+      expect(res.body).toEqual(Buffer.from([2, 3, 4, 5]));
+    });
+
+    it('menolak Range yang berada di luar batas dengan 416 Range Not Satisfiable', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const storageKey = 'kecil.bin';
+      writeFileSync(join(mediaDir, storageKey), Buffer.from('abc'));
+
+      db.files.set('f-range-416', {
+        id: 'f-range-416',
+        ownerId: user.id,
+        originalName: 'kecil.bin',
+        storageKey,
+        mimeType: 'application/octet-stream',
+        sizeBytes: 3n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/f-range-416/content')
+        .set('Cookie', `galeriku_session=${token}`)
+        .set('Range', 'bytes=100-200');
+
+      expect(res.status).toBe(416);
+      expect(res.header['content-range']).toBe('bytes */3');
+    });
+
+    it('mendukung parameter ?download=1 dengan header Content-Disposition attachment', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const storageKey = 'unduh.jpg';
+      writeFileSync(join(mediaDir, storageKey), Buffer.from('unduhgambar'));
+
+      db.files.set('f-download', {
+        id: 'f-download',
+        ownerId: user.id,
+        originalName: 'foto liburan "dieng".jpg',
+        storageKey,
+        mimeType: 'image/jpeg',
+        sizeBytes: 11n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/f-download/content?download=1')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.header['content-disposition']).toContain('attachment;');
+      expect(res.header['content-disposition']).toContain('filename=');
     });
   });
 });

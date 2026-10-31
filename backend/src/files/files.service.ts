@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import type {
@@ -171,6 +171,42 @@ export class FilesService {
     }
 
     return thumbPath;
+  }
+
+  async getFileContentInfo(userId: string, fileId: string): Promise<{
+    filePath: string;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+  }> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    // Kepemilikan menjawab 404 identik (AD-12 & US-13)
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    const mediaDir = resolveMediaDir();
+    const filePath = join(mediaDir, file.storageKey);
+    if (!existsSync(filePath)) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    const stat = statSync(filePath);
+
+    return {
+      filePath,
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      sizeBytes: stat.size,
+    };
   }
 }
 

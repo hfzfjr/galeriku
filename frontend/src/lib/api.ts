@@ -248,3 +248,9 @@ export function getThumbnailUrl(fileId: string): string {
   return `${getApiBase()}/files/${encodeURIComponent(fileId)}/thumb`;
 }
 
+export function getFileContentUrl(fileId: string, download = false): string {
+  const base = `${getApiBase()}/files/${encodeURIComponent(fileId)}/content`;
+  return download ? `${base}?download=1` : base;
+}
+
+
