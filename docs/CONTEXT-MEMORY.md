@@ -58,23 +58,21 @@ Urutan isi: LANGKAH 0 (git status + git branch --show-current) → KEPUTUSAN FIN
 ## 7. SEDANG DIKERJAKAN (Claude wajib memperbarui)
 Terakhir diperbarui: 31 Okt 2026
 
-**Posisi:** Sprint 3 (Upload dan Penyimpanan) 100% selesai dan terverifikasi. main HEAD 9adf104. Seluruh story US-16, US-17, US-18, US-19 tercentang di PROGRESS.md.
+**Posisi:** Sprint 4 (Galeri dan Viewer) 100% selesai dan terverifikasi. main HEAD c20d5f4. Seluruh story US-20, US-21, US-22, US-15 tercentang di PROGRESS.md. Branch lokal Sprint 4 sudah dihapus, `origin/main` sudah up-to-date.
 **Langkah berikutnya:**
-1. Push branch `main` ke remote `origin/main` dan pantau deploy Coolify backend serta `/health`.
-2. Melangkah ke **Sprint 4 — Galeri dan Viewer**:
-   - US-20: Sebagai pengguna, saya ingin grid galeri (3 kolom HP, lazy-load thumbnail WebP, infinite scroll 24 item, urut terbaru, ikon video).
-   - US-21: Sebagai pengguna, saya ingin viewer layar penuh (swipe/pan, zoom, streaming video HTTP Range).
-   - US-22: Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri.
-   - US-15: Sebagai pengguna, saya ingin halaman profil dan pengaturan (ganti nama, ganti password, pantau sisa kuota).
-3. Pengujian manual dan bug-hunting oleh pengguna dijadwalkan di akhir sprint sesuai instruksi.
+1. Pengguna melakukan pengujian manual Sprint 3 & Sprint 4 sesuai panduan dokumen pengujian di artifacts.
+2. Melangkah ke **Sprint 5 — Album dan Link Publik Inti**:
+   - US-23: Sebagai pengguna, saya ingin membuat album.
+   - US-24: Sebagai pengguna, saya ingin membuat link publik.
+   - US-25: Sebagai penerima, saya ingin membuka dan mengunduh tanpa login (hanya berfungsi bila pemilik berstatus ACTIVE).
 
-**Keputusan final Sprint 3:**
-- US-16: Spike tus terintegrasi di Fastify/NestJS dengan storage lokal.
-- US-17: Resumable multi-file upload di UI via `tus-js-client` (5 MB chunk, max 2 paralel, pause/resume/cancel, auto-resume offline/online). Upload selesai dipindah ke storage lokal dan baris File `READY`. Penghapusan akun membersihkan file fisik di disk.
-- US-18: Validasi tipe file via MIME sniffing (`file-type`), whitelist ekstensi/MIME, blokir keras SVG, validasi ukuran foto <= 25 MB dan video <= 2 GB, disk guard server >= 15 GB, kuota akun pengguna.
-- US-19: Thumbnail foto WebP otomatis dibuat via Sharp (max 400px, quality 80, EXIF rotate dipertahankan) dengan ConcurrencyLimiter (<= 2 paralel). Metadata `thumbKey`, `width`, `height` tersimpan di DB. Video thumbnail ditunda ke Phase 2.
+**Keputusan final Sprint 4:**
+- US-20: Grid galeri 3 kolom HP (aspect-square, fade-in 150ms), paginasi cursor 24 per halaman (`createdAt DESC, id DESC`), filter `status = READY` & `deletedAt = null`, badge video dengan durasi, date grouping header. Endpoint thumbnail streaming WebP dengan header cache private 86400s & nosniff.
+- US-21: Viewer layar penuh `#14110E`, kontrol fade-out 3 detik hening, gesture swipe horizontal antar file, swipe turun >90px untuk tutup, double-tap zoom 2.5x, video player streaming HTTP Range RFC 7233 (`206 Partial Content`) untuk instan seek.
+- US-22: Download berkas asli (`Content-Disposition: attachment`), hapus berkas tunggal dan hapus banyak (batch-delete) dengan soft-delete `deletedAt` + pembersihan fisik storageKey & thumbKey di disk via `rm(..., { force: true })`. Mode multi-seleksi di galeri (long-press 500ms atau tombol Pilih). Proteksi IDOR 404 ketat.
+- US-15: Halaman profil & pengaturan (`/app/settings`), avatar/inisial, badge peran, progress bar kuota terformat (`{usedBytes} dari {quotaBytes}`), form tambah password argon2id untuk akun Google (`POST /auth/set-password`), tombol keluar sesi server.
 
-**Belum diverifikasi:** upload end-to-end 100 MB-2 GB lewat tunnel; timeout rantai Cloudflare→cloudflared→Traefik; rolling update/Rollback Coolify untuk Compose; restore backup; syarat layanan CDN Cloudflare untuk lalu lintas Tunnel.
+**Belum diverifikasi:** pengujian sentuh di HP fisik nyata (gesture pinch-zoom, transisi swipe mobile), pemutaran video berukuran >500 MB di jaringan seluler.
 
 ### Aturan pembaruan bagian 7
 - Claude memperbarui bagian ini: setelah story selesai/di-merge, setelah keputusan penting, setelah perubahan urutan kerja, dan di akhir setiap sesi.
