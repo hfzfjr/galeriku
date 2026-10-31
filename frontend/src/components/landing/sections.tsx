@@ -1,4 +1,11 @@
-import { ArrowDown, ArrowRight } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  Layers,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+} from "lucide-react";
 import { ButtonLink } from "@/components/ui/button-link";
 import { Logo } from "./logo";
 import { AlbumMock, LinkMock, UploadMock } from "./mocks";
@@ -6,7 +13,7 @@ import { PhotoStack } from "./photo-card";
 
 /**
  * Bagian-bagian landing page (Server Component, statis).
- * Copy persis dari acuan visual docs/design/landing/.
+ * Desain bersih editorial, tanpa jargon teknis, standar industri modern.
  */
 
 export function SiteHeader() {
@@ -26,22 +33,29 @@ export function SiteHeader() {
 
 export function Hero() {
   return (
-    <section className="mx-auto w-full max-w-[560px] px-4 pt-6 md:max-w-[960px] md:px-6 md:pt-10">
+    <section className="mx-auto w-full max-w-[560px] px-4 pt-4 md:max-w-[960px] md:px-6 md:pt-8">
       <div className="md:flex md:items-center md:gap-10">
-        <div className="md:w-[400px] md:shrink-0">
+        <div className="md:w-[420px] md:shrink-0">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-line bg-surface/80 px-3.5 py-1 text-xs font-medium text-ink-muted backdrop-blur-sm">
+            <Sparkles size={13} className="text-accent" />
+            <span>Ruang Berbagi Foto & Video Resolusi Penuh</span>
+          </div>
+
           <h1 className="text-display tracking-[-0.01em] text-ink">
-            Simpan foto perjalananmu. Kirim{" "}
-            <em className="font-medium italic text-accent">satu link</em> ke
-            teman.
+            Abadikan perjalananmu. Bagikan dalam{" "}
+            <em className="font-medium italic text-accent">satu tautan indah</em>.
           </h1>
-          <p className="mt-4 text-body text-ink md:mt-5">
-            Ruang simpan berkelas untuk foto dan video resolusi penuh langsung
-            dari ponselmu. Buat satu tautan elegan, bagikan ke siapa saja, dan
-            biarkan kerabatmu membuka serta mengunduh tanpa perlu membuat akun.
+
+          <p className="mt-4 text-body text-ink md:mt-5 leading-relaxed">
+            Simpan foto dan video resolusi penuh tanpa kompresi buram. Kumpulkan
+            momen berharga ke dalam album elegan dan kirimkan ke siapa saja.
+            Penerima dapat langsung menikmati tayangan layar penuh dan menyimpan
+            koleksi tanpa perlu membuat akun.
           </p>
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1 md:mt-7">
+
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 md:mt-7">
             <ButtonLink href="/login">
-              Masuk
+              Mulai Sekarang
               <ArrowRight
                 size={18}
                 strokeWidth={1.5}
@@ -56,18 +70,19 @@ export function Hero() {
               <ArrowDown size={18} strokeWidth={1.5} aria-hidden="true" />
             </a>
           </div>
-          <p className="mt-3 text-label text-ink-muted">
+
+          <p className="mt-4 text-label text-ink-muted">
             Belum punya akun?{" "}
             <a
               href="/register"
               className="text-accent underline underline-offset-[3px]"
             >
-              Daftar
+              Daftar gratis
             </a>
           </p>
-          <p className="mt-2 text-[13px] leading-[18px] text-ink-muted">
-            Fotomu sepenuhnya milikmu. Hanya orang dengan tautan yang dapat
-            membukanya.
+          <p className="mt-1.5 text-[13px] leading-[18px] text-ink-muted">
+            Kenanganmu sepenuhnya milikmu. Hanya orang yang memiliki tautan yang
+            dapat membukanya.
           </p>
         </div>
         <div className="mt-10 min-w-0 flex-1 md:mt-0">
@@ -81,20 +96,20 @@ export function Hero() {
 const STEPS = [
   {
     number: "1",
-    title: "Unggah dari Ponsel",
-    text: "Pilih banyak foto dan video sekaligus dengan mulus. Tetap aman dan otomatis dilanjutkan jika koneksi internet terputus di jalan.",
+    title: "Pilih & Simpan Seketika",
+    text: "Pilih puluhan foto dan video perjalanan langsung dari ponselmu. Unggahan tetap aman dan otomatis dilanjutkan jika koneksi internet terputus di jalan.",
     mock: <UploadMock />,
   },
   {
     number: "2",
-    title: "Bagikan Lewat Satu Tautan",
-    text: "Satu tautan untuk satu foto atau seluruh album. Atur masa berlaku, pasang kata sandi jika perlu, dan cabut akses kapan saja.",
+    title: "Satu Tautan untuk Semua",
+    text: "Kumpulkan momen ke dalam album cantik. Atur masa berlaku, pasang kata sandi jika diinginkan, dan bagikan tautannya dengan satu sentuhan mudah.",
     mock: <LinkMock />,
   },
   {
     number: "3",
-    title: "Buka & Unduh Tanpa Ribet",
-    text: "Temanmu cukup membuka tautan di browser apa pun, menikmati tayangan layar penuh, lalu mengunduh tanpa harus memasang aplikasi.",
+    title: "Buka & Nikmati Tanpa Ribet",
+    text: "Teman dan kerabatmu cukup membuka tautan di layar ponsel mereka. Tonton video dalam layar penuh dan simpan seluruh album tanpa harus memasang aplikasi.",
     mock: <AlbumMock />,
   },
 ] as const;
@@ -106,10 +121,12 @@ export function HowItWorks() {
       className="mx-auto w-full max-w-[560px] scroll-mt-4 px-4 pt-[72px] md:max-w-[960px] md:px-6 md:pt-[104px]"
     >
       <div className="md:flex md:items-baseline md:justify-between md:gap-8 md:pb-6">
-        <h2 className="text-h2 text-ink md:text-h1">Cara kerjanya</h2>
-        <p className="mt-2 text-body text-ink-muted md:mt-0">
-          Tiga langkah, semuanya bisa dari HP.
-        </p>
+        <div>
+          <h2 className="text-h2 text-ink md:text-h1">Cara kerjanya</h2>
+          <p className="mt-2 text-body text-ink-muted">
+            Tiga langkah sederhana, seluruhnya selesai langsung dari ponselmu.
+          </p>
+        </div>
       </div>
       <div className="mt-6 md:mt-0">
         {STEPS.map((step, index) => (
@@ -125,7 +142,9 @@ export function HowItWorks() {
             </div>
             <div className="mt-3 md:mt-0 md:w-[300px] md:shrink-0">
               <h3 className="text-h3 text-ink">{step.title}</h3>
-              <p className="mt-1.5 text-body text-ink md:mt-2">{step.text}</p>
+              <p className="mt-1.5 text-body text-ink leading-relaxed md:mt-2">
+                {step.text}
+              </p>
             </div>
             <div className="mt-4 min-w-0 md:ml-auto md:mt-0 md:w-full md:max-w-[420px] md:flex-1">
               {step.mock}
@@ -139,58 +158,72 @@ export function HowItWorks() {
 
 const HIGHLIGHTS = [
   {
-    title: "Kualitas Asli Tanpa Kompresi",
-    desc: "Foto dan video tersimpan dalam resolusi penuh tanpa penurunan ketajaman atau warna seperti pada aplikasi perpesanan.",
+    icon: Sparkles,
+    title: "Resolusi Penuh Tanpa Kompresi",
+    desc: "Setiap foto dan video tersimpan dalam ketajaman aslinya tanpa penurunan kualitas atau warna seperti pada aplikasi perpesanan.",
   },
   {
-    title: "Kendali Privasi Penuh",
-    desc: "Lindungi tautan dengan kata sandi, atur masa berlaku sesuai kebutuhan, atau cabut akses kapan pun kamu menginginkannya.",
+    icon: ShieldCheck,
+    title: "Kendali Privasi Berada di Tanganmu",
+    desc: "Lindungi tautan dengan kata sandi, tentukan batas waktu berbagi, atau tutup akses kapan saja dengan satu sentuhan.",
   },
   {
-    title: "Unduh Koleksi Sekaligus",
-    desc: "Penerima dapat mengunduh seluruh isi album dalam satu berkas ZIP instan tanpa perlu repot menyimpan satu per satu.",
+    icon: Layers,
+    title: "Simpan Seluruh Koleksi Sekaligus",
+    desc: "Penerima dapat mengunduh seluruh isi album secara bersamaan ke ponsel mereka tanpa perlu repot menyimpan satu per satu.",
   },
   {
-    title: "Pengalaman Bersih & Tenang",
-    desc: "Tanpa algoritma linimasa, tanpa iklan yang mengganggu, dan tanpa kompresi paksa. Hanya ruang tenang untuk karya dan kenanganmu.",
+    icon: Smartphone,
+    title: "Buka di Mana Saja Tanpa Aplikasi",
+    desc: "Bekerja mulus di iPhone, Android, tablet, maupun komputer tanpa mewajibkan siapa pun mengunduh aplikasi tambahan.",
   },
 ] as const;
 
 export function RulesSection() {
   return (
     <section className="mx-auto w-full max-w-[560px] px-4 pt-[72px] md:max-w-[960px] md:px-6 md:pt-[104px]">
-      <div className="md:flex md:items-start md:gap-16">
+      <div className="md:flex md:items-start md:gap-12">
         <div className="min-w-0 flex-1">
-          <h2 className="text-h2 text-ink md:text-h1">Mengapa Galeriku?</h2>
+          <h2 className="text-h2 text-ink md:text-h1">
+            Pengalaman Berbagi yang Lebih Menyenangkan
+          </h2>
           <p className="mt-2 text-body text-ink-muted md:mt-3">
-            Semua kemudahan berbagi foto dan video, dirancang dengan standar kenyamanan dan privasi tertinggi.
+            Dirancang dengan kesederhanaan, privasi ketat, dan tampilan visual yang memanjakan mata.
           </p>
-          <div className="mt-6 space-y-5 md:mt-8 md:space-y-6">
-            {HIGHLIGHTS.map((item) => (
-              <div
-                key={item.title}
-                className="border-b border-line pb-4 last:border-b-0 last:pb-0"
-              >
-                <h3 className="font-serif text-[17px] font-semibold text-ink md:text-[19px]">
-                  {item.title}
-                </h3>
-                <p className="mt-1 text-body text-ink-muted leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
+
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:mt-8">
+            {HIGHLIGHTS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.title}
+                  className="rounded-lg border border-line bg-surface p-4 transition-shadow hover:shadow-xs"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-soft text-accent">
+                    <Icon size={18} strokeWidth={1.75} />
+                  </div>
+                  <h3 className="mt-3 font-serif text-[16px] font-semibold text-ink">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1.5 text-label text-ink-muted leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div className="mt-11 md:mt-6 md:w-[340px] md:shrink-0">
-          <div className="relative rounded-[4px] border border-line bg-surface px-5 pb-[22px] pt-[26px] shadow-float motion-safe:rotate-[-1deg] md:px-6 md:pb-[26px] md:pt-[30px] md:motion-safe:rotate-[-1.5deg]">
+
+        <div className="mt-10 md:mt-12 md:w-[320px] md:shrink-0">
+          <div className="relative rounded-lg border border-line bg-surface px-5 pb-6 pt-7 shadow-float motion-safe:rotate-[-1deg] md:motion-safe:rotate-[-1.5deg]">
             <div
               aria-hidden="true"
-              className="absolute -top-[11px] left-1/2 -ml-[42px] h-[22px] w-[84px] rotate-2 bg-accent-soft opacity-90 motion-reduce:rotate-0"
+              className="absolute -top-[10px] left-1/2 -ml-[40px] h-[20px] w-[80px] rotate-2 bg-accent-soft opacity-90 motion-reduce:rotate-0"
             />
             <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
-              Privasi & Kepercayaan
+              Komitmen Privasi
             </div>
-            <p className="mt-2 font-serif text-[18px] font-medium italic leading-[26px] text-ink md:mt-2.5 md:text-[20px] md:leading-7">
+            <p className="mt-2.5 font-serif text-[17px] font-medium italic leading-[25px] text-ink">
               “Kenanganmu sepenuhnya milikmu. Galeriku dirancang tanpa pelacakan data, tanpa iklan, dan tautan hanya dapat dibuka oleh orang yang kamu tuju.”
             </p>
           </div>
@@ -206,37 +239,29 @@ export function CtaSection() {
       id="daftar"
       className="mx-auto w-full max-w-[560px] px-4 pt-[72px] md:max-w-[960px] md:px-6 md:pt-[104px]"
     >
-      <div className="border-t border-line pt-10 md:flex md:items-center md:justify-between md:gap-8 md:pt-12">
+      <div className="rounded-2xl border border-line bg-surface p-6 sm:p-10 shadow-sm md:flex md:items-center md:justify-between md:gap-8">
         <div className="min-w-0">
           <h2 className="text-h2 text-ink md:text-h1">
             Siap menyimpan perjalananmu?
           </h2>
-          <p className="mt-2 text-body text-ink-muted md:hidden">
-            Daftar dengan email atau akun Google, lalu mulai unggah dari HP.
-          </p>
-          <p className="mt-2 hidden text-body text-ink-muted md:block">
-            Daftar dengan email atau akun Google, lalu mulai unggah dari HP.
-            Sudah punya akun?{" "}
-            <a
-              href="/login"
-              className="text-accent underline underline-offset-[3px]"
-            >
-              Masuk
-            </a>
+          <p className="mt-2 text-body text-ink-muted">
+            Daftar gratis dalam hitungan detik dan nikmati kemudahan berbagi foto serta video tanpa batas kompresi.
           </p>
         </div>
-        <ButtonLink href="/register" className="mt-5 w-full md:mt-0 md:w-auto md:shrink-0 md:px-7">
-          Daftar
-          <ArrowRight size={18} strokeWidth={1.5} aria-hidden="true" />
-        </ButtonLink>
+        <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center md:mt-0 md:shrink-0">
+          <ButtonLink href="/register" className="w-full sm:w-auto px-7">
+            Buat Akun Gratis
+            <ArrowRight size={18} strokeWidth={1.5} aria-hidden="true" />
+          </ButtonLink>
+        </div>
       </div>
-      <p className="mt-3 text-label text-ink-muted md:hidden">
+      <p className="mt-4 text-center text-label text-ink-muted">
         Sudah punya akun?{" "}
         <a
           href="/login"
           className="text-accent underline underline-offset-[3px]"
         >
-          Masuk
+          Masuk di sini
         </a>
       </p>
     </section>
