@@ -100,7 +100,7 @@ export function AlbumMock() {
       <div className="mt-3 grid grid-cols-4 gap-1.5 overflow-hidden rounded-md">
         <div className="relative aspect-square overflow-hidden bg-sunken">
           <Image
-            src="/landing/travel-friends.jpg"
+            src="/landing/travel-people-group.jpg"
             alt="Foto album"
             fill
             sizes="80px"
@@ -109,7 +109,7 @@ export function AlbumMock() {
         </div>
         <div className="relative aspect-square overflow-hidden bg-sunken">
           <Image
-            src="/landing/travel-moment.jpg"
+            src="/landing/travel-scenery-forest.jpg"
             alt="Foto album"
             fill
             sizes="80px"
