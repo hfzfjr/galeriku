@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { readdir, readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import type {
   AdminUserItem,
   AdminUsersQuery,
@@ -11,6 +13,8 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiError } from '../common/errors/api-error';
+import { TUS_OWNER_METADATA_KEY } from '../uploads/uploads.constants';
+import { resolveMediaDir, tusDirOf } from '../uploads/uploads.utils';
 
 // Cursor buram: base64url dari { id } terakhir halaman sebelumnya.
 export function encodeCursor(id: string): string {
@@ -102,6 +106,8 @@ const ADMIN_SELECT = {
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   // Satu agregat untuk seluruh halaman (bukan N+1): SUM(size_bytes)
@@ -274,7 +280,7 @@ export class AdminService {
     });
     const berkas = await this.prisma.file.findMany({
       where: { ownerId: id },
-      select: { id: true },
+      select: { id: true, storageKey: true, thumbKey: true },
     });
     const idTautan = tautan.map((t) => t.id);
     const idAlbum = album.map((a) => a.id);
@@ -296,5 +302,73 @@ export class AdminService {
       this.prisma.emailCode.deleteMany({ where: { email: user.email } }),
       this.prisma.user.delete({ where: { id } }),
     ]);
+    // File fisik (US-17 carry-over): file final + thumbnail + sisa upload
+    // tus miliknya. Kegagalan hapus file HANYA dicatat di log dan TIDAK
+    // membatalkan penghapusan pengguna (baris DB sudah terhapus).
+    await this.hapusFileFisik(
+      id,
+      berkas as Array<{ storageKey: string; thumbKey: string | null }>,
+    );
+  }
+
+  private async hapusFileFisik(
+    userId: string,
+    berkas: Array<{ storageKey: string; thumbKey: string | null }>,
+  ): Promise<void> {
+    const mediaDir = resolveMediaDir();
+    for (const b of berkas) {
+      for (const kunci of [b.storageKey, b.thumbKey]) {
+        if (typeof kunci !== 'string' || kunci.length === 0) {
+          continue;
+        }
+        // Data kunci dari DB: ambil basename saja agar tak bisa keluar
+        // dari MEDIA_DIR bila isinya pernah tercemar.
+        const nama = kunci.split(/[\\/]/).pop() ?? '';
+        if (nama.length === 0) {
+          continue;
+        }
+        try {
+          await rm(join(mediaDir, nama), { force: true });
+        } catch (error) {
+          this.logger.warn(
+            `File fisik ${nama} milik ${userId} gagal dihapus: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    }
+    // Sisa upload tus miliknya yang belum selesai (sidecar memuat
+    // ownerId sisi server).
+    const tusDir = tusDirOf(mediaDir);
+    let entri: string[];
+    try {
+      entri = await readdir(tusDir);
+    } catch {
+      return;
+    }
+    for (const nama of entri) {
+      if (!nama.endsWith('.json')) {
+        continue;
+      }
+      const uploadId = nama.slice(0, -'.json'.length);
+      let pemilik: unknown;
+      try {
+        const isi = await readFile(join(tusDir, nama), 'utf8');
+        pemilik = (JSON.parse(isi) as { metadata?: Record<string, unknown> })
+          ?.metadata?.[TUS_OWNER_METADATA_KEY];
+      } catch {
+        continue;
+      }
+      if (pemilik !== userId) {
+        continue;
+      }
+      try {
+        await rm(join(tusDir, uploadId), { force: true });
+        await rm(join(tusDir, nama), { force: true });
+      } catch (error) {
+        this.logger.warn(
+          `Sisa upload ${uploadId} milik ${userId} gagal dihapus: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
   }
 }

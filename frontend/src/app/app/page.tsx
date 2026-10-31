@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AppPlaceholder } from "@/components/app/app-placeholder";
+import { GaleriUploadClient } from "./galeri-upload-client";
 
 export const metadata: Metadata = {
   title: "Galeri",
@@ -7,9 +7,15 @@ export const metadata: Metadata = {
 
 export default function GaleriPage() {
   return (
-    <AppPlaceholder
-      title="Galeri"
-      message="Galeri fotomu akan tampil di sini. Layar ini menyusul di story berikutnya."
-    />
+    <main className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-h1 text-ink">Galeri</h1>
+        <p className="text-body text-ink-muted">
+          Pilih foto atau video dari HP-mu. Upload berlanjut otomatis kalau
+          sinyal putus.
+        </p>
+      </div>
+      <GaleriUploadClient />
+    </main>
   );
 }

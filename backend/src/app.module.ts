@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { AccountCleanupService } from './cleanup/account-cleanup.service';
+import { UploadCleanupService } from './cleanup/upload-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
@@ -12,6 +13,6 @@ import { UploadsModule } from './uploads/uploads.module';
 @Module({
   imports: [PrismaModule, AppConfigModule, AuthModule, AdminModule, UploadsModule],
   controllers: [AppController, HealthController],
-  providers: [AppService, AccountCleanupService],
+  providers: [AppService, AccountCleanupService, UploadCleanupService],
 })
 export class AppModule {}

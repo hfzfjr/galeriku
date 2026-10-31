@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import request from 'supertest';
 import { PasswordService } from '../src/auth/services/password.service';
 import {
@@ -549,6 +552,63 @@ describe('Admin (e2e)', () => {
       const albumSisa = db.albums.get(albumTetangga);
       expect(albumSisa?.coverFileId).toBeNull();
       expect(db.albumFiles.has('af-2')).toBe(false);
+    });
+
+    it('menghapus file fisik + sisa _tus miliknya (US-17)', async () => {
+      const mediaDir = mkdtempSync(join(tmpdir(), 'galeriku-admin-hapus-'));
+      const semula = process.env.MEDIA_DIR;
+      process.env.MEDIA_DIR = mediaDir;
+      try {
+        const admin = await seedAdmin(db);
+        const korban = await seedUser(db, { email: 'korban@contoh.id' });
+        const token = craftSession(db, admin.id as string);
+        const kunci = 'uuid-milik-korban';
+        const thumb = 'thumb-milik-korban';
+        writeFileSync(join(mediaDir, kunci), 'isi');
+        writeFileSync(join(mediaDir, thumb), 'thumb');
+        db.files.set('f-korban', {
+          id: 'f-korban',
+          ownerId: korban.id,
+          originalName: 'foto.jpg',
+          storageKey: kunci,
+          mimeType: 'image/jpeg',
+          sizeBytes: 4n,
+          kind: 'image',
+          status: 'ready',
+          createdAt: new Date(),
+          deletedAt: null,
+          thumbKey: thumb,
+        });
+        const tusDir = join(mediaDir, '_tus');
+        mkdirSync(tusDir, { recursive: true });
+        const yatim = 'uuid-yatim-korban';
+        writeFileSync(join(tusDir, yatim), 'sebagian');
+        writeFileSync(
+          join(tusDir, `${yatim}.json`),
+          JSON.stringify({ metadata: { ownerId: korban.id } }),
+        );
+        const asing = 'uuid-orang-lain';
+        writeFileSync(join(tusDir, asing), 'asing');
+        writeFileSync(
+          join(tusDir, `${asing}.json`),
+          JSON.stringify({ metadata: { ownerId: 'u-lain' } }),
+        );
+
+        await sebagai('delete', `/admin/users/${korban.id}`, token).expect(204);
+
+        expect(existsSync(join(mediaDir, kunci))).toBe(false);
+        expect(existsSync(join(mediaDir, thumb))).toBe(false);
+        expect(existsSync(join(tusDir, yatim))).toBe(false);
+        expect(existsSync(join(tusDir, `${yatim}.json`))).toBe(false);
+        expect(existsSync(join(tusDir, asing))).toBe(true);
+      } finally {
+        if (semula === undefined) {
+          delete process.env.MEDIA_DIR;
+        } else {
+          process.env.MEDIA_DIR = semula;
+        }
+        rmSync(mediaDir, { recursive: true, force: true });
+      }
     });
 
     it('404 bila tak ada; hapus diri ditolak', async () => {

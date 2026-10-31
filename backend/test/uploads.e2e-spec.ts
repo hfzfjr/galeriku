@@ -1,4 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -9,6 +16,7 @@ import {
   type TestApp,
 } from './test-app';
 import { expectOwnerOnly } from './ownership';
+import { UploadsService } from '../src/uploads/uploads.service';
 
 // Spike US-16: @tus/server di dalam NestJS. PrismaService di-mock (pola
 // e2e lain); FileStore menulis ke MEDIA_DIR sementara per tes.
@@ -186,7 +194,7 @@ describe('Upload tus (US-16 spike)', () => {
       });
   });
 
-  it('alur penuh: create -> PATCH -> HEAD -> file + sidecar + UUID + nosniff', async () => {
+  it('alur penuh: create -> PATCH -> selesai pindah ke final (HEAD 404 standar)', async () => {
     const a = await seedUser(db, 'a@contoh.id');
     const cookie = craftSession(db, a.id as string);
     const http = () =>
@@ -220,34 +228,34 @@ describe('Upload tus (US-16 spike)', () => {
       .set('Upload-Offset', '0')
       .send(isi)
       .expect(204);
+    // US-17: upload selesai langsung pindah ke MEDIA_DIR/<uuid> (bukan
+    // lagi resource tus), sehingga HEAD berikutnya 404 standar.
     const head = await http()
       .head(`/uploads/${id}`)
       .set('Cookie', `galeriku_session=${cookie}`)
       .set('Origin', ORIGIN)
       .set('Tus-Resumable', TUS)
-      .expect(200);
-    if (head.headers['upload-offset'] !== String(isi.length)) {
-      throw new Error(`offset: ${head.headers['upload-offset']}`);
-    }
+      .expect(404);
     if (head.headers['x-content-type-options'] !== 'nosniff') {
-      throw new Error('nosniff hilang pada HEAD');
+      throw new Error('nosniff hilang pada HEAD 404');
     }
-    const berkas = join(tusDir, id);
-    if (!existsSync(berkas) || statSync(berkas).size !== isi.length) {
-      throw new Error('berkas tus tak ada/ukuran salah');
+    const final = join(mediaDir, id);
+    if (!existsSync(final) || statSync(final).size !== isi.length) {
+      throw new Error('berkas final tak ada/ukuran salah');
     }
-    if (!readFileSync(berkas).equals(isi)) {
-      throw new Error('isi berkas tus berbeda');
+    if (!readFileSync(final).equals(isi)) {
+      throw new Error('isi berkas final berbeda');
     }
-    const metaPath = join(tusDir, `${id}.json`);
-    if (!existsSync(metaPath)) {
-      throw new Error('sidecar .json tak ada');
+    if (existsSync(join(tusDir, `${id}.json`))) {
+      throw new Error('sidecar tak dibersihkan setelah selesai');
     }
-    const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
-      metadata?: Record<string, string | null>;
-    };
-    if (meta.metadata?.['ownerId'] !== a.id) {
-      throw new Error(`ownerId: ${JSON.stringify(meta.metadata)}`);
+    const baris = [...db.files.values()];
+    if (baris.length !== 1) {
+      throw new Error(`baris File: ${baris.length}, harus 1`);
+    }
+    const f = baris[0] as Record<string, unknown>;
+    if (f.ownerId !== a.id || f.storageKey !== id || f.status !== 'ready') {
+      throw new Error(`baris File salah: ${JSON.stringify(f)}`);
     }
   });
 
@@ -316,16 +324,15 @@ describe('Upload tus (US-16 spike)', () => {
       throw new Error(`offset tengah: ${tengah.headers['upload-offset']}`);
     }
     await lpatch(5, isi.subarray(5));
-    const akhir = await http()
+    // US-17: chunk terakhir menyelesaikan upload -> pindah ke final,
+    // HEAD tus berikutnya 404 standar.
+    await http()
       .head(`/uploads/${id}`)
       .set('Cookie', `galeriku_session=${cookie}`)
       .set('Origin', ORIGIN)
       .set('Tus-Resumable', TUS)
-      .expect(200);
-    if (akhir.headers['upload-offset'] !== String(isi.length)) {
-      throw new Error(`offset akhir: ${akhir.headers['upload-offset']}`);
-    }
-    if (!readFileSync(join(tusDir, id)).equals(isi)) {
+      .expect(404);
+    if (!readFileSync(join(mediaDir, id)).equals(isi)) {
       throw new Error('gabungan chunk berbeda dari aslinya');
     }
   });
@@ -367,6 +374,198 @@ describe('Upload tus (US-16 spike)', () => {
         },
         { method: 'delete', url: `/uploads/${id}`, headers: tusHeader },
       ],
+    });
+  });
+
+  describe('penyelesaian upload (US-17)', () => {
+    function kirimPatch(
+      cookie: string,
+      id: string,
+      offset: number,
+      potong: Buffer,
+    ) {
+      return request(server().getHttpAdapter().getInstance().server)
+        .patch(`/uploads/${id}`)
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Content-Type', 'application/offset+octet-stream')
+        .set('Upload-Offset', String(offset))
+        .send(potong);
+    }
+
+    function buatUploadDenganTipe(
+      cookie: string,
+      panjang: number,
+      nama: string,
+      tipe: string,
+    ): Promise<{ id: string }> {
+      return request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', String(panjang))
+        .set(
+          'Upload-Metadata',
+          [
+            `filename ${Buffer.from(nama, 'utf8').toString('base64')}`,
+            `filetype ${Buffer.from(tipe, 'utf8').toString('base64')}`,
+          ].join(','),
+        )
+        .expect(201)
+        .then((res) => {
+          const location = res.headers['location'] as string;
+          const id = (location.split('/').pop() ?? '').split('?')[0];
+          return { id };
+        });
+    }
+
+    it('selesai -> baris File ready + berkas pindah ke MEDIA_DIR/<uuid>', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const isi = Buffer.from('foto-palsu-isi');
+      const { id } = await buatUploadDenganTipe(
+        cookie,
+        isi.length,
+        'liburan.jpg',
+        'image/jpeg',
+      );
+      await kirimPatch(cookie, id, 0, isi).expect(204);
+      if (!UUID_RE.test(id)) {
+        throw new Error(`id bukan UUID: ${id}`);
+      }
+      // Berkas tus pindah, bukan nama asli di disk.
+      if (existsSync(join(tusDir, id))) {
+        throw new Error('berkas masih di _tus setelah selesai');
+      }
+      const final = join(mediaDir, id);
+      if (!existsSync(final) || !readFileSync(final).equals(isi)) {
+        throw new Error('berkas final tak ada/isi salah');
+      }
+      if (existsSync(join(tusDir, `${id}.json`))) {
+        throw new Error('sidecar tak dibersihkan');
+      }
+      const baris = [...db.files.values()];
+      if (baris.length !== 1) {
+        throw new Error(`baris File: ${baris.length}, harus 1`);
+      }
+      const f = baris[0] as Record<string, unknown>;
+      if (
+        f.ownerId !== a.id ||
+        f.storageKey !== id ||
+        f.originalName !== 'liburan.jpg' ||
+        f.mimeType !== 'image/jpeg' ||
+        f.sizeBytes !== BigInt(isi.length) ||
+        f.kind !== 'image' ||
+        f.status !== 'ready'
+      ) {
+        throw new Error(`baris File salah: ${JSON.stringify({ ...f, sizeBytes: String(f.sizeBytes) })}`);
+      }
+    });
+
+    it('nama disanitasi (buang path), storage_key tetap UUID', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const isi = Buffer.from('x'.repeat(8));
+      const { id } = await buatUploadDenganTipe(
+        cookie,
+        isi.length,
+        '../../etc/passwd',
+        'application/octet-stream',
+      );
+      await kirimPatch(cookie, id, 0, isi).expect(204);
+      const f = [...db.files.values()][0] as Record<string, unknown>;
+      if (f.originalName !== 'passwd') {
+        throw new Error(`originalName: ${JSON.stringify(f.originalName)}`);
+      }
+      if (!UUID_RE.test(String(f.storageKey))) {
+        throw new Error(`storageKey bukan UUID: ${f.storageKey}`);
+      }
+    });
+
+    it('video dikenali dari mime/ekstensi', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const isi = Buffer.from('video-palsu');
+      const { id } = await buatUploadDenganTipe(
+        cookie,
+        isi.length,
+        'klip.mp4',
+        'video/mp4',
+      );
+      await kirimPatch(cookie, id, 0, isi).expect(204);
+      const f = [...db.files.values()][0] as Record<string, unknown>;
+      if (f.kind !== 'video') {
+        throw new Error(`kind: ${JSON.stringify(f.kind)}`);
+      }
+    });
+
+    it('gagal tulis DB setelah pindah -> berkas dibersihkan, galat ramah', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const isi = Buffer.from('gagal-db-isi!');
+      const { id } = await buatUpload(cookie, isi.length);
+      const service = app.get(UploadsService);
+      const prisma = (
+        service as unknown as { prisma: { file: { create: unknown } } }
+      ).prisma;
+      const asli = prisma.file.create;
+      prisma.file.create = async () => {
+        throw new Error('db down');
+      };
+      try {
+        const res = await kirimPatch(cookie, id, 0, isi).expect(500);
+        // Galat tus dikirim teks polos: pakai body terurai bila ada,
+        // bila kosong parse teks mentah.
+        const terurai = res.body as Record<string, unknown>;
+        const badan =
+          terurai && typeof terurai.code === 'string'
+            ? terurai
+            : (JSON.parse(res.text as string) as Record<string, unknown>);
+        if (badan.code !== 'UPLOAD_FINISH_FAILED') {
+          throw new Error(`kode: ${res.text}`);
+        }
+        if (
+          typeof badan.message !== 'string' ||
+          !badan.message.includes('Coba unggah ulang')
+        ) {
+          throw new Error(`pesan tak ramah: ${res.text}`);
+        }
+      } finally {
+        prisma.file.create = asli;
+      }
+      if (existsSync(join(mediaDir, id))) {
+        throw new Error('berkas yatim tertinggal setelah gagal DB');
+      }
+      if (db.files.size !== 0) {
+        throw new Error('baris File tercipta padahal DB gagal');
+      }
+    });
+
+    it('cleanup expiration menghapus yatim >24 jam, yang segar utuh', async () => {
+      const a = await seedUser(db, 'a@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const yatim = await buatUpload(cookie, 10);
+      const segar = await buatUpload(cookie, 10);
+      const sidecar = join(tusDir, `${yatim.id}.json`);
+      const meta = JSON.parse(readFileSync(sidecar, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      meta.creation_date = new Date(Date.now() - 25 * 3600_000).toISOString();
+      writeFileSync(sidecar, JSON.stringify(meta));
+      const service = app.get(UploadsService);
+      const hasil = await service.deleteExpiredUploads();
+      if (hasil !== 1) {
+        throw new Error(`terhapus: ${hasil}, harus 1`);
+      }
+      if (existsSync(join(tusDir, yatim.id))) {
+        throw new Error('berkas yatim tak terhapus');
+      }
+      if (!existsSync(join(tusDir, segar.id))) {
+        throw new Error('upload segar ikut terhapus');
+      }
     });
   });
 
