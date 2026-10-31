@@ -10,6 +10,7 @@ import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { FilesModule } from './files/files.module';
+import { AlbumsModule } from './albums/albums.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FilesModule } from './files/files.module';
     AdminModule,
     UploadsModule,
     FilesModule,
+    AlbumsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, AccountCleanupService, UploadCleanupService],

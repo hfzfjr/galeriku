@@ -246,4 +246,60 @@ export const batchDeleteFilesSchema = z.object({
 
 export type BatchDeleteFilesRequest = z.output<typeof batchDeleteFilesSchema>;
 
+// Albums (US-23: Album)
+export const createAlbumSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Judul album tidak boleh kosong.')
+    .max(100, 'Judul album maksimal 100 karakter.'),
+});
+
+export type CreateAlbumRequest = z.output<typeof createAlbumSchema>;
+
+export const updateAlbumSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Judul album tidak boleh kosong.')
+    .max(100, 'Judul album maksimal 100 karakter.'),
+});
+
+export type UpdateAlbumRequest = z.output<typeof updateAlbumSchema>;
+
+export const addAlbumFilesSchema = z.object({
+  fileIds: z.array(z.string().min(1)).min(1, 'Pilih minimal satu file.').max(100),
+});
+
+export type AddAlbumFilesRequest = z.output<typeof addAlbumFilesSchema>;
+
+export const albumItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  coverFileId: z.string().nullable(),
+  coverThumbKey: z.string().nullable().optional(),
+  fileCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+});
+
+export type AlbumItem = z.output<typeof albumItemSchema>;
+
+export const albumsResponseSchema = z.object({
+  items: z.array(albumItemSchema),
+});
+
+export type AlbumsResponse = z.output<typeof albumsResponseSchema>;
+
+export const albumDetailSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  coverFileId: z.string().nullable(),
+  fileCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  files: z.array(fileItemSchema),
+});
+
+export type AlbumDetail = z.output<typeof albumDetailSchema>;
+
+
 

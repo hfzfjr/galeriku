@@ -52,7 +52,7 @@ Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file 
 
 Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (aturan baca US-25); US-12 tidak menandai revoked_at saat menangguhkan.
 
-- [ ] US-23 Sebagai pengguna, saya ingin membuat album
+- [x] US-23 Sebagai pengguna, saya ingin membuat album
 - [ ] US-24 Sebagai pengguna, saya ingin membuat link publik
 - [ ] US-25 Sebagai penerima, saya ingin membuka dan mengunduh tanpa login
 

@@ -1,7 +1,12 @@
 import type {
   AcceptedResponse,
+  AddAlbumFilesRequest,
   AdminUserItem,
   AdminUsersResponse,
+  AlbumDetail,
+  AlbumItem,
+  AlbumsResponse,
+  CreateAlbumRequest,
   FilesResponse,
   ForgotPasswordRequest,
   LoginRequest,
@@ -10,6 +15,7 @@ import type {
   RegisterResponse,
   ResendCodeRequest,
   ResetPasswordRequest,
+  UpdateAlbumRequest,
   UpdateQuotaRequest,
   VerifyEmailRequest,
 } from "@galeriku/contracts";
@@ -272,6 +278,60 @@ export function setPassword(password: string): Promise<MeResponse> {
     method: "POST",
     body: { password },
   });
+}
+
+// Album (US-23)
+export function fetchAlbums(): Promise<AlbumsResponse> {
+  return request<AlbumsResponse>("/albums");
+}
+
+export function createAlbum(body: CreateAlbumRequest): Promise<AlbumItem> {
+  return request<AlbumItem>("/albums", {
+    method: "POST",
+    body,
+  });
+}
+
+export function fetchAlbumDetail(id: string): Promise<AlbumDetail> {
+  return request<AlbumDetail>(`/albums/${encodeURIComponent(id)}`);
+}
+
+export function updateAlbum(
+  id: string,
+  body: UpdateAlbumRequest,
+): Promise<AlbumItem> {
+  return request<AlbumItem>(`/albums/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body,
+  });
+}
+
+export function deleteAlbum(id: string): Promise<void> {
+  return request<void>(`/albums/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function addFilesToAlbum(
+  id: string,
+  body: AddAlbumFilesRequest,
+): Promise<AlbumDetail> {
+  return request<AlbumDetail>(`/albums/${encodeURIComponent(id)}/files`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function removeFileFromAlbum(
+  id: string,
+  fileId: string,
+): Promise<AlbumDetail> {
+  return request<AlbumDetail>(
+    `/albums/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 
