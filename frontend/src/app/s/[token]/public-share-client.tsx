@@ -10,6 +10,7 @@ import {
   KeyRound,
   Lock,
   Maximize2,
+  Share2,
   ShieldAlert,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -166,14 +167,46 @@ export function PublicShareClient({ token }: { token: string }) {
           </span>
         </Link>
 
-        <a
-          href={reportMailto}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-sunken hover:text-danger transition"
-          title="Laporkan konten bermasalah"
-        >
-          <Flag size={14} />
-          <span>Laporkan</span>
-        </a>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={async () => {
+              const url = typeof window !== "undefined" ? window.location.href : "";
+              if (typeof navigator !== "undefined" && navigator.share) {
+                try {
+                  await navigator.share({
+                    title: `Galeriku — ${data.title}`,
+                    text: `Buka "${data.title}" di Galeriku:`,
+                    url,
+                  });
+                } catch {
+                  // dibatalkan pengguna
+                }
+              } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+                try {
+                  await navigator.clipboard.writeText(url);
+                } catch {
+                  // fallback
+                }
+              }
+            }}
+            className="h-8 gap-1.5 px-2.5 text-xs"
+            title="Bagikan tautan ini"
+          >
+            <Share2 size={14} />
+            <span className="hidden sm:inline">Bagikan</span>
+          </Button>
+
+          <a
+            href={reportMailto}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-xs font-medium text-ink-muted hover:bg-sunken hover:text-danger transition"
+            title="Laporkan konten bermasalah"
+          >
+            <Flag size={14} />
+            <span>Laporkan</span>
+          </a>
+        </div>
       </header>
 
       {/* Konten Halaman */}

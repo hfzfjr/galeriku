@@ -15,6 +15,12 @@ export const metadata: Metadata = {
   },
   description:
     "Ruang simpan pribadi untuk foto dan videomu. Bagikan lewat satu link.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Galeriku",
+  },
 };
 
 export const viewport: Viewport = {

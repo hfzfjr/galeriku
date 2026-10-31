@@ -62,7 +62,7 @@ Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (a
 - [x] US-27 Sebagai pengguna, saya ingin mengelola dan mencabut link
 - [x] US-28 Sebagai penerima, saya ingin mengunduh album sebagai ZIP
 - [x] US-29 Sebagai admin, saya ingin rate limit dan header keamanan
-- [ ] US-30 Sebagai pengguna HP, saya ingin PWA dan Web Share
+- [x] US-30 Sebagai pengguna HP, saya ingin PWA dan Web Share
 
 ## Sprint 7 — Stabilisasi dan Rilis v1.0
 

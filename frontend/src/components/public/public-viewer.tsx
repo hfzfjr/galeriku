@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileItem } from "@galeriku/contracts";
-import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Share2, X } from "lucide-react";
 import { getPublicFileContentUrl } from "@/lib/api";
 
 interface PublicViewerProps {
@@ -32,6 +32,27 @@ export function PublicViewer({
 
   const total = files.length;
   const currentFile = files[currentIndex];
+
+  const handleShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Galeriku — ${currentFile.originalName}`,
+          text: `Lihat file "${currentFile.originalName}" di Galeriku:`,
+          url,
+        });
+      } catch {
+        // dibatalkan pengguna
+      }
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        // clipboard diblokir
+      }
+    }
+  };
 
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
@@ -165,6 +186,16 @@ export function PublicViewer({
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Bagikan"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
+            title="Bagikan"
+          >
+            <Share2 size={20} strokeWidth={1.5} />
+          </button>
+
           {allowDownload && (
             <a
               href={downloadUrl}
