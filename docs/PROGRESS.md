@@ -39,7 +39,7 @@ Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file 
 - [x] US-16 Spike: tus di dalam NestJS
 - [x] US-17 Sebagai pengguna, saya ingin upload banyak file sekaligus yang bisa dilanjutkan
 - [x] US-18 Sebagai admin, saya ingin validasi, kuota, dan disk guard
-- [ ] US-19 Sebagai pengguna, saya ingin thumbnail foto
+- [x] US-19 Sebagai pengguna, saya ingin thumbnail foto
 
 ## Sprint 4 — Galeri dan Viewer
 

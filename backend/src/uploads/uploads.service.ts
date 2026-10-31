@@ -10,6 +10,7 @@ import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import type { SessionUser } from '../auth/guards/auth.guard';
 import { FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ThumbnailService } from './thumbnail.service';
 import {
   TUS_AUTH_USER_KEY,
   TUS_OWNER_METADATA_KEY,
@@ -62,6 +63,7 @@ export class UploadsService implements OnModuleInit {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
+    private readonly thumbnail: ThumbnailService,
   ) {}
 
   onModuleInit(): void {
@@ -295,6 +297,25 @@ export class UploadsService implements OnModuleInit {
       );
     }
 
+    // 3. Pembuatan thumbnail WebP untuk foto (US-19)
+    let thumbKey: string | null = null;
+    let width: number | null = null;
+    let height: number | null = null;
+
+    if (sniffed.kind === 'image') {
+      const thumbFilename = `${storageKey}.thumb.webp`;
+      const thumbPath = join(mediaDir, thumbFilename);
+      const thumbRes = await this.thumbnail.generatePhotoThumbnail(
+        tujuan,
+        thumbPath,
+      );
+      if (thumbRes) {
+        thumbKey = thumbRes.thumbKey;
+        width = thumbRes.width ?? null;
+        height = thumbRes.height ?? null;
+      }
+    }
+
     try {
       await this.prisma.file.create({
         data: {
@@ -304,11 +325,17 @@ export class UploadsService implements OnModuleInit {
           mimeType: sniffed.mime,
           sizeBytes: BigInt(ukuran),
           kind: sniffed.kind,
+          thumbKey,
+          width,
+          height,
           status: FileStatus.ready,
         },
       });
     } catch (error) {
       await rm(tujuan, { force: true });
+      if (thumbKey) {
+        await rm(join(mediaDir, thumbKey), { force: true });
+      }
       this.logger.warn(
         `Baris File ${storageKey} gagal dibuat, berkas final dibersihkan: ${error instanceof Error ? error.message : String(error)}`,
       );
