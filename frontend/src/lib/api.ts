@@ -19,8 +19,10 @@ import type {
   ResetPasswordRequest,
   ShareLinkItem,
   ShareLinksResponse,
+  UnlockShareRequest,
   UpdateAlbumRequest,
   UpdateQuotaRequest,
+  UpdateShareLinkRequest,
   VerifyEmailRequest,
 } from "@galeriku/contracts";
 
@@ -338,7 +340,7 @@ export function removeFileFromAlbum(
   );
 }
 
-// Share Links (US-24)
+// Share Links (US-24, US-26, US-27)
 export function createShareLink(
   body: CreateShareLinkRequest,
 ): Promise<ShareLinkItem> {
@@ -348,13 +350,36 @@ export function createShareLink(
   });
 }
 
+export function updateShareLink(
+  id: string,
+  body: UpdateShareLinkRequest,
+): Promise<ShareLinkItem> {
+  return request<ShareLinkItem>(`/shares/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body,
+  });
+}
+
 export function fetchShares(): Promise<ShareLinksResponse> {
   return request<ShareLinksResponse>("/shares");
 }
 
-// Public View & Download (US-25)
+// Public View & Download (US-25, US-26)
 export function fetchPublicShare(token: string): Promise<PublicShareResponse> {
   return request<PublicShareResponse>(`/public/s/${encodeURIComponent(token)}`);
+}
+
+export function unlockPublicShare(
+  token: string,
+  body: UnlockShareRequest,
+): Promise<{ unlocked: boolean; unlockToken: string }> {
+  return request<{ unlocked: boolean; unlockToken: string }>(
+    `/public/s/${encodeURIComponent(token)}/unlock`,
+    {
+      method: "POST",
+      body,
+    },
+  );
 }
 
 export function getPublicThumbnailUrl(token: string, fileId: string): string {

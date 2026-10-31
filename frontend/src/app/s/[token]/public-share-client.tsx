@@ -7,30 +7,47 @@ import {
   Download,
   Film,
   Flag,
+  KeyRound,
+  Lock,
   Maximize2,
   ShieldAlert,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { PublicViewer } from "@/components/public/public-viewer";
 import {
   fetchPublicShare,
   getPublicFileContentUrl,
   getPublicThumbnailUrl,
+  unlockPublicShare,
 } from "@/lib/api";
+import { toIndonesianMessage } from "@/lib/auth-errors";
 
 const CONTACT_EMAIL =
   process.env.NEXT_PUBLIC_CONTACT_EMAIL || "admin@hafizfajar.com";
 
 export function PublicShareClient({ token }: { token: string }) {
+  const queryClient = useQueryClient();
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(
     null,
   );
+  const [passwordInput, setPasswordInput] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-share", token],
     queryFn: () => fetchPublicShare(token),
     retry: false,
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: () =>
+      unlockPublicShare(token, {
+        password: passwordInput,
+      }),
+    onSuccess: () => {
+      setPasswordInput("");
+      queryClient.invalidateQueries({ queryKey: ["public-share", token] });
+    },
   });
 
   if (isLoading) {
@@ -64,6 +81,64 @@ export function PublicShareClient({ token }: { token: string }) {
               <Button variant="primary">Kunjungi Galeriku</Button>
             </Link>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Jika tautan dilindungi kata sandi dan belum di-unlock
+  if (data.hasPassword && !data.isUnlocked) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center p-4">
+        <div className="max-w-md w-full rounded-2xl border border-line bg-surface p-6 sm:p-8 text-center shadow-xs">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-accent">
+            <Lock size={28} strokeWidth={1.5} />
+          </div>
+          <h1 className="text-h2 font-serif text-ink">Tautan Dilindungi Sandi</h1>
+          <p className="mt-2 text-caption text-ink-muted">
+            Masukkan kata sandi yang diberikan pemilik untuk membuka isi tautan ini.
+          </p>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (passwordInput.trim()) {
+                unlockMutation.mutate();
+              }
+            }}
+            className="mt-6 space-y-4 text-left"
+          >
+            <div className="relative">
+              <KeyRound
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+              />
+              <input
+                type="password"
+                required
+                autoFocus
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Masukkan kata sandi..."
+                className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-hidden"
+              />
+            </div>
+
+            {unlockMutation.error && (
+              <p className="text-xs text-danger font-medium text-center">
+                {toIndonesianMessage(unlockMutation.error)}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={unlockMutation.isPending || !passwordInput.trim()}
+            >
+              {unlockMutation.isPending ? "Membuka..." : "Buka Tautan"}
+            </Button>
+          </form>
         </div>
       </div>
     );

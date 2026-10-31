@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   UsePipes,
 } from '@nestjs/common';
@@ -10,8 +11,12 @@ import type {
   CreateShareLinkRequest,
   ShareLinkItem,
   ShareLinksResponse,
+  UpdateShareLinkRequest,
 } from '@galeriku/contracts';
-import { createShareLinkSchema } from '@galeriku/contracts';
+import {
+  createShareLinkSchema,
+  updateShareLinkSchema,
+} from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { SharesService } from './shares.service';
@@ -40,6 +45,16 @@ export class SharesController {
     @Param('id') shareId: string,
   ): Promise<ShareLinkItem> {
     return this.sharesService.getShareDetail(user.id, shareId);
+  }
+
+  @Patch(':id')
+  @UsePipes(new ZodValidationPipe(updateShareLinkSchema))
+  async updateShare(
+    @CurrentUser() user: SessionUser,
+    @Param('id') shareId: string,
+    @Body() body: UpdateShareLinkRequest,
+  ): Promise<ShareLinkItem> {
+    return this.sharesService.updateShare(user.id, shareId, body);
   }
 }
 

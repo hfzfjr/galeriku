@@ -305,13 +305,37 @@ export type AlbumDetail = z.output<typeof albumDetailSchema>;
 export const shareTargetSchema = z.enum(['FILE', 'ALBUM']);
 export type ShareTarget = z.output<typeof shareTargetSchema>;
 
+export const shareExpiryOptionSchema = z.enum([
+  '1_DAY',
+  '7_DAYS',
+  '30_DAYS',
+  'NEVER',
+]);
+export type ShareExpiryOption = z.output<typeof shareExpiryOptionSchema>;
+
 export const createShareLinkSchema = z.object({
   targetType: shareTargetSchema,
   targetId: z.string().min(1, 'Target ID tidak boleh kosong.'),
   allowDownload: z.boolean().default(true),
+  expiry: shareExpiryOptionSchema.default('30_DAYS'),
+  password: z.string().max(100).optional(),
 });
 
 export type CreateShareLinkRequest = z.output<typeof createShareLinkSchema>;
+
+export const updateShareLinkSchema = z.object({
+  allowDownload: z.boolean().optional(),
+  expiry: shareExpiryOptionSchema.optional(),
+  password: z.string().max(100).optional().nullable(),
+});
+
+export type UpdateShareLinkRequest = z.output<typeof updateShareLinkSchema>;
+
+export const unlockShareSchema = z.object({
+  password: z.string().min(1, 'Kata sandi wajib diisi.'),
+});
+
+export type UnlockShareRequest = z.output<typeof unlockShareSchema>;
 
 export const shareLinkItemSchema = z.object({
   id: z.string(),
@@ -335,13 +359,15 @@ export const shareLinksResponseSchema = z.object({
 
 export type ShareLinksResponse = z.output<typeof shareLinksResponseSchema>;
 
-// Public Share View (US-25)
+// Public Share View (US-25, US-26)
 export const publicShareResponseSchema = z.object({
   token: z.string(),
   targetType: shareTargetSchema,
   title: z.string(),
   allowDownload: z.boolean(),
   createdAt: z.string(),
+  hasPassword: z.boolean(),
+  isUnlocked: z.boolean(),
   files: z.array(fileItemSchema),
 });
 

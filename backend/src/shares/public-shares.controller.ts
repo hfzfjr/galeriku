@@ -1,18 +1,58 @@
 import { createReadStream } from 'node:fs';
 import {
+  Body,
   Controller,
   Get,
   Param,
+  Post,
   Query,
   Req,
   Res,
+  UsePipes,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { PublicShareResponse } from '@galeriku/contracts';
+import type {
+  PublicShareResponse,
+  UnlockShareRequest,
+} from '@galeriku/contracts';
+import { unlockShareSchema } from '@galeriku/contracts';
 import { Public } from '../common/decorators/public.decorator';
 import { getClientIp, getUserAgent } from '../common/utils/client-ip';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
+
+function getUnlockTokenFromReq(req: FastifyRequest): string | undefined {
+  // 1. Ambil dari header kustom jika ada
+  const headerToken = req.headers['x-unlock-token'];
+  if (typeof headerToken === 'string' && headerToken) {
+    return headerToken;
+  }
+
+  // 2. Ambil dari cookie galeriku_unlock_*
+  const cookies = req.cookies as Record<string, string | undefined> | undefined;
+  if (cookies) {
+    for (const [key, val] of Object.entries(cookies)) {
+      if (key.startsWith('galeriku_unlock_') && typeof val === 'string') {
+        return val;
+      }
+    }
+  }
+
+  // 3. Fallback parse manual cookie header jika req.cookies kosong
+  const rawCookie = req.headers.cookie;
+  if (typeof rawCookie === 'string') {
+    const parts = rawCookie.split(';');
+    for (const p of parts) {
+      const [k, v] = p.trim().split('=');
+      if (k.startsWith('galeriku_unlock_') && v) {
+        return decodeURIComponent(v);
+      }
+    }
+  }
+
+  return undefined;
+}
 
 @Controller('public/s')
 export class PublicSharesController {
@@ -28,7 +68,33 @@ export class PublicSharesController {
     res.header('X-Robots-Tag', 'noindex, nofollow');
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
-    return this.sharesService.getPublicShare(token, ip, userAgent);
+    const unlockToken = getUnlockTokenFromReq(req);
+    return this.sharesService.getPublicShare(token, ip, userAgent, unlockToken);
+  }
+
+  @Public()
+  @Post(':token/unlock')
+  @UsePipes(new ZodValidationPipe(unlockShareSchema))
+  async unlockShare(
+    @Param('token') token: string,
+    @Body() body: UnlockShareRequest,
+    @Res({ passthrough: true }) res: FastifyReply,
+  ): Promise<{ unlocked: boolean; unlockToken: string }> {
+    res.header('X-Robots-Tag', 'noindex, nofollow');
+    const { unlockToken, cookieName } = await this.sharesService.unlockShare(
+      token,
+      body.password,
+    );
+
+    res.setCookie(cookieName, unlockToken, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 86400,
+    });
+
+    return { unlocked: true, unlockToken };
   }
 
   @Public()
@@ -36,11 +102,14 @@ export class PublicSharesController {
   async getPublicThumbnail(
     @Param('token') token: string,
     @Param('fileId') fileId: string,
+    @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ): Promise<void> {
+    const unlockToken = getUnlockTokenFromReq(req);
     const thumbPath = await this.sharesService.getPublicThumbnailPath(
       token,
       fileId,
+      unlockToken,
     );
 
     res.header('Content-Type', 'image/webp');
@@ -61,7 +130,13 @@ export class PublicSharesController {
   ): Promise<void> {
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
-    const share = await this.sharesService.getPublicShare(token, ip, userAgent);
+    const unlockToken = getUnlockTokenFromReq(req);
+    const share = await this.sharesService.getPublicShare(
+      token,
+      ip,
+      userAgent,
+      unlockToken,
+    );
 
     if (share.files.length === 0) {
       res.status(404).send({
@@ -76,6 +151,7 @@ export class PublicSharesController {
     const thumbPath = await this.sharesService.getPublicThumbnailPath(
       token,
       firstFileId,
+      unlockToken,
     );
 
     res.header('Content-Type', 'image/webp');
@@ -97,11 +173,13 @@ export class PublicSharesController {
     @Res() res: FastifyReply,
   ): Promise<void> {
     const isDownload = downloadQuery === '1';
+    const unlockToken = getUnlockTokenFromReq(req);
     const { filePath, originalName, mimeType, sizeBytes } =
       await this.sharesService.getPublicFileContentInfo(
         token,
         fileId,
         isDownload,
+        unlockToken,
       );
 
     res.header('X-Content-Type-Options', 'nosniff');
@@ -146,4 +224,3 @@ export class PublicSharesController {
     return res.send(stream);
   }
 }
-

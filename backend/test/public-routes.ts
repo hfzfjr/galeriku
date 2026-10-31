@@ -23,6 +23,7 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { method: 'GET', path: '/auth/google' },
   { method: 'GET', path: '/auth/google/callback' },
   { method: 'GET', path: '/public/s/:token' },
+  { method: 'POST', path: '/public/s/:token/unlock' },
   { method: 'GET', path: '/public/s/:token/files/:fileId/thumb' },
   { method: 'GET', path: '/public/s/:token/cover' },
   { method: 'GET', path: '/public/s/:token/files/:fileId' },

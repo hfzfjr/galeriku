@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, ExternalLink, Link2, Share2, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import type { ShareTarget } from "@galeriku/contracts";
+import { Check, Copy, ExternalLink, KeyRound, Link2, Lock, Share2, Timer, X } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { ShareExpiryOption, ShareLinkItem, ShareTarget } from "@galeriku/contracts";
 import { Button } from "@/components/ui/button";
 import { createShareLink } from "@/lib/api";
 import { toIndonesianMessage } from "@/lib/auth-errors";
@@ -23,25 +23,33 @@ export function ShareModal({
   targetId,
   targetTitle,
 }: ShareModalProps) {
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [expiry, setExpiry] = useState<ShareExpiryOption>("30_DAYS");
+  const [allowDownload, setAllowDownload] = useState(true);
+  const [password, setPassword] = useState("");
+  const [createdShare, setCreatedShare] = useState<ShareLinkItem | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["share", targetType, targetId],
-    queryFn: () =>
+  const createMutation = useMutation({
+    mutationFn: () =>
       createShareLink({
         targetType,
         targetId,
-        allowDownload: true,
+        allowDownload,
+        expiry,
+        password: password.trim() ? password.trim() : undefined,
       }),
-    enabled: isOpen,
-    staleTime: 60_000,
+    onSuccess: (data) => {
+      setCreatedShare(data);
+      queryClient.invalidateQueries({ queryKey: ["shares"] });
+    },
   });
 
   if (!isOpen) return null;
 
   const shareUrl =
-    data && typeof window !== "undefined"
-      ? `${window.location.origin}/s/${data.token}`
+    createdShare && typeof window !== "undefined"
+      ? `${window.location.origin}/s/${createdShare.token}`
       : "";
 
   const handleCopy = async () => {
@@ -67,6 +75,11 @@ export function ShareModal({
         // Pengguna membatalkan dialog bawaan
       }
     }
+  };
+
+  const handleReset = () => {
+    setCreatedShare(null);
+    setPassword("");
   };
 
   return (
@@ -99,31 +112,124 @@ export function ShareModal({
         </div>
 
         <div className="mt-4 space-y-4">
-          <p className="text-caption text-ink-muted">
-            Siapa saja yang memiliki tautan ini dapat melihat dan mengunduh
-            konten tanpa perlu masuk ke akun.
-          </p>
+          {!createdShare ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createMutation.mutate();
+              }}
+              className="space-y-4"
+            >
+              {/* Masa Berlaku */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-ink">
+                  <Timer size={14} className="text-ink-muted" />
+                  <span>Masa Berlaku</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "1 Hari", val: "1_DAY" },
+                    { label: "7 Hari", val: "7_DAYS" },
+                    { label: "30 Hari", val: "30_DAYS" },
+                    { label: "Selamanya", val: "NEVER" },
+                  ].map((opt) => (
+                    <button
+                      type="button"
+                      key={opt.val}
+                      onClick={() => setExpiry(opt.val as ShareExpiryOption)}
+                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition text-left ${
+                        expiry === opt.val
+                          ? "border-accent bg-accent/10 text-accent font-semibold"
+                          : "border-line bg-surface text-ink hover:bg-sunken"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-6 gap-2">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-              <span className="text-caption text-ink-muted">
-                Membuat tautan publik...
-              </span>
-            </div>
-          ) : error ? (
-            <p className="text-sm font-medium text-danger">
-              {toIndonesianMessage(error)}
-            </p>
+              {/* Toggle Izinkan Unduh */}
+              <div className="flex items-center justify-between rounded-xl border border-line bg-sunken/50 p-3">
+                <div>
+                  <p className="text-xs font-medium text-ink">Izinkan Unduhan</p>
+                  <p className="text-[11px] text-ink-muted">
+                    Pengunjung dapat mengunduh berkas asli
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={allowDownload}
+                  onChange={(e) => setAllowDownload(e.target.checked)}
+                  className="h-4 w-4 accent-accent rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Kata Sandi Opsional */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-ink">
+                  <Lock size={14} className="text-ink-muted" />
+                  <span>Kata Sandi (Opsional)</span>
+                </label>
+                <div className="relative">
+                  <KeyRound
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+                  />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Kosongkan jika tanpa sandi"
+                    className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-3 text-xs text-ink placeholder:text-ink-muted focus:border-accent focus:outline-hidden"
+                  />
+                </div>
+                <p className="text-[11px] text-ink-muted">
+                  Bila diisi, pengunjung wajib memasukkan sandi sebelum melihat berkas.
+                </p>
+              </div>
+
+              {createMutation.error && (
+                <p className="text-xs text-danger font-medium">
+                  {toIndonesianMessage(createMutation.error)}
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full mt-2"
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? "Membuat tautan..." : "Buat Tautan Publik"}
+              </Button>
+            </form>
           ) : (
             <div className="space-y-3">
+              <div className="rounded-xl bg-accent/10 p-3 border border-accent/20">
+                <p className="text-xs font-semibold text-accent">
+                  Tautan Publik Berhasil Dibuat
+                </p>
+                <p className="text-[11px] text-ink-muted mt-0.5">
+                  {createdShare.expiresAt
+                    ? `Kedaluwarsa pada: ${new Date(createdShare.expiresAt).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}`
+                    : "Berlaku selamanya"}
+                  {createdShare.hasPassword ? " • Dilindungi sandi" : ""}
+                  {createdShare.allowDownload ? " • Unduhan diizinkan" : " • Unduhan dinonaktifkan"}
+                </p>
+              </div>
+
               <div className="flex items-center gap-2 rounded-lg border border-line bg-sunken p-2">
                 <Link2 size={16} className="text-ink-muted shrink-0 ml-1" />
                 <input
                   type="text"
                   readOnly
                   value={shareUrl}
-                  className="w-full bg-transparent text-sm text-ink outline-hidden"
+                  className="w-full bg-transparent text-xs text-ink outline-hidden"
                   onFocus={(e) => e.target.select()}
                 />
               </div>
@@ -171,6 +277,14 @@ export function ShareModal({
                   <ExternalLink size={16} />
                 </a>
               </div>
+
+              <button
+                type="button"
+                onClick={handleReset}
+                className="w-full text-center text-xs text-ink-muted hover:text-ink mt-2 py-1 underline underline-offset-2"
+              >
+                Buat tautan lain dengan opsi berbeda
+              </button>
             </div>
           )}
         </div>

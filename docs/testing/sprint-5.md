@@ -46,3 +46,4 @@ Panduan ini disusun untuk pengujian manual fitur-fitur **Sprint 5** melalui pera
 | 4.5 | Tombol Laporkan Konten | Klik tombol "Laporkan" dengan ikon bendera di header publik. | Membuka klien email (`mailto:`) dengan subjek laporan berisi token tautan ke alamat kontak admin. |
 | 4.6 | Tautan Tidak Valid / Kedaluwarsa | Ubah beberapa huruf pada token di URL atau buka tautan yang tidak ada. | Menampilkan halaman ramah *"Tautan Tidak Tersedia"* dengan tombol kembali ke beranda. |
 | 4.7 | Carry-over: Akun Pemilik Suspended | Jika akun pemilik di-suspend oleh admin lewat `/app/admin`, coba buka link publik miliknya. | Tautan otomatis tidak dapat diakses dan menampilkan halaman ramah tidak tersedia (404). |
+
