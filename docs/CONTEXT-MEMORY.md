@@ -56,17 +56,25 @@ Urutan isi: LANGKAH 0 (git status + git branch --show-current) → KEPUTUSAN FIN
 - Rollback: git revert di main lalu push.
 
 ## 7. SEDANG DIKERJAKAN (Claude wajib memperbarui)
-Terakhir diperbarui: 14 Okt 2026
+Terakhir diperbarui: 31 Okt 2026
 
-**Posisi:** Sprint 3. US-16 (spike tus) selesai. main HEAD f300761. Sisa: US-17, US-18, US-19.
+**Posisi:** Sprint 3 (Upload dan Penyimpanan) 100% selesai dan terverifikasi. main HEAD 9adf104. Seluruh story US-16, US-17, US-18, US-19 tercentang di PROGRESS.md.
 **Langkah berikutnya:**
-1. Kerjakan US-17 (upload di UI + penyelesaian upload di backend) di branch feat/us-17-upload dari main, STOP sebelum merge.
-2. Hafiz tes manual di HP, lalu merge ff-only, pantau deploy Coolify dan /health, centang US-17.
-3. US-18 (validasi): tanya Hafiz maks 5 pertanyaan + rekomendasi dulu.
-4. US-19 (thumbnail): tanya dulu.
-5. Akhir sprint: FSTWRN004, flake e2e matriks (400), ukuran backup, opsional DBeaver/SSH tunnel, PROGRESS.md Sprint 3 tercentang.
-**Keputusan final US-17:** upload selesai dipindah dari _tus ke MEDIA_DIR/<uuid> dan membuat baris File status ready; tombol "Unggah" di /app/galeri + panel progress (bottom sheet di mobile), multi-file; paralel 2 file, bisa jeda/lanjut/batal; hapus halaman /app/uji-upload; upload yatim >24 jam dihapus job cleanup (ekstensi expiration tus); hapus pengguna menghapus baris DB + semua file fisik (gagal hapus file = log, tidak membatalkan); pesan galat ramah Bahasa Indonesia; lanjut otomatis saat online ("menunggu jaringan"); chunk 5 MB; tus-js-client 4.3.1. US-17 menerima semua tipe file: jangan dipakai data sungguhan sebelum US-18.
-**Belum diverifikasi:** upload end-to-end 100 MB-2 GB lewat tunnel; timeout rantai Cloudflare→cloudflared→Traefik; rolling update/Rollback Coolify untuk Compose; restore backup; syarat layanan CDN Cloudflare untuk lalu lintas Tunnel (Hafiz baca sebelum v1.0).
+1. Push branch `main` ke remote `origin/main` dan pantau deploy Coolify backend serta `/health`.
+2. Melangkah ke **Sprint 4 — Galeri dan Viewer**:
+   - US-20: Sebagai pengguna, saya ingin grid galeri (3 kolom HP, lazy-load thumbnail WebP, infinite scroll 24 item, urut terbaru, ikon video).
+   - US-21: Sebagai pengguna, saya ingin viewer layar penuh (swipe/pan, zoom, streaming video HTTP Range).
+   - US-22: Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri.
+   - US-15: Sebagai pengguna, saya ingin halaman profil dan pengaturan (ganti nama, ganti password, pantau sisa kuota).
+3. Pengujian manual dan bug-hunting oleh pengguna dijadwalkan di akhir sprint sesuai instruksi.
+
+**Keputusan final Sprint 3:**
+- US-16: Spike tus terintegrasi di Fastify/NestJS dengan storage lokal.
+- US-17: Resumable multi-file upload di UI via `tus-js-client` (5 MB chunk, max 2 paralel, pause/resume/cancel, auto-resume offline/online). Upload selesai dipindah ke storage lokal dan baris File `READY`. Penghapusan akun membersihkan file fisik di disk.
+- US-18: Validasi tipe file via MIME sniffing (`file-type`), whitelist ekstensi/MIME, blokir keras SVG, validasi ukuran foto <= 25 MB dan video <= 2 GB, disk guard server >= 15 GB, kuota akun pengguna.
+- US-19: Thumbnail foto WebP otomatis dibuat via Sharp (max 400px, quality 80, EXIF rotate dipertahankan) dengan ConcurrencyLimiter (<= 2 paralel). Metadata `thumbKey`, `width`, `height` tersimpan di DB. Video thumbnail ditunda ke Phase 2.
+
+**Belum diverifikasi:** upload end-to-end 100 MB-2 GB lewat tunnel; timeout rantai Cloudflare→cloudflared→Traefik; rolling update/Rollback Coolify untuk Compose; restore backup; syarat layanan CDN Cloudflare untuk lalu lintas Tunnel.
 
 ### Aturan pembaruan bagian 7
 - Claude memperbarui bagian ini: setelah story selesai/di-merge, setelah keputusan penting, setelah perubahan urutan kerja, dan di akhir setiap sesi.
