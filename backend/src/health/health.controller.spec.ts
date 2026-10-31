@@ -40,6 +40,9 @@ describe('HealthController', () => {
     expect(callCount).toBe(1);
     expect(body).toMatchObject({ status: 'ok', database: 'up' });
     expect(typeof body.diskFreeBytes).toBe('number');
+    expect(typeof body.diskTotalBytes).toBe('number');
+    expect(typeof body.diskFreePercent).toBe('number');
+    expect(typeof body.diskWarning).toBe('boolean');
   });
 
   it('gagal: 503 saat database tidak terjangkau, tanpa detail internal', async () => {

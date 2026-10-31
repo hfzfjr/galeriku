@@ -14,10 +14,20 @@ export class HealthController {
       await this.prisma.$queryRaw`SELECT 1`;
       const mediaDir = process.env.MEDIA_DIR ?? process.cwd();
       const stat = statfsSync(mediaDir);
+      const diskFreeBytes = Number(stat.bavail) * Number(stat.bsize);
+      const diskTotalBytes = Number(stat.blocks) * Number(stat.bsize);
+      const diskFreePercent =
+        diskTotalBytes > 0
+          ? Math.round((diskFreeBytes / diskTotalBytes) * 100)
+          : 0;
+
       return {
         status: 'ok',
         database: 'up',
-        diskFreeBytes: Number(stat.bavail) * Number(stat.bsize),
+        diskFreeBytes,
+        diskTotalBytes,
+        diskFreePercent,
+        diskWarning: diskFreePercent < 20,
       };
     } catch {
       // Jangan bocorkan detail error internal ke respons.

@@ -69,7 +69,7 @@ Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (a
 - [x] US-31 Sebagai admin, saya ingin backup otomatis
 - [x] US-32 Sebagai admin, saya ingin pengujian di perangkat nyata
 - [x] US-33 Sebagai admin, saya ingin dokumentasi
-- [ ] US-34 Sebagai admin, saya ingin monitoring
+- [x] US-34 Sebagai admin, saya ingin monitoring
 
 _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 
