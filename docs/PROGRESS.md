@@ -67,7 +67,7 @@ Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (a
 ## Sprint 7 — Stabilisasi dan Rilis v1.0
 
 - [x] US-31 Sebagai admin, saya ingin backup otomatis
-- [ ] US-32 Sebagai admin, saya ingin pengujian di perangkat nyata
+- [x] US-32 Sebagai admin, saya ingin pengujian di perangkat nyata
 - [ ] US-33 Sebagai admin, saya ingin dokumentasi
 - [ ] US-34 Sebagai admin, saya ingin monitoring
 
