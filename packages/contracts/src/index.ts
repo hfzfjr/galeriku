@@ -134,10 +134,19 @@ export const meResponseSchema = z.object({
   role: z.string(),
   status: z.string(),
   quotaBytes: z.string(),
+  usedBytes: z.string().optional(),
+  hasPassword: z.boolean().optional(),
   emailVerifiedAt: z.string().nullable(),
 });
 
 export type MeResponse = z.output<typeof meResponseSchema>;
+
+// Set password akun Google (US-15)
+export const setPasswordRequestSchema = z.object({
+  password: z.string().min(8, 'Password minimal 8 karakter.').max(128),
+});
+
+export type SetPasswordRequest = z.output<typeof setPasswordRequestSchema>;
 
 // Batas kuota maksimum per pengguna (US-12): 1000 GB dalam byte.
 export const ADMIN_MAX_QUOTA_BYTES = 1000n * 1024n * 1024n * 1024n;

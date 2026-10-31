@@ -1,4 +1,4 @@
-﻿import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   AcceptedResponse,
   ForgotPasswordRequest,
@@ -66,6 +66,18 @@ export function toMeResponse(user: SessionUserRow): MeResponse {
     emailVerifiedAt: user.emailVerifiedAt
       ? user.emailVerifiedAt.toISOString()
       : null,
+  };
+}
+
+export function toMeDetailsResponse(
+  user: SessionUserRow,
+  usedBytes: bigint,
+  hasPassword: boolean,
+): MeResponse {
+  return {
+    ...toMeResponse(user),
+    usedBytes: usedBytes.toString(),
+    hasPassword,
   };
 }
 
@@ -475,5 +487,44 @@ export class AuthService {
       where: { id: byEmail.id },
       data: { googleSub: profile.sub },
     });
+  }
+
+  async getMe(userId: string): Promise<MeResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new ApiError(
+        401,
+        'UNAUTHENTICATED',
+        'Masuk dulu untuk melanjutkan.',
+      );
+    }
+    const agg = await this.prisma.file.aggregate({
+      where: { ownerId: userId, deletedAt: null },
+      _sum: { sizeBytes: true },
+    });
+    const usedBytes = agg._sum.sizeBytes ?? 0n;
+
+    return toMeDetailsResponse(user, usedBytes, Boolean(user.passwordHash));
+  }
+
+  async setPassword(userId: string, newPassword: string): Promise<MeResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new ApiError(
+        401,
+        'UNAUTHENTICATED',
+        'Masuk dulu untuk melanjutkan.',
+      );
+    }
+    const hash = await this.passwords.hashPassword(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hash },
+    });
+    return this.getMe(userId);
   }
 }

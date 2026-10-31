@@ -1,4 +1,4 @@
-﻿import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import request from 'supertest';
 import { ApiError } from '../src/common/errors/api-error';
 import { PasswordService } from '../src/auth/services/password.service';
@@ -317,6 +317,26 @@ describe('Auth (e2e)', () => {
         .expect(200);
       expect(res.body.email).toBe('saya@contoh.id');
       expect(typeof res.body.quotaBytes).toBe('string');
+      expect(typeof res.body.usedBytes).toBe('string');
+      expect(typeof res.body.hasPassword).toBe('boolean');
+    });
+
+    it('POST /auth/set-password memasang password baru bagi akun', async () => {
+      const user = await seedUser(db, { passwordHash: null });
+      const token = craftSession(db, user.id as string);
+
+      const res = await request(server())
+        .post('/auth/set-password')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`)
+        .send({ password: 'password-baru-123' })
+        .expect(200);
+
+      expect(res.body.hasPassword).toBe(true);
+
+      // Cek di DB bahwa passwordHash terisi
+      const updatedUser = db.users.get(user.id as string);
+      expect(updatedUser?.passwordHash).toBeTruthy();
     });
 
     it('logout 204 menghapus sesi dan cookie', async () => {

@@ -21,6 +21,7 @@ import type {
   RegisterResponse,
   ResendCodeRequest,
   ResetPasswordRequest,
+  SetPasswordRequest,
   VerifyEmailRequest,
 } from '@galeriku/contracts';
 import { GOOGLE_ERROR_CODES } from '@galeriku/contracts';
@@ -30,6 +31,7 @@ import {
   registerRequestSchema,
   resendCodeRequestSchema,
   resetPasswordRequestSchema,
+  setPasswordRequestSchema,
   verifyEmailRequestSchema,
 } from '@galeriku/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -50,7 +52,7 @@ import {
   VERIFY_EMAIL_LIMIT,
   VERIFY_IP_LIMIT,
 } from './auth.constants';
-import { AuthService, toMeResponse } from './auth.service';
+import { AuthService } from './auth.service';
 import { ApiError } from '../common/errors/api-error';
 import { getClientIp, getUserAgent } from '../common/utils/client-ip';
 import {
@@ -139,7 +141,17 @@ export class AuthController {
 
   @Get('me')
   async me(@CurrentUser() user: SessionUser): Promise<MeResponse> {
-    return toMeResponse(user);
+    return this.auth.getMe(user.id);
+  }
+
+  @Post('set-password')
+  @HttpCode(200)
+  async setPassword(
+    @Body(new ZodValidationPipe(setPasswordRequestSchema))
+    body: SetPasswordRequest,
+    @CurrentUser() user: SessionUser,
+  ): Promise<MeResponse> {
+    return this.auth.setPassword(user.id, body.password);
   }
 
   @Public()

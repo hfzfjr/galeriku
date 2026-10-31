@@ -266,5 +266,14 @@ export function batchDeleteFiles(ids: string[]): Promise<{ count: number }> {
   });
 }
 
+// Akun Google menambahkan password (US-15)
+export function setPassword(password: string): Promise<MeResponse> {
+  return request<MeResponse>("/auth/set-password", {
+    method: "POST",
+    body: { password },
+  });
+}
+
+
 
 

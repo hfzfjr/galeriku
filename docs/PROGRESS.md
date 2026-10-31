@@ -46,7 +46,7 @@ Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file 
 - [x] US-20 Sebagai pengguna, saya ingin grid galeri
 - [x] US-21 Sebagai pengguna, saya ingin viewer layar penuh
 - [x] US-22 Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri
-- [ ] US-15 Sebagai pengguna, saya ingin halaman profil dan pengaturan
+- [x] US-15 Sebagai pengguna, saya ingin halaman profil dan pengaturan
 
 ## Sprint 5 — Album dan Link Publik Inti
 
