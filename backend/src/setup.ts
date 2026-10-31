@@ -36,6 +36,16 @@ export async function setupApp(
     new ApiExceptionFilter(),
     new NotFoundExceptionFilter(),
   );
+
+  // Header Keamanan Global (US-29: nosniff, frame-options, referrer-policy)
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onSend', async (_request, reply) => {
+      reply.header('X-Content-Type-Options', 'nosniff');
+      reply.header('X-Frame-Options', 'DENY');
+      reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    });
 }
 
 // Galat bawaan Fastify (body kosong/JSON rusak, Content-Type tak didukung,

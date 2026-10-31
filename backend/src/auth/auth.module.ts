@@ -32,6 +32,6 @@ import { TurnstileService } from './services/turnstile.service';
     { provide: APP_GUARD, useClass: OriginGuard },
     { provide: APP_GUARD, useClass: SessionAuthGuard },
   ],
-  exports: [PasswordService],
+  exports: [PasswordService, RateLimitService, RateLimitGuard],
 })
 export class AuthModule {}

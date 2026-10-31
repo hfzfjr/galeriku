@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   Res,
+  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -18,6 +19,8 @@ import type {
 import { unlockShareSchema } from '@galeriku/contracts';
 import { Public } from '../common/decorators/public.decorator';
 import { getClientIp, getUserAgent } from '../common/utils/client-ip';
+import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
+import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
@@ -60,6 +63,8 @@ export class PublicSharesController {
   constructor(private readonly sharesService: SharesService) {}
 
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 60, windowMs: 60_000, keyPrefix: 'share:view' })
   @Get(':token')
   async getPublicShare(
     @Param('token') token: string,
@@ -74,6 +79,8 @@ export class PublicSharesController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, windowMs: 60_000, keyPrefix: 'share:unlock' })
   @Post(':token/unlock')
   @UsePipes(new ZodValidationPipe(unlockShareSchema))
   async unlockShare(
@@ -226,6 +233,8 @@ export class PublicSharesController {
   }
 
   @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 10, windowMs: 60_000, keyPrefix: 'share:zip' })
   @Get(':token/zip')
   async downloadAlbumZip(
     @Param('token') token: string,
