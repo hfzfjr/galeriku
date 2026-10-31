@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FileItem } from "@galeriku/contracts";
-import { ChevronLeft, ChevronRight, Download, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Share2, Trash2, X } from "lucide-react";
 import { deleteFile, getFileContentUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ShareModal } from "@/components/shares/share-modal";
 
 interface FullViewerProps {
   files: FileItem[];
@@ -19,6 +20,7 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [scale, setScale] = useState(1);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
 
@@ -197,6 +199,16 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
         </span>
 
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setShareModalOpen(true)}
+            aria-label={`Bagikan ${currentFile.originalName}`}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
+            title="Bagikan"
+          >
+            <Share2 size={20} strokeWidth={1.5} />
+          </button>
+
           <a
             href={downloadUrl}
             download={currentFile.originalName}
@@ -337,6 +349,14 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
           </div>
         </div>
       ) : null}
+      {/* Modal Bagikan */}
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        targetType="FILE"
+        targetId={currentFile.id}
+        targetTitle={currentFile.originalName}
+      />
     </div>
   );
 }

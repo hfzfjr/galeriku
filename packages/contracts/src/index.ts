@@ -301,5 +301,40 @@ export const albumDetailSchema = z.object({
 
 export type AlbumDetail = z.output<typeof albumDetailSchema>;
 
+// Shares & Public Link (US-24, US-25, US-26, US-27)
+export const shareTargetSchema = z.enum(['FILE', 'ALBUM']);
+export type ShareTarget = z.output<typeof shareTargetSchema>;
+
+export const createShareLinkSchema = z.object({
+  targetType: shareTargetSchema,
+  targetId: z.string().min(1, 'Target ID tidak boleh kosong.'),
+  allowDownload: z.boolean().default(true),
+});
+
+export type CreateShareLinkRequest = z.output<typeof createShareLinkSchema>;
+
+export const shareLinkItemSchema = z.object({
+  id: z.string(),
+  token: z.string(),
+  targetType: shareTargetSchema,
+  targetId: z.string(),
+  targetTitle: z.string(),
+  allowDownload: z.boolean(),
+  viewCount: z.number().int().nonnegative(),
+  expiresAt: z.string().nullable(),
+  hasPassword: z.boolean(),
+  isRevoked: z.boolean(),
+  createdAt: z.string(),
+});
+
+export type ShareLinkItem = z.output<typeof shareLinkItemSchema>;
+
+export const shareLinksResponseSchema = z.object({
+  items: z.array(shareLinkItemSchema),
+});
+
+export type ShareLinksResponse = z.output<typeof shareLinksResponseSchema>;
+
+
 
 

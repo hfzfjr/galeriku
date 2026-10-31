@@ -7,6 +7,7 @@ import type {
   AlbumItem,
   AlbumsResponse,
   CreateAlbumRequest,
+  CreateShareLinkRequest,
   FilesResponse,
   ForgotPasswordRequest,
   LoginRequest,
@@ -15,6 +16,8 @@ import type {
   RegisterResponse,
   ResendCodeRequest,
   ResetPasswordRequest,
+  ShareLinkItem,
+  ShareLinksResponse,
   UpdateAlbumRequest,
   UpdateQuotaRequest,
   VerifyEmailRequest,
@@ -332,6 +335,20 @@ export function removeFileFromAlbum(
       method: "DELETE",
     },
   );
+}
+
+// Share Links (US-24)
+export function createShareLink(
+  body: CreateShareLinkRequest,
+): Promise<ShareLinkItem> {
+  return request<ShareLinkItem>("/shares", {
+    method: "POST",
+    body,
+  });
+}
+
+export function fetchShares(): Promise<ShareLinksResponse> {
+  return request<ShareLinksResponse>("/shares");
 }
 
 

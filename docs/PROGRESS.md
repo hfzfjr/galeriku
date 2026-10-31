@@ -53,7 +53,7 @@ Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file 
 Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (aturan baca US-25); US-12 tidak menandai revoked_at saat menangguhkan.
 
 - [x] US-23 Sebagai pengguna, saya ingin membuat album
-- [ ] US-24 Sebagai pengguna, saya ingin membuat link publik
+- [x] US-24 Sebagai pengguna, saya ingin membuat link publik
 - [ ] US-25 Sebagai penerima, saya ingin membuka dan mengunduh tanpa login
 
 ## Sprint 6 — Opsi Berbagi dan Pengerasan

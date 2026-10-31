@@ -12,6 +12,7 @@ import {
   FolderMinus,
   Images,
   Plus,
+  Share2,
   Trash2,
   X,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FullViewer } from "@/components/gallery/full-viewer";
+import { ShareModal } from "@/components/shares/share-modal";
 import {
   addFilesToAlbum,
   deleteAlbum,
@@ -36,6 +38,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
 
   // State dialog & viewer
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addFilesModalOpen, setAddFilesModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(
@@ -178,6 +181,14 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShareModalOpen(true)}
+              className="gap-1.5"
+            >
+              <Share2 size={16} />
+              <span>Bagikan</span>
+            </Button>
             <Button
               variant="secondary"
               onClick={() => {
@@ -458,6 +469,14 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
           </div>
         </div>
       )}
+      {/* Modal Berbagi */}
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        targetType="ALBUM"
+        targetId={albumId}
+        targetTitle={album.title}
+      />
     </div>
   );
 }

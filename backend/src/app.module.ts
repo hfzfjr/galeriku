@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { FilesModule } from './files/files.module';
 import { AlbumsModule } from './albums/albums.module';
+import { SharesModule } from './shares/shares.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AlbumsModule } from './albums/albums.module';
     UploadsModule,
     FilesModule,
     AlbumsModule,
+    SharesModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, AccountCleanupService, UploadCleanupService],
