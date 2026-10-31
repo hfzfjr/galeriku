@@ -4,26 +4,47 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Galeriku",
     short_name: "Galeriku",
-    description: "Simpan dan bagikan foto serta video dengan mudah melalui tautan publik.",
+    description: "Simpan foto perjalananmu. Kirim satu link ke teman.",
+    lang: "id",
     start_url: "/app",
+    scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#FAF6EE",
-    theme_color: "#FAF6EE",
+    background_color: "#F6F0E4",
+    theme_color: "#F6F0E4",
     icons: [
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/apple-icon.png",
-        sizes: "180x180",
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
         type: "image/png",
         purpose: "any",
+      },
+      {
+        src: "/icons/icon-maskable-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icons/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icons/icon-monochrome-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "monochrome",
       },
     ],
   };
 }
+
 
