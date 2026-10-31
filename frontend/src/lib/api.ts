@@ -253,4 +253,18 @@ export function getFileContentUrl(fileId: string, download = false): string {
   return download ? `${base}?download=1` : base;
 }
 
+export function deleteFile(id: string): Promise<void> {
+  return request<void>(`/files/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function batchDeleteFiles(ids: string[]): Promise<{ count: number }> {
+  return request<{ count: number }>("/files/batch-delete", {
+    method: "POST",
+    body: { ids },
+  });
+}
+
+
 

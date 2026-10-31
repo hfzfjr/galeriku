@@ -231,3 +231,10 @@ export const filesResponseSchema = z.object({
 
 export type FilesResponse = z.output<typeof filesResponseSchema>;
 
+export const batchDeleteFilesSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export type BatchDeleteFilesRequest = z.output<typeof batchDeleteFilesSchema>;
+
+

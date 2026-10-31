@@ -356,6 +356,7 @@ describe('FilesController (e2e) — US-20', () => {
         buildRequests: (id) => [
           { method: 'get', url: `/files/${id}/thumb` },
           { method: 'get', url: `/files/${id}/content` },
+          { method: 'delete', url: `/files/${id}` },
         ],
       });
     });
@@ -512,6 +513,85 @@ describe('FilesController (e2e) — US-20', () => {
       expect(res.status).toBe(200);
       expect(res.header['content-disposition']).toContain('attachment;');
       expect(res.header['content-disposition']).toContain('filename=');
+    });
+  });
+
+  describe('DELETE /files & batch-delete — US-22', () => {
+    it('DELETE /files/:id menghapus file milik sendiri dan berkas fisik', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const storageKey = 'hapus-sendiri.jpg';
+      const thumbKey = 'hapus-sendiri.thumb.webp';
+      writeFileSync(join(mediaDir, storageKey), Buffer.from('gambar-asli'));
+      writeFileSync(join(mediaDir, thumbKey), Buffer.from('thumb-asli'));
+
+      db.files.set('f-hapus', {
+        id: 'f-hapus',
+        ownerId: user.id,
+        originalName: 'hapus.jpg',
+        storageKey,
+        mimeType: 'image/jpeg',
+        sizeBytes: 11n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .delete('/files/f-hapus')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(204);
+
+      // Baris DB ditandai deletedAt
+      const row = db.files.get('f-hapus');
+      expect(row?.deletedAt).toBeTruthy();
+    });
+
+    it('POST /files/batch-delete menghapus banyak file sekaligus', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      for (let i = 1; i <= 3; i++) {
+        db.files.set(`f-batch-${i}`, {
+          id: `f-batch-${i}`,
+          ownerId: user.id,
+          originalName: `batch-${i}.jpg`,
+          storageKey: `key-batch-${i}`,
+          mimeType: 'image/jpeg',
+          sizeBytes: 100n,
+          kind: FileKind.image,
+          width: null,
+          height: null,
+          durationS: null,
+          thumbKey: null,
+          status: FileStatus.ready,
+          takenAt: null,
+          createdAt: new Date(),
+          deletedAt: null,
+        });
+      }
+
+      const res = await http()
+        .post('/files/batch-delete')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`)
+        .send({ ids: ['f-batch-1', 'f-batch-2'] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.count).toBe(2);
+
+      expect(db.files.get('f-batch-1')?.deletedAt).toBeTruthy();
+      expect(db.files.get('f-batch-2')?.deletedAt).toBeTruthy();
+      expect(db.files.get('f-batch-3')?.deletedAt).toBeNull();
     });
   });
 });

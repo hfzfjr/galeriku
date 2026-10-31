@@ -229,7 +229,7 @@ export async function checkUserQuotaAndStatus(
     return;
   }
   const agg = await prisma.file.aggregate({
-    where: { ownerId: userId },
+    where: { ownerId: userId, deletedAt: null },
     _sum: { sizeBytes: true },
   });
   const currentUsed = agg._sum.sizeBytes ?? 0n;

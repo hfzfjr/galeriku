@@ -1,15 +1,25 @@
 import { createReadStream } from 'node:fs';
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
+  Post,
   Query,
   Req,
   Res,
+  UsePipes,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { FilesResponse } from '@galeriku/contracts';
+import type {
+  BatchDeleteFilesRequest,
+  FilesResponse,
+} from '@galeriku/contracts';
+import { batchDeleteFilesSchema } from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { FilesService } from './files.service';
 
 export function parseRange(
@@ -130,6 +140,25 @@ export class FilesController {
     reply.header('Content-Length', sizeBytes);
     const stream = createReadStream(filePath);
     reply.send(stream);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async deleteFile(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+  ): Promise<void> {
+    await this.filesService.deleteFile(user.id, id);
+  }
+
+  @Post('batch-delete')
+  @HttpCode(200)
+  @UsePipes(new ZodValidationPipe(batchDeleteFilesSchema))
+  async deleteFilesBatch(
+    @Body() body: BatchDeleteFilesRequest,
+    @CurrentUser() user: SessionUser,
+  ): Promise<{ count: number }> {
+    return this.filesService.deleteFilesBatch(user.id, body.ids);
   }
 }
 

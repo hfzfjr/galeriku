@@ -1,4 +1,5 @@
 import { existsSync, statSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import type {
@@ -207,6 +208,87 @@ export class FilesService {
       mimeType: file.mimeType,
       sizeBytes: stat.size,
     };
+  }
+
+  async deleteFile(userId: string, fileId: string): Promise<void> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    // Kepemilikan menjawab 404 identik (AD-12 & US-13)
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    await this.prisma.file.update({
+      where: { id: fileId },
+      data: { deletedAt: new Date() },
+    });
+
+    const mediaDir = resolveMediaDir();
+    try {
+      await rm(join(mediaDir, file.storageKey), { force: true });
+    } catch {
+      // Abaikan bila file fisik sudah hilang
+    }
+    if (file.thumbKey) {
+      try {
+        await rm(join(mediaDir, file.thumbKey), { force: true });
+      } catch {
+        // Abaikan
+      }
+    }
+  }
+
+  async deleteFilesBatch(
+    userId: string,
+    fileIds: string[],
+  ): Promise<{ count: number }> {
+    const uniqueIds = Array.from(new Set(fileIds));
+    const files = await this.prisma.file.findMany({
+      where: {
+        id: { in: uniqueIds },
+        ownerId: userId,
+        deletedAt: null,
+        status: FileStatus.ready,
+      },
+      select: { id: true, storageKey: true, thumbKey: true },
+    });
+
+    if (files.length === 0) {
+      return { count: 0 };
+    }
+
+    const idsToDelete = files.map((f) => f.id);
+    await this.prisma.file.updateMany({
+      where: { id: { in: idsToDelete } },
+      data: { deletedAt: new Date() },
+    });
+
+    const mediaDir = resolveMediaDir();
+    await Promise.all(
+      files.map(async (file) => {
+        try {
+          await rm(join(mediaDir, file.storageKey), { force: true });
+        } catch {
+          // Abaikan
+        }
+        if (file.thumbKey) {
+          try {
+            await rm(join(mediaDir, file.thumbKey), { force: true });
+          } catch {
+            // Abaikan
+          }
+        }
+      }),
+    );
+
+    return { count: files.length };
   }
 }
 

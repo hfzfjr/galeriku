@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { FileItem } from "@galeriku/contracts";
-import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
-import { getFileContentUrl } from "@/lib/api";
+import { ChevronLeft, ChevronRight, Download, Trash2, X } from "lucide-react";
+import { deleteFile, getFileContentUrl } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 interface FullViewerProps {
   files: FileItem[];
@@ -12,9 +14,12 @@ interface FullViewerProps {
 }
 
 export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
+  const queryClient = useQueryClient();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [scale, setScale] = useState(1);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
 
   // Touch tracking untuk swipe dan drag-to-close
@@ -58,6 +63,25 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
       setControlsVisible(true);
     }
   }, [currentIndex]);
+
+  const handleDelete = async () => {
+    if (!currentFile || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteFile(currentFile.id);
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      setShowConfirmDelete(false);
+      if (total <= 1) {
+        onClose();
+      } else if (currentIndex >= total - 1) {
+        setCurrentIndex((i) => i - 1);
+      }
+    } catch {
+      // Jika gagal
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Keyboard navigation
   useEffect(() => {
@@ -172,14 +196,25 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
           {currentIndex + 1} / {total}
         </span>
 
-        <a
-          href={downloadUrl}
-          download={currentFile.originalName}
-          aria-label={`Unduh ${currentFile.originalName}`}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
-        >
-          <Download size={20} strokeWidth={1.5} />
-        </a>
+        <div className="flex items-center gap-1">
+          <a
+            href={downloadUrl}
+            download={currentFile.originalName}
+            aria-label={`Unduh ${currentFile.originalName}`}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
+          >
+            <Download size={20} strokeWidth={1.5} />
+          </a>
+
+          <button
+            type="button"
+            onClick={() => setShowConfirmDelete(true)}
+            aria-label={`Hapus ${currentFile.originalName}`}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-danger active:bg-white/10"
+          >
+            <Trash2 size={20} strokeWidth={1.5} />
+          </button>
+        </div>
       </header>
 
       {/* Konten Utama (Foto / Video) */}
@@ -264,6 +299,44 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
           }).format(new Date(currentFile.takenAt || currentFile.createdAt))}
         </p>
       </footer>
+
+      {/* Dialog Konfirmasi Hapus */}
+      {showConfirmDelete ? (
+        <div
+          role="alertdialog"
+          aria-labelledby="dialog-hapus-judul"
+          aria-describedby="dialog-hapus-pesan"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
+            <h3 id="dialog-hapus-judul" className="text-h3 font-serif">
+              Hapus file ini?
+            </h3>
+            <p id="dialog-hapus-pesan" className="text-body text-ink-muted">
+              File &ldquo;{currentFile.originalName}&rdquo; dan thumbnail akan dihapus permanen dari server. Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={isDeleting}
+                onClick={() => setShowConfirmDelete(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={isDeleting}
+                onClick={handleDelete}
+              >
+                {isDeleting ? "Menghapus..." : "Hapus"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

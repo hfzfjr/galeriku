@@ -1,10 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { FileItem } from "@galeriku/contracts";
-import { Film, Image as ImageIcon, Play, RefreshCw, Upload } from "lucide-react";
-import { fetchFiles, getThumbnailUrl } from "@/lib/api";
+import {
+  Check,
+  CheckSquare,
+  Download,
+  Film,
+  Image as ImageIcon,
+  Play,
+  RefreshCw,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import {
+  batchDeleteFiles,
+  fetchFiles,
+  getFileContentUrl,
+  getThumbnailUrl,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { FullViewer } from "./full-viewer";
 
@@ -55,8 +71,15 @@ interface GalleryGridProps {
 }
 
 export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
+  const queryClient = useQueryClient();
   const observerRef = useRef<HTMLDivElement | null>(null);
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
+
+  // Selection mode
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
 
   const {
     data,
@@ -117,6 +140,56 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
     }
     return Array.from(map.values());
   }, [allFiles]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const startSelectionWith = (id: string) => {
+    setIsSelectionMode(true);
+    setSelectedIds(new Set([id]));
+  };
+
+  const cancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchDownload = () => {
+    for (const id of selectedIds) {
+      const file = allFiles.find((f) => f.id === id);
+      if (!file) continue;
+      const link = document.createElement("a");
+      link.href = getFileContentUrl(id, true);
+      link.download = file.originalName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handleConfirmBatchDelete = async () => {
+    if (selectedIds.size === 0 || isDeletingBatch) return;
+    setIsDeletingBatch(true);
+    try {
+      await batchDeleteFiles(Array.from(selectedIds));
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      cancelSelection();
+      setShowBatchDeleteModal(false);
+    } catch {
+      // Galat ditangani
+    } finally {
+      setIsDeletingBatch(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -187,6 +260,65 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
 
   return (
     <div className="flex flex-col gap-6 pb-24">
+      {/* Bilah Aksi Pemilihan (Selection Bar) */}
+      {isSelectionMode ? (
+        <div className="sticky top-0 z-30 flex min-h-12 items-center justify-between rounded-lg border border-line bg-surface px-3 py-2 shadow-float">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cancelSelection}
+              aria-label="Batalkan pemilihan"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink active:bg-sunken"
+            >
+              <X size={20} strokeWidth={1.5} />
+            </button>
+            <span className="text-label font-medium text-ink">
+              {selectedIds.size} dipilih
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={selectedIds.size === 0}
+              onClick={handleBatchDownload}
+              className="flex items-center gap-1.5 text-label"
+              aria-label="Unduh file terpilih"
+            >
+              <Download size={18} />
+              <span className="hidden sm:inline">Unduh</span>
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={selectedIds.size === 0}
+              onClick={() => setShowBatchDeleteModal(true)}
+              className="flex items-center gap-1.5 text-label"
+              aria-label="Hapus file terpilih"
+            >
+              <Trash2 size={18} />
+              <span className="hidden sm:inline">Hapus</span>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between px-1">
+          <span className="text-caption text-ink-muted">
+            Tekan lama foto untuk memilih
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsSelectionMode(true)}
+            className="flex items-center gap-1 text-label text-ink-muted"
+          >
+            <CheckSquare size={16} />
+            Pilih
+          </Button>
+        </div>
+      )}
+
       {groups.map((group) => (
         <section key={group.dateKey} className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between px-1">
@@ -197,16 +329,27 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
           </div>
 
           <div className="grid grid-cols-3 gap-[2px] md:grid-cols-4 lg:grid-cols-6">
-            {group.items.map((file) => (
-              <GalleryItem
-                key={file.id}
-                file={file}
-                onClick={() => {
-                  const idx = allFiles.findIndex((f) => f.id === file.id);
-                  if (idx >= 0) setActiveViewerIndex(idx);
-                }}
-              />
-            ))}
+            {group.items.map((file) => {
+              const isSelected = selectedIds.has(file.id);
+              return (
+                <GalleryItem
+                  key={file.id}
+                  file={file}
+                  isSelectionMode={isSelectionMode}
+                  isSelected={isSelected}
+                  onToggleSelect={() => toggleSelect(file.id)}
+                  onLongPress={() => startSelectionWith(file.id)}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleSelect(file.id);
+                    } else {
+                      const idx = allFiles.findIndex((f) => f.id === file.id);
+                      if (idx >= 0) setActiveViewerIndex(idx);
+                    }
+                  }}
+                />
+              );
+            })}
           </div>
         </section>
       ))}
@@ -227,39 +370,125 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
           onClose={() => setActiveViewerIndex(null)}
         />
       ) : null}
+
+      {/* Modal Konfirmasi Hapus Banyak */}
+      {showBatchDeleteModal ? (
+        <div
+          role="alertdialog"
+          aria-labelledby="dialog-batch-hapus-judul"
+          aria-describedby="dialog-batch-hapus-pesan"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        >
+          <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
+            <h3 id="dialog-batch-hapus-judul" className="text-h3 font-serif">
+              Hapus {selectedIds.size} file?
+            </h3>
+            <p id="dialog-batch-hapus-pesan" className="text-body text-ink-muted">
+              {selectedIds.size} file dan thumbnail-nya akan dihapus permanen dari server. Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={isDeletingBatch}
+                onClick={() => setShowBatchDeleteModal(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={isDeletingBatch}
+                onClick={handleConfirmBatchDelete}
+              >
+                {isDeletingBatch ? "Menghapus..." : `Hapus (${selectedIds.size})`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function GalleryItem({
   file,
+  isSelectionMode,
+  isSelected,
+  onToggleSelect,
+  onLongPress,
   onClick,
 }: {
   file: FileItem;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onLongPress?: () => void;
   onClick?: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const longPressTimerRef = useRef<number | null>(null);
 
   const isVideo = file.kind === "video";
   const duration = formatDuration(file.durationS);
   const hasThumb = Boolean(file.thumbKey);
   const thumbUrl = getThumbnailUrl(file.id);
 
+  function handleTouchStart() {
+    if (isSelectionMode) return;
+    longPressTimerRef.current = window.setTimeout(() => {
+      onLongPress?.();
+    }, 500);
+  }
+
+  function handleTouchEnd() {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
   return (
     <div
-      className="group relative aspect-square overflow-hidden bg-sunken select-none cursor-pointer"
+      className={`group relative aspect-square overflow-hidden bg-sunken select-none cursor-pointer transition-all duration-150 ${
+        isSelected ? "p-1.5 ring-2 ring-accent" : ""
+      }`}
       tabIndex={0}
       role="button"
       onClick={onClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onClick?.();
         }
       }}
-      aria-label={`${isVideo ? "Video" : "Foto"} ${file.originalName}`}
+      aria-label={`${isVideo ? "Video" : "Foto"} ${file.originalName}${
+        isSelected ? " (terpilih)" : ""
+      }`}
     >
+      {/* Lingkaran Mode Pilih */}
+      {isSelectionMode ? (
+        <button
+          type="button"
+          aria-label={isSelected ? "Batal pilih" : "Pilih"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.();
+          }}
+          className={`absolute top-1.5 left-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+            isSelected
+              ? "bg-accent text-on-accent"
+              : "border-2 border-white/80 bg-black/30 text-transparent"
+          }`}
+        >
+          <Check size={14} strokeWidth={2.5} />
+        </button>
+      ) : null}
+
       {hasThumb && !hasError ? (
         /* eslint-disable-next-line @next/next/no-img-element -- Thumbnail langsung dari API host, byte file dilarang lewat Vercel (AD-3) */
         <img
