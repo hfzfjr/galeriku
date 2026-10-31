@@ -11,7 +11,7 @@ import { PhotoStack } from "./photo-card";
 
 export function SiteHeader() {
   return (
-    <header className="mx-auto flex w-full max-w-[560px] items-center justify-between px-4 py-3 md:max-w-[960px] md:px-6 md:py-5">
+    <header className="mx-auto flex w-full max-w-[560px] items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-3 md:max-w-[960px] md:px-6 md:py-5">
       <Logo />
       <ButtonLink
         variant="secondary"
@@ -35,9 +35,9 @@ export function Hero() {
             teman.
           </h1>
           <p className="mt-4 text-body text-ink md:mt-5">
-            Foto dan video dari HP disimpan di server pribadi, bukan di kuota
-            Google Drive. Pilih banyak file, buat satu link, kirim. Temanmu
-            tinggal buka dan unduh, tanpa daftar.
+            Ruang simpan berkelas untuk foto dan video resolusi penuh langsung
+            dari ponselmu. Buat satu tautan elegan, bagikan ke siapa saja, dan
+            biarkan kerabatmu membuka serta mengunduh tanpa perlu membuat akun.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1 md:mt-7">
             <ButtonLink href="/login">
@@ -66,8 +66,8 @@ export function Hero() {
             </a>
           </p>
           <p className="mt-2 text-[13px] leading-[18px] text-ink-muted">
-            Fotomu tetap milikmu. Hanya link yang kamu buat yang bisa dibuka
-            orang lain.
+            Fotomu sepenuhnya milikmu. Hanya orang dengan tautan yang dapat
+            membukanya.
           </p>
         </div>
         <div className="mt-10 min-w-0 flex-1 md:mt-0">
@@ -81,20 +81,20 @@ export function Hero() {
 const STEPS = [
   {
     number: "1",
-    title: "Unggah dari HP",
-    text: "Pilih puluhan foto dan video sekaligus. Kalau sinyal putus di jalan, unggahan dilanjutkan sendiri dari bagian terakhir.",
+    title: "Unggah dari Ponsel",
+    text: "Pilih banyak foto dan video sekaligus dengan mulus. Tetap aman dan otomatis dilanjutkan jika koneksi internet terputus di jalan.",
     mock: <UploadMock />,
   },
   {
     number: "2",
-    title: "Bagikan lewat link",
-    text: "Satu link untuk satu foto atau satu album. Atur masa berlakunya, pasang password kalau perlu, dan cabut kapan saja.",
+    title: "Bagikan Lewat Satu Tautan",
+    text: "Satu tautan untuk satu foto atau seluruh album. Atur masa berlaku, pasang kata sandi jika perlu, dan cabut akses kapan saja.",
     mock: <LinkMock />,
   },
   {
     number: "3",
-    title: "Teman tanpa login",
-    text: "Temanmu membuka link di browser HP, melihat foto, memutar video, lalu mengunduh. Tidak perlu akun, tidak perlu pasang aplikasi.",
+    title: "Buka & Unduh Tanpa Ribet",
+    text: "Temanmu cukup membuka tautan di browser apa pun, menikmati tayangan layar penuh, lalu mengunduh tanpa harus memasang aplikasi.",
     mock: <AlbumMock />,
   },
 ] as const;
@@ -137,52 +137,48 @@ export function HowItWorks() {
   );
 }
 
-const RULES: Array<{ label: string; value: string }> = [
-  { label: "Kuota awal per akun", value: "5 GB" },
-  { label: "Ukuran foto maksimum", value: "25 MB" },
-  { label: "Ukuran video maksimum", value: "2 GB" },
-  { label: "Masa berlaku link", value: "30 hari" },
-];
+const HIGHLIGHTS = [
+  {
+    title: "Kualitas Asli Tanpa Kompresi",
+    desc: "Foto dan video tersimpan dalam resolusi penuh tanpa penurunan ketajaman atau warna seperti pada aplikasi perpesanan.",
+  },
+  {
+    title: "Kendali Privasi Penuh",
+    desc: "Lindungi tautan dengan kata sandi, atur masa berlaku sesuai kebutuhan, atau cabut akses kapan pun kamu menginginkannya.",
+  },
+  {
+    title: "Unduh Koleksi Sekaligus",
+    desc: "Penerima dapat mengunduh seluruh isi album dalam satu berkas ZIP instan tanpa perlu repot menyimpan satu per satu.",
+  },
+  {
+    title: "Pengalaman Bersih & Tenang",
+    desc: "Tanpa algoritma linimasa, tanpa iklan yang mengganggu, dan tanpa kompresi paksa. Hanya ruang tenang untuk karya dan kenanganmu.",
+  },
+] as const;
 
 export function RulesSection() {
   return (
     <section className="mx-auto w-full max-w-[560px] px-4 pt-[72px] md:max-w-[960px] md:px-6 md:pt-[104px]">
       <div className="md:flex md:items-start md:gap-16">
         <div className="min-w-0 flex-1">
-          <h2 className="text-h2 text-ink md:text-h1">Aturan mainnya</h2>
+          <h2 className="text-h2 text-ink md:text-h1">Mengapa Galeriku?</h2>
           <p className="mt-2 text-body text-ink-muted md:mt-3">
-            Galeriku jalan di server pribadi, jadi ada batasnya. Ini yang perlu
-            kamu tahu sebelum mulai.
+            Semua kemudahan berbagi foto dan video, dirancang dengan standar kenyamanan dan privasi tertinggi.
           </p>
-          <div className="mt-5 md:mt-6">
-            {RULES.map((rule) => (
+          <div className="mt-6 space-y-5 md:mt-8 md:space-y-6">
+            {HIGHLIGHTS.map((item) => (
               <div
-                key={rule.label}
-                className="flex items-baseline gap-2 py-2.5"
+                key={item.title}
+                className="border-b border-line pb-4 last:border-b-0 last:pb-0"
               >
-                <span className="text-[15px] leading-[22px] text-ink">
-                  {rule.label}
-                </span>
-                <span
-                  aria-hidden="true"
-                  className="min-w-3 flex-1 border-b border-dotted border-line"
-                />
-                <span className="font-serif text-[18px] font-semibold leading-6 text-ink">
-                  {rule.value}
-                </span>
+                <h3 className="font-serif text-[17px] font-semibold text-ink md:text-[19px]">
+                  {item.title}
+                </h3>
+                <p className="mt-1 text-body text-ink-muted leading-relaxed">
+                  {item.desc}
+                </p>
               </div>
             ))}
-            <p className="pb-2.5 text-[13px] leading-[18px] text-ink-muted">
-              Bawaan 30 hari. Bisa diganti 1 hari, 7 hari, atau tanpa batas.
-            </p>
-            <div className="pt-2.5">
-              <div className="text-[15px] leading-[22px] text-ink">
-                Format yang diterima
-              </div>
-              <div className="mt-0.5 text-label text-ink-muted">
-                JPEG, PNG, WebP, GIF, HEIC, MP4, MOV, WebM
-              </div>
-            </div>
           </div>
         </div>
         <div className="mt-11 md:mt-6 md:w-[340px] md:shrink-0">
@@ -192,12 +188,10 @@ export function RulesSection() {
               className="absolute -top-[11px] left-1/2 -ml-[42px] h-[22px] w-[84px] rotate-2 bg-accent-soft opacity-90 motion-reduce:rotate-0"
             />
             <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
-              Catatan
+              Privasi & Kepercayaan
             </div>
             <p className="mt-2 font-serif text-[18px] font-medium italic leading-[26px] text-ink md:mt-2.5 md:text-[20px] md:leading-7">
-              Server Galeriku ada di rumah. Kalau listrik atau internetnya mati,
-              Galeriku ikut istirahat. Anggap isinya salinan, dan file aslinya
-              tetap simpan di HP.
+              “Kenanganmu sepenuhnya milikmu. Galeriku dirancang tanpa pelacakan data, tanpa iklan, dan tautan hanya dapat dibuka oleh orang yang kamu tuju.”
             </p>
           </div>
         </div>

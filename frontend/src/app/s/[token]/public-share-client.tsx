@@ -157,7 +157,7 @@ export function PublicShareClient({ token }: { token: string }) {
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       {/* Header Publik */}
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-surface/90 px-4 sm:px-8 backdrop-blur-md">
+      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-line bg-surface/90 px-4 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2.5 sm:px-8 sm:py-0 backdrop-blur-md">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white font-serif font-bold text-lg">
             G

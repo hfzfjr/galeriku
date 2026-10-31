@@ -11,7 +11,7 @@ import {
 const LANDING_TITLE =
   "Galeriku, simpan foto perjalananmu dan kirim satu link";
 const LANDING_DESCRIPTION =
-  "Simpan foto dan video perjalananmu di server pribadi, lalu kirim satu link ke teman. Unggah dari HP, atur masa berlaku, tanpa daftar untuk penerima.";
+  "Ruang simpan berkelas untuk foto dan video resolusi penuh. Bagikan lewat satu tautan elegan, tanpa batas kompresi, dan tanpa daftar untuk penerima.";
 
 export const metadata: Metadata = {
   title: { absolute: LANDING_TITLE },
