@@ -360,6 +360,12 @@ export function updateShareLink(
   });
 }
 
+export function revokeShareLink(id: string): Promise<ShareLinkItem> {
+  return request<ShareLinkItem>(`/shares/${encodeURIComponent(id)}/revoke`, {
+    method: "POST",
+  });
+}
+
 export function fetchShares(): Promise<ShareLinksResponse> {
   return request<ShareLinksResponse>("/shares");
 }

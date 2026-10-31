@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -55,6 +56,22 @@ export class SharesController {
     @Body() body: UpdateShareLinkRequest,
   ): Promise<ShareLinkItem> {
     return this.sharesService.updateShare(user.id, shareId, body);
+  }
+
+  @Delete(':id')
+  async deleteShare(
+    @CurrentUser() user: SessionUser,
+    @Param('id') shareId: string,
+  ): Promise<ShareLinkItem> {
+    return this.sharesService.revokeShare(user.id, shareId);
+  }
+
+  @Post(':id/revoke')
+  async revokeShare(
+    @CurrentUser() user: SessionUser,
+    @Param('id') shareId: string,
+  ): Promise<ShareLinkItem> {
+    return this.sharesService.revokeShare(user.id, shareId);
   }
 }
 

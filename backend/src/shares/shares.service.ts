@@ -193,6 +193,28 @@ export class SharesService {
     return this.getShareDetail(userId, share.id);
   }
 
+  async revokeShare(
+    userId: string,
+    shareId: string,
+  ): Promise<ShareLinkItem> {
+    const existing = await this.prisma.shareLink.findUnique({
+      where: { id: shareId },
+    });
+
+    if (!existing || existing.ownerId !== userId) {
+      throw new ApiError(404, 'NOT_FOUND', 'Tautan berbagi tidak ditemukan.');
+    }
+
+    if (!existing.revokedAt) {
+      await this.prisma.shareLink.update({
+        where: { id: shareId },
+        data: { revokedAt: new Date() },
+      });
+    }
+
+    return this.getShareDetail(userId, shareId);
+  }
+
   async getShares(userId: string): Promise<ShareLinksResponse> {
     const shares = await this.prisma.shareLink.findMany({
       where: { ownerId: userId },

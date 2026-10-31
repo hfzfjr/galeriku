@@ -1,4 +1,4 @@
-import { FileStatus } from '../generated/prisma/client';
+import { FileStatus, ShareTarget } from '../generated/prisma/client';
 import { ApiError } from '../common/errors/api-error';
 import { SharesService } from './shares.service';
 
@@ -66,5 +66,56 @@ describe('SharesService', () => {
         allowDownload: true,
       }),
     ).rejects.toThrow(ApiError);
+  });
+
+  it('mencabut tautan dengan mengisi revokedAt', async () => {
+    let updatedRevokedAt: Date | null = null;
+    const fakePrisma: any = {
+      shareLink: {
+        findUnique: async () => ({
+          id: 'sh-1',
+          ownerId: 'u-1',
+          token: 'tok-123',
+          targetType: ShareTarget.FILE,
+          targetId: 'f-1',
+          allowDownload: true,
+          viewCount: 2,
+          expiresAt: null,
+          passwordHash: null,
+          revokedAt: updatedRevokedAt,
+          createdAt: new Date(),
+        }),
+        update: async ({ data }: any) => {
+          updatedRevokedAt = data.revokedAt;
+          return { id: 'sh-1' };
+        },
+      },
+      file: {
+        findUnique: async () => ({ id: 'f-1', originalName: 'liburan.jpg' }),
+      },
+      album: {
+        findUnique: async () => null,
+      },
+    };
+
+    const service = new SharesService(fakePrisma);
+    const res = await service.revokeShare('u-1', 'sh-1');
+    expect(res.isRevoked).toBe(true);
+    expect(updatedRevokedAt).toBeInstanceOf(Date);
+  });
+
+  it('mengembalikan 404 saat mencabut tautan milik pengguna lain (IDOR rule)', async () => {
+    const fakePrisma: any = {
+      shareLink: {
+        findUnique: async () => ({
+          id: 'sh-1',
+          ownerId: 'u-lain',
+          token: 'tok-123',
+        }),
+      },
+    };
+
+    const service = new SharesService(fakePrisma);
+    await expect(service.revokeShare('u-1', 'sh-1')).rejects.toThrow(ApiError);
   });
 });
