@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Upload } from "tus-js-client";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronUp,
@@ -22,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GalleryGrid } from "@/components/gallery/gallery-grid";
 
 const CHUNK_SIZE = 5242880; // 5 MB, sama dengan PRD.
 const MAKS_PARALEL = 2;
@@ -124,6 +126,7 @@ function buatId(): string {
 }
 
 export function GaleriUploadClient() {
+  const queryClient = useQueryClient();
   const [daftar, setDaftar] = useState<ItemUpload[]>([]);
   const [terbuka, setTerbuka] = useState(true);
   const masukanRef = useRef<HTMLInputElement | null>(null);
@@ -189,6 +192,7 @@ export function GaleriUploadClient() {
         unggahRef.current.delete(id);
         aktifRef.current = Math.max(0, aktifRef.current - 1);
         ubahItem(id, { status: "selesai", galat: "" });
+        queryClient.invalidateQueries({ queryKey: ["files"] });
         prosesAntre();
       },
       onError(err) {
@@ -383,6 +387,8 @@ export function GaleriUploadClient() {
           onChange={(e) => tambahBerkas(e.target.files)}
         />
       </div>
+
+      <GalleryGrid onTriggerUpload={() => masukanRef.current?.click()} />
 
       {daftar.length > 0 ? (
         <section

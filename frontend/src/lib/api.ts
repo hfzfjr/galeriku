@@ -2,6 +2,7 @@ import type {
   AcceptedResponse,
   AdminUserItem,
   AdminUsersResponse,
+  FilesResponse,
   ForgotPasswordRequest,
   LoginRequest,
   MeResponse,
@@ -226,3 +227,24 @@ export function deleteUser(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+// Galeri & Files (US-20). Sesi login + pemilik.
+export function fetchFiles(params?: {
+  limit?: number;
+  cursor?: string;
+}): Promise<FilesResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit !== undefined) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.cursor) {
+    search.set("cursor", params.cursor);
+  }
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return request<FilesResponse>(`/files${suffix}`);
+}
+
+export function getThumbnailUrl(fileId: string): string {
+  return `${getApiBase()}/files/${encodeURIComponent(fileId)}/thumb`;
+}
+

@@ -131,12 +131,42 @@ export function createFakePrisma(db: FakeDb) {
         }
         return null;
       },
-      findMany: async (args?: { where?: Record<string, unknown> }) => {
-        const out: Array<Record<string, unknown>> = [];
-        for (const row of store.values()) {
-          if (matchWhere(row, args?.where ?? {})) out.push({ ...row });
+      findMany: async (args?: {
+        where?: Record<string, unknown>;
+        orderBy?: Record<string, string> | Array<Record<string, string>>;
+        cursor?: Record<string, unknown>;
+        skip?: number;
+        take?: number;
+      }) => {
+        let rows = [...store.values()].filter((row) =>
+          matchWhere(row, args?.where ?? {}),
+        );
+        const rules = args?.orderBy
+          ? Array.isArray(args.orderBy)
+            ? args.orderBy
+            : [args.orderBy]
+          : [];
+        for (const rule of rules.reverse()) {
+          const [field, arah] = Object.entries(rule)[0];
+          rows = [...rows].sort(
+            (a, b) =>
+              (arah === 'desc' ? -1 : 1) *
+              compareValues(a[field], b[field]),
+          );
         }
-        return out;
+        if (args?.cursor) {
+          const posisi = rows.findIndex((row) =>
+            matchWhere(row, args.cursor as Record<string, unknown>),
+          );
+          rows = posisi >= 0 ? rows.slice(posisi) : [];
+        }
+        if (args?.skip) {
+          rows = rows.slice(args.skip);
+        }
+        if (args?.take !== undefined) {
+          rows = rows.slice(0, args.take);
+        }
+        return rows.map((row) => ({ ...row }));
       },
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const id =

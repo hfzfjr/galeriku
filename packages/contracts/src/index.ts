@@ -198,3 +198,36 @@ export const updateQuotaRequestSchema = z.object({
 });
 
 export type UpdateQuotaRequest = z.output<typeof updateQuotaRequestSchema>;
+
+// Files (US-20: Grid Galeri)
+export const fileItemSchema = z.object({
+  id: z.string(),
+  originalName: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.string().regex(/^\d+$/),
+  kind: z.enum(['image', 'video']),
+  width: z.number().nullable(),
+  height: z.number().nullable(),
+  durationS: z.number().nullable(),
+  thumbKey: z.string().nullable(),
+  status: z.string(),
+  takenAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type FileItem = z.output<typeof fileItemSchema>;
+
+export const filesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(24),
+  cursor: z.string().min(1).max(200).optional(),
+});
+
+export type FilesQuery = z.output<typeof filesQuerySchema>;
+
+export const filesResponseSchema = z.object({
+  items: z.array(fileItemSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type FilesResponse = z.output<typeof filesResponseSchema>;
+

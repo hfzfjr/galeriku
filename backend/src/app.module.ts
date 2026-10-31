@@ -9,9 +9,17 @@ import { UploadCleanupService } from './cleanup/upload-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { FilesModule } from './files/files.module';
 
 @Module({
-  imports: [PrismaModule, AppConfigModule, AuthModule, AdminModule, UploadsModule],
+  imports: [
+    PrismaModule,
+    AppConfigModule,
+    AuthModule,
+    AdminModule,
+    UploadsModule,
+    FilesModule,
+  ],
   controllers: [AppController, HealthController],
   providers: [AppService, AccountCleanupService, UploadCleanupService],
 })

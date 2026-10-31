@@ -43,7 +43,7 @@ Catatan carry-over: hapus pengguna (US-12) hanya menghapus baris database; file 
 
 ## Sprint 4 — Galeri dan Viewer
 
-- [ ] US-20 Sebagai pengguna, saya ingin grid galeri
+- [x] US-20 Sebagai pengguna, saya ingin grid galeri
 - [ ] US-21 Sebagai pengguna, saya ingin viewer layar penuh
 - [ ] US-22 Sebagai pengguna, saya ingin mengunduh dan menghapus file sendiri
 - [ ] US-15 Sebagai pengguna, saya ingin halaman profil dan pengaturan

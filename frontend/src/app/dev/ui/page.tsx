@@ -205,6 +205,44 @@ export default async function DevUiPage() {
         </Card>
       </Section>
 
+      <Section title="Grid Galeri (US-20 — 3 Kolom di HP)">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-baseline justify-between px-1">
+            <h3 className="text-h3 font-serif text-ink">Sabtu, 31 Oktober 2026</h3>
+            <span className="text-caption text-ink-muted">3 item</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-[2px]">
+            {/* Foto 1 */}
+            <div className="relative aspect-square overflow-hidden bg-sunken">
+              <div className="flex h-full w-full items-center justify-center text-ink-muted">
+                <span className="text-caption">Foto 1</span>
+              </div>
+            </div>
+
+            {/* Video dengan durasi dan ikon putar */}
+            <div className="relative aspect-square overflow-hidden bg-sunken">
+              <div className="flex h-full w-full items-center justify-center text-ink-muted">
+                <span className="text-caption">Video 1</span>
+              </div>
+              <div className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-scrim text-on-accent">
+                <span className="text-[10px]">▶</span>
+              </div>
+              <div className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-scrim px-1 py-0.5 text-caption text-on-accent">
+                0:42
+              </div>
+            </div>
+
+            {/* Foto 2 */}
+            <div className="relative aspect-square overflow-hidden bg-sunken">
+              <div className="flex h-full w-full items-center justify-center text-ink-muted">
+                <span className="text-caption">Foto 2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Section>
+
       <Section title="Badge">
         <div className="flex flex-wrap gap-2">
           <Badge variant="accent">Baru</Badge>
