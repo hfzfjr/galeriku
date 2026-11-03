@@ -79,7 +79,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     mutationFn: () => deleteAlbum(albumId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["albums"] });
-      router.push("/app/albums");
+      router.push("/album");
     },
     onError: (err) => setErrorMsg(toIndonesianMessage(err)),
   });
@@ -112,7 +112,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
       <div className="flex flex-col gap-6 animate-pulse pb-24">
         <div className="h-6 w-32 rounded bg-sunken" />
         <div className="h-10 w-64 rounded bg-sunken" />
-        <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6">
+        <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <div key={n} className="aspect-square rounded bg-sunken" />
           ))}
@@ -128,7 +128,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
         <p className="mt-2 text-body text-ink-muted">
           Album ini mungkin telah dihapus atau tautan salah.
         </p>
-        <Link href="/app/albums" className="mt-4">
+        <Link href="/album" className="mt-4">
           <Button variant="secondary">Kembali ke Daftar Album</Button>
         </Link>
       </div>
@@ -150,7 +150,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
       {/* Navigasi & Aksi Atas */}
       <div className="flex flex-col gap-3">
         <Link
-          href="/app/albums"
+          href="/album"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink transition"
         >
           <ArrowLeft size={16} />
@@ -237,7 +237,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 sm:gap-2">
+        <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 sm:gap-2">
           {album.files.map((file, idx) => (
             <div
               key={file.id}

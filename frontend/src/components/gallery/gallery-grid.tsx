@@ -196,7 +196,7 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
       <div className="flex flex-col gap-6" aria-busy="true" aria-label="Memuat galeri">
         <div className="space-y-2">
           <div className="h-6 w-48 animate-pulse rounded bg-sunken" />
-          <div className="grid grid-cols-3 gap-[2px] md:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-3 gap-[2px] sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
             {Array.from({ length: 12 }).map((_, i) => (
               <div
                 key={i}
@@ -328,7 +328,7 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-[2px] md:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-3 gap-[2px] sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
             {group.items.map((file) => {
               const isSelected = selectedIds.has(file.id);
               return (

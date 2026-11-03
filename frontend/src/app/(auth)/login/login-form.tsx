@@ -89,7 +89,7 @@ export function LoginForm() {
     try {
       const me = await loginAccount(parsed.data);
       queryClient.setQueryData(ME_QUERY_KEY, me);
-      router.replace("/app");
+      router.replace("/galeri");
     } catch (error) {
       // Token Turnstile sekali pakai: reset setelah submit yang gagal.
       captchaRef.current?.reset();

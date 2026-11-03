@@ -74,7 +74,7 @@ export function AlbumsClient() {
 
       {/* Konten Grid / Loading / Kosong */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
           {[1, 2, 3, 4].map((n) => (
             <div key={n} className="flex flex-col gap-2 animate-pulse">
               <div className="aspect-square w-full rounded-lg bg-sunken" />
@@ -102,7 +102,7 @@ export function AlbumsClient() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
           {albums.map((album) => (
             <AlbumCard key={album.id} album={album} />
           ))}
@@ -171,7 +171,7 @@ export function AlbumsClient() {
 function AlbumCard({ album }: { album: AlbumItem }) {
   return (
     <Link
-      href={`/app/albums/${encodeURIComponent(album.id)}`}
+      href={`/album/${encodeURIComponent(album.id)}`}
       className="group flex flex-col gap-2 rounded-xl border border-line bg-surface p-2.5 transition hover:border-accent hover:shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-sunken">

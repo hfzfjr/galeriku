@@ -264,13 +264,13 @@ export default async function DevUiPage() {
 
       <Section title="Navigasi Bawah">
         <div className="grid gap-6 sm:grid-cols-2">
-          <PhoneFrame label="Tab Galeri aktif" activeRoute="/app" />
-          <PhoneFrame label="Tab Album aktif" activeRoute="/app/albums" />
-          <PhoneFrame label="Tab Link aktif" activeRoute="/app/shares" />
-          <PhoneFrame label="Tab Akun aktif" activeRoute="/app/settings" />
+          <PhoneFrame label="Tab Galeri aktif" activeRoute="/galeri" />
+          <PhoneFrame label="Tab Album aktif" activeRoute="/album" />
+          <PhoneFrame label="Tab Link aktif" activeRoute="/shares" />
+          <PhoneFrame label="Tab Akun aktif" activeRoute="/settings" />
         </div>
         <p className="text-caption text-ink-muted">
-          Tautan di bingkai memakai rute asli /app dan bisa membuka halaman
+          Tautan di bingkai memakai rute asli dan bisa membuka halaman
           kosong. Di layar ≥1024px navigasi berubah menjadi sidebar kiri 240px
           — periksa dengan melebarkan jendela, bukan di bingkai 360 ini.
         </p>
@@ -279,7 +279,7 @@ export default async function DevUiPage() {
       <Section title="Sidebar Desktop">
         <div className="overflow-hidden rounded-lg border border-line bg-paper">
           <div className="lg:flex lg:min-h-120">
-            <BottomNav activeRoute="/app/shares" />
+            <BottomNav activeRoute="/shares" />
             <div className="hidden flex-1 items-center justify-center p-6 lg:flex">
               <p className="text-body text-ink-muted">
                 Area konten. Sidebar hanya muncul di lebar jendela ≥1024px.

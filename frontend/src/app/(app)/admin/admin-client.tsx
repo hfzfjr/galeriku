@@ -117,7 +117,7 @@ function TidakAdaAkses() {
         Halaman ini khusus admin. Kamu bisa kembali ke galeri.
       </p>
       <Link
-        href="/app"
+        href="/galeri"
         className={getButtonClassName("secondary", "mt-2 w-full sm:w-auto")}
       >
         Ke galeri

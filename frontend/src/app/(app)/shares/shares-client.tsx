@@ -137,7 +137,7 @@ export function SharesClient() {
             Buka foto, video, atau album apa saja di galerimu, lalu tekan tombol
             &ldquo;Bagikan&rdquo; untuk membuat tautan publik baru.
           </p>
-          <Link href="/app" className="mt-5">
+          <Link href="/galeri" className="mt-5">
             <Button variant="secondary">Buka Galeri</Button>
           </Link>
         </div>

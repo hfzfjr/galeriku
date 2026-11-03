@@ -86,10 +86,10 @@ export function VerifyEmailForm() {
     setSubmitting(true);
     try {
       const me = await verifyEmail({ email: account.email, code });
-      // Sesi sudah dibuat backend; isi cache /auth/me lalu ke /app.
+      // Sesi sudah dibuat backend; isi cache /auth/me lalu ke /galeri.
       clearVerifyEmail();
       queryClient.setQueryData(ME_QUERY_KEY, me);
-      router.replace("/app");
+      router.replace("/galeri");
     } catch (requestError) {
       setCode("");
       setError(toIndonesianMessage(requestError));

@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Galeriku",
     description: "Simpan foto perjalananmu. Kirim satu link ke teman.",
     lang: "id",
-    start_url: "/app",
+    start_url: "/galeri",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

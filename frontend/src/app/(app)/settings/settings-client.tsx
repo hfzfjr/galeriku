@@ -246,7 +246,7 @@ export function SettingsClient() {
 
           {isAdmin ? (
             <Link
-              href="/app/admin"
+              href="/admin"
               aria-label="Buka dashboard admin"
               className={getButtonClassName("secondary", "w-full sm:w-auto flex items-center justify-center gap-2")}
             >

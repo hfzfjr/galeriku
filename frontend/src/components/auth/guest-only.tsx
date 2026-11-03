@@ -31,7 +31,7 @@ export function AuthLoadingSkeleton() {
 }
 
 /**
- * Pembungkus layar auth: pengguna yang sudah login dialihkan ke /app
+ * Pembungkus layar auth: pengguna yang sudah login dialihkan ke /galeri
  * berdasar /auth/me. Gagal jaringan/5xx menampilkan layar
  * "Galeriku lagi istirahat" (dengan "Coba lagi").
  */
@@ -41,7 +41,7 @@ export function GuestOnly({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (session.data) {
-      router.replace("/app");
+      router.replace("/galeri");
     }
   }, [session.data, router]);
 

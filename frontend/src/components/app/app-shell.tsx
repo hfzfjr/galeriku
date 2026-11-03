@@ -14,7 +14,7 @@ import { useSession } from "@/lib/session";
 function AppLoadingSkeleton() {
   return (
     <div aria-busy="true" aria-label="Memuat aplikasi" className="min-h-dvh">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] lg:pt-8">
+      <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl flex-col gap-4 px-4 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] lg:px-8 lg:pt-8">
         <div className="h-8 w-32 animate-pulse rounded-md bg-sunken" />
         <div className="h-24 w-full animate-pulse rounded-lg bg-sunken" />
         <div className="h-24 w-full animate-pulse rounded-lg bg-sunken" />
@@ -76,10 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh lg:flex">
-      <div className="fixed inset-x-0 bottom-0 z-10 lg:static lg:z-auto">
-        <BottomNav className="lg:min-h-dvh" />
+      <div className="fixed inset-x-0 bottom-0 z-10 lg:sticky lg:top-0 lg:h-dvh lg:z-20 lg:shrink-0">
+        <BottomNav className="lg:h-dvh" />
       </div>
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 pb-32 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] lg:px-6 lg:pb-8 lg:pt-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl flex-1 px-4 pb-32 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] lg:px-8 lg:pb-8 lg:pt-8">
         {children}
       </div>
     </div>

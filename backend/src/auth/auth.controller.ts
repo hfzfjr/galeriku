@@ -304,7 +304,7 @@ export class AuthController {
         getUserAgent(req),
       );
       this.setSessionCookie(reply, token);
-      reply.redirect(`${this.config.frontendOrigin}/app`, 302);
+      reply.redirect(`${this.config.frontendOrigin}/galeri`, 302);
     } catch (error) {
       if (error instanceof GoogleAuthError) {
         this.redirectLoginError(reply, error.code);
