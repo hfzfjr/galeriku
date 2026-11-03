@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FileItem } from "@galeriku/contracts";
-import { ChevronLeft, ChevronRight, Download, Share2, Trash2, X } from "lucide-react";
-import { deleteFile, getFileContentUrl } from "@/lib/api";
+import { ChevronLeft, ChevronRight, Download, Share2, Star, Trash2, X } from "lucide-react";
+import { deleteFile, getFileContentUrl, toggleFavoriteFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ShareModal } from "@/components/shares/share-modal";
 
@@ -30,6 +30,23 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
 
   const total = files.length;
   const currentFile = files[currentIndex];
+  const [isFavorite, setIsFavorite] = useState(Boolean(currentFile?.isFavorite));
+
+  useEffect(() => {
+    setIsFavorite(Boolean(currentFile?.isFavorite));
+  }, [currentFile]);
+
+  const handleToggleFavorite = async () => {
+    if (!currentFile) return;
+    const nextFav = !isFavorite;
+    setIsFavorite(nextFav);
+    try {
+      await toggleFavoriteFile(currentFile.id, nextFav);
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+    } catch {
+      setIsFavorite(!nextFav);
+    }
+  };
 
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
@@ -199,6 +216,26 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
         </span>
 
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            aria-label={
+              isFavorite
+                ? `Hapus ${currentFile.originalName} dari favorit`
+                : `Jadikan ${currentFile.originalName} favorit`
+            }
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors active:bg-white/10 ${
+              isFavorite ? "text-amber-400" : "text-on-accent hover:text-amber-300"
+            }`}
+            title={isFavorite ? "Hapus dari favorit" : "Jadikan favorit"}
+          >
+            <Star
+              size={20}
+              strokeWidth={1.5}
+              className={isFavorite ? "fill-amber-400" : ""}
+            />
+          </button>
+
           <button
             type="button"
             onClick={() => setShareModalOpen(true)}

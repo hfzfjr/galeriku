@@ -6,6 +6,7 @@
 // menyusul di US-20; halaman ini hanya menampilkan upload yang berjalan.
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Upload } from "tus-js-client";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -124,6 +125,36 @@ function buatId(): string {
 }
 
 export function GaleriUploadClient() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter");
+  const kind =
+    filterParam === "foto"
+      ? "image"
+      : filterParam === "video"
+      ? "video"
+      : undefined;
+
+  const headerTitle =
+    filterParam === "foto"
+      ? "Foto"
+      : filterParam === "video"
+      ? "Video"
+      : "Galeri";
+
+  const headerSubtitle =
+    filterParam === "foto"
+      ? "Koleksi foto terbaik dari ponselmu."
+      : filterParam === "video"
+      ? "Koleksi video kenangan perjalananmu."
+      : "Pilih foto atau video dari HP-mu. Upload berlanjut otomatis kalau sinyal putus.";
+
+  const emptyTitle =
+    filterParam === "foto"
+      ? "Belum ada foto"
+      : filterParam === "video"
+      ? "Belum ada video"
+      : "Belum ada foto atau video";
+
   const queryClient = useQueryClient();
   const [daftar, setDaftar] = useState<ItemUpload[]>([]);
   const [terbuka, setTerbuka] = useState(true);
@@ -370,6 +401,11 @@ export function GaleriUploadClient() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-h1 text-ink">{headerTitle}</h1>
+        <p className="text-body text-ink-muted">{headerSubtitle}</p>
+      </div>
+
       {/* Input file tersembunyi yang dipicu oleh tombol FAB atau aksi galeri */}
       <input
         ref={masukanRef}
@@ -381,7 +417,11 @@ export function GaleriUploadClient() {
         onChange={(e) => tambahBerkas(e.target.files)}
       />
 
-      <GalleryGrid onTriggerUpload={() => masukanRef.current?.click()} />
+      <GalleryGrid
+        kind={kind}
+        emptyTitle={emptyTitle}
+        onTriggerUpload={() => masukanRef.current?.click()}
+      />
 
       {daftar.length > 0 ? (
         <section

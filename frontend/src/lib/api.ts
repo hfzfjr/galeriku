@@ -8,6 +8,7 @@ import type {
   AlbumsResponse,
   CreateAlbumRequest,
   CreateShareLinkRequest,
+  FileItem,
   FilesResponse,
   ForgotPasswordRequest,
   LoginRequest,
@@ -19,6 +20,7 @@ import type {
   ResetPasswordRequest,
   ShareLinkItem,
   ShareLinksResponse,
+  TrashFilesResponse,
   UnlockShareRequest,
   UpdateAlbumRequest,
   UpdateQuotaRequest,
@@ -244,6 +246,8 @@ export function deleteUser(id: string): Promise<void> {
 export function fetchFiles(params?: {
   limit?: number;
   cursor?: string;
+  kind?: "image" | "video";
+  favorite?: boolean;
 }): Promise<FilesResponse> {
   const search = new URLSearchParams();
   if (params?.limit !== undefined) {
@@ -252,8 +256,46 @@ export function fetchFiles(params?: {
   if (params?.cursor) {
     search.set("cursor", params.cursor);
   }
+  if (params?.kind) {
+    search.set("kind", params.kind);
+  }
+  if (params?.favorite) {
+    search.set("favorite", "true");
+  }
   const suffix = search.size > 0 ? `?${search.toString()}` : "";
   return request<FilesResponse>(`/files${suffix}`);
+}
+
+export function toggleFavoriteFile(
+  id: string,
+  isFavorite: boolean,
+): Promise<FileItem> {
+  return request<FileItem>(`/files/${encodeURIComponent(id)}/favorite`, {
+    method: "PATCH",
+    body: { isFavorite },
+  });
+}
+
+export function fetchTrashFiles(): Promise<TrashFilesResponse> {
+  return request<TrashFilesResponse>("/files/trash");
+}
+
+export function restoreFile(id: string): Promise<FileItem> {
+  return request<FileItem>(`/files/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+  });
+}
+
+export function deletePermanentFile(id: string): Promise<void> {
+  return request<void>(`/files/${encodeURIComponent(id)}/permanent`, {
+    method: "DELETE",
+  });
+}
+
+export function emptyTrash(): Promise<{ count: number }> {
+  return request<{ count: number }>("/files/trash", {
+    method: "DELETE",
+  });
 }
 
 export function getThumbnailUrl(fileId: string): string {

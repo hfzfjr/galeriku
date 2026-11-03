@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -15,9 +16,15 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   BatchDeleteFilesRequest,
+  FileItem,
   FilesResponse,
+  SetFileFavoriteRequest,
+  TrashFilesResponse,
 } from '@galeriku/contracts';
-import { batchDeleteFilesSchema } from '@galeriku/contracts';
+import {
+  batchDeleteFilesSchema,
+  setFileFavoriteSchema,
+} from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { FilesService } from './files.service';
@@ -67,6 +74,21 @@ export class FilesController {
     @Query() query: Record<string, unknown>,
   ): Promise<FilesResponse> {
     return this.filesService.listFiles(user.id, query);
+  }
+
+  @Get('trash')
+  async listTrash(
+    @CurrentUser() user: SessionUser,
+  ): Promise<TrashFilesResponse> {
+    return this.filesService.listTrash(user.id);
+  }
+
+  @Delete('trash')
+  @HttpCode(200)
+  async emptyTrash(
+    @CurrentUser() user: SessionUser,
+  ): Promise<{ count: number }> {
+    return this.filesService.emptyTrash(user.id);
   }
 
   @Get(':id/thumb')
@@ -140,6 +162,34 @@ export class FilesController {
     reply.header('Content-Length', sizeBytes);
     const stream = createReadStream(filePath);
     reply.send(stream);
+  }
+
+  @Patch(':id/favorite')
+  @UsePipes(new ZodValidationPipe(setFileFavoriteSchema))
+  async setFavorite(
+    @Param('id') id: string,
+    @Body() body: SetFileFavoriteRequest,
+    @CurrentUser() user: SessionUser,
+  ): Promise<FileItem> {
+    return this.filesService.setFavorite(user.id, id, body.isFavorite);
+  }
+
+  @Post(':id/restore')
+  @HttpCode(200)
+  async restoreFile(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+  ): Promise<FileItem> {
+    return this.filesService.restoreFile(user.id, id);
+  }
+
+  @Delete(':id/permanent')
+  @HttpCode(204)
+  async deletePermanent(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+  ): Promise<void> {
+    await this.filesService.deletePermanent(user.id, id);
   }
 
   @Delete(':id')

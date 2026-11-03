@@ -1,37 +1,91 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Album, Cloud, LayoutGrid, Link2, UserRound } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import {
+  Album,
+  Camera,
+  Cloud,
+  Film,
+  LayoutGrid,
+  Link2,
+  Star,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { Logo } from "@/components/landing/logo";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
 
-type Tab = {
+type NavItem = {
   id: string;
   label: string;
   href: string;
   icon: typeof LayoutGrid;
   exact?: boolean;
+  filter?: "foto" | "video";
 };
 
-const TABS: Tab[] = [
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+const DESKTOP_SECTIONS: NavSection[] = [
+  {
+    title: "KOLEKSI",
+    items: [
+      { id: "semua", label: "Semua Media", href: "/galeri", icon: LayoutGrid, exact: true },
+      { id: "foto", label: "Foto", href: "/galeri?filter=foto", icon: Camera, filter: "foto" },
+      { id: "video", label: "Video", href: "/galeri?filter=video", icon: Film, filter: "video" },
+      { id: "favorit", label: "Favorit", href: "/favorit", icon: Star },
+      { id: "album", label: "Album", href: "/album", icon: Album },
+    ],
+  },
+  {
+    title: "BERBAGI",
+    items: [
+      { id: "shares", label: "Tautan Berbagi", href: "/shares", icon: Link2 },
+    ],
+  },
+  {
+    title: "LAINNYA",
+    items: [
+      { id: "sampah", label: "Sampah", href: "/sampah", icon: Trash2 },
+      { id: "settings", label: "Akun", href: "/settings", icon: UserRound },
+    ],
+  },
+];
+
+const MOBILE_TABS: NavItem[] = [
   { id: "galeri", label: "Galeri", href: "/galeri", icon: LayoutGrid, exact: true },
+  { id: "favorit", label: "Favorit", href: "/favorit", icon: Star },
   { id: "album", label: "Album", href: "/album", icon: Album },
-  { id: "link", label: "Link", href: "/shares", icon: Link2 },
-  { id: "akun", label: "Akun", href: "/settings", icon: UserRound },
+  { id: "shares", label: "Link", href: "/shares", icon: Link2 },
+  { id: "settings", label: "Akun", href: "/settings", icon: UserRound },
 ];
 
 export type BottomNavProps = {
-  /** Menimpa penentuan tab aktif (dipakai pratinjau /dev/ui). */
+  /** Menimpa penentuan rute aktif (dipakai pratinjau /dev/ui). */
   activeRoute?: string;
   className?: string;
 };
 
-function isTabActive(tab: Tab, route: string | null): boolean {
-  if (!route) return false;
-  if (tab.exact) return route === tab.href;
-  return route === tab.href || route.startsWith(`${tab.href}/`);
+function isItemActive(
+  item: NavItem,
+  pathname: string | null,
+  currentFilter: string | null,
+): boolean {
+  if (!pathname) return false;
+  if (item.filter) {
+    return pathname === "/galeri" && currentFilter === item.filter;
+  }
+  if (item.href === "/galeri") {
+    return pathname === "/galeri" && !currentFilter;
+  }
+  if (item.exact) return pathname === item.href;
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
 function formatBytes(bytesStr?: string): string {
@@ -65,14 +119,11 @@ function calculateStoragePercentage(
   }
 }
 
-/**
- * Navigasi bawah area aplikasi (DESIGN.md §6): 4 tab, tinggi 56 + safe-area,
- * latar surface, garis atas line. Tab aktif memakai accent + label 600.
- * Di ≥1024px menjadi sidebar kiri sticky dengan logo dan info penyimpanan.
- */
-export function BottomNav({ activeRoute, className }: BottomNavProps) {
+function BottomNavContent({ activeRoute, className }: BottomNavProps) {
   const pathname = usePathname();
-  const current = activeRoute ?? pathname;
+  const searchParams = useSearchParams();
+  const currentPath = activeRoute ?? pathname;
+  const currentFilter = searchParams.get("filter");
   const session = useSession();
 
   const quotaBytes = session.data?.quotaBytes;
@@ -102,35 +153,60 @@ export function BottomNav({ activeRoute, className }: BottomNavProps) {
         </Link>
       </div>
 
-      {/* Navigasi Menu */}
-      <ul
-        className={cn(
-          "flex items-stretch",
-          "lg:flex-col lg:items-stretch lg:gap-1 lg:px-3",
-        )}
-      >
-        {TABS.map((tab) => {
-          const active = isTabActive(tab, current);
+      {/* Navigasi Desktop: Berkelompok ala Cloud Storage Modern */}
+      <div className="hidden lg:flex flex-col gap-6 px-3">
+        {DESKTOP_SECTIONS.map((section) => (
+          <div key={section.title} className="flex flex-col gap-1">
+            <span className="px-3 text-[11px] font-semibold tracking-wider text-ink-muted/70">
+              {section.title}
+            </span>
+            <ul className="flex flex-col gap-0.5">
+              {section.items.map((item) => {
+                const active = isItemActive(item, currentPath, currentFilter);
+                const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-label transition-colors",
+                        active
+                          ? "bg-accent-soft/50 font-semibold text-accent"
+                          : "text-ink-muted hover:bg-sunken/40 hover:text-ink",
+                      )}
+                    >
+                      <Icon size={18} strokeWidth={active ? 2 : 1.75} aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {/* Navigasi Bar Bawah Mobile: 5 Tab Sentuh Ramping */}
+      <ul className="flex items-stretch lg:hidden">
+        {MOBILE_TABS.map((tab) => {
+          const active = isItemActive(tab, currentPath, currentFilter);
           const Icon = tab.icon;
           return (
-            <li key={tab.id} className="flex flex-1 lg:flex-none">
+            <li key={tab.id} className="flex flex-1">
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 min-w-11 flex-1 flex-col items-center justify-center gap-1 px-2 pb-safe pt-2 transition-colors",
-                  "lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-lg lg:px-3 lg:pb-2.5 lg:pt-2.5",
-                  active
-                    ? "text-accent lg:bg-accent-soft/40 font-medium"
-                    : "text-ink-muted hover:text-ink hover:bg-sunken/40",
+                  "flex min-h-14 min-w-11 flex-1 flex-col items-center justify-center gap-1 px-1 pb-safe pt-2 transition-colors",
+                  active ? "text-accent" : "text-ink-muted",
                 )}
               >
-                <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
+                <Icon size={20} strokeWidth={active ? 2 : 1.5} aria-hidden="true" />
                 <span
                   className={cn(
-                    "text-caption leading-none",
-                    "lg:text-label",
-                    active && "font-semibold text-accent",
+                    "text-[11px] leading-none",
+                    active && "font-semibold",
                   )}
                 >
                   {tab.label}
@@ -143,7 +219,7 @@ export function BottomNav({ activeRoute, className }: BottomNavProps) {
 
       {/* Bar Penyimpanan Ala Google Drive (Khusus Desktop) */}
       {session.data ? (
-        <div className="hidden lg:flex flex-col gap-2.5 mt-auto px-4 pt-5 border-t border-line">
+        <div className="hidden lg:flex flex-col gap-2 mt-auto px-4 pt-5 border-t border-line">
           <div className="flex items-center gap-2">
             <Cloud size={16} strokeWidth={1.75} className="text-accent shrink-0" />
             <span className="text-caption font-medium text-ink">Penyimpanan</span>
@@ -179,5 +255,13 @@ export function BottomNav({ activeRoute, className }: BottomNavProps) {
         </div>
       ) : null}
     </nav>
+  );
+}
+
+export function BottomNav(props: BottomNavProps) {
+  return (
+    <Suspense fallback={<nav aria-label="Navigasi utama" className="border-t border-line bg-surface lg:w-60 lg:shrink-0" />}>
+      <BottomNavContent {...props} />
+    </Suspense>
   );
 }

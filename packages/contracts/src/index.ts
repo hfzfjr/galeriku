@@ -224,8 +224,10 @@ export const fileItemSchema = z.object({
   durationS: z.number().nullable(),
   thumbKey: z.string().nullable(),
   status: z.string(),
+  isFavorite: z.boolean().default(false),
   takenAt: z.string().nullable(),
   createdAt: z.string(),
+  deletedAt: z.string().nullable().optional(),
 });
 
 export type FileItem = z.output<typeof fileItemSchema>;
@@ -233,6 +235,10 @@ export type FileItem = z.output<typeof fileItemSchema>;
 export const filesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(24),
   cursor: z.string().min(1).max(200).optional(),
+  kind: z.enum(['image', 'video']).optional(),
+  favorite: z
+    .preprocess((val) => val === 'true' || val === true, z.boolean())
+    .optional(),
 });
 
 export type FilesQuery = z.output<typeof filesQuerySchema>;
@@ -243,6 +249,18 @@ export const filesResponseSchema = z.object({
 });
 
 export type FilesResponse = z.output<typeof filesResponseSchema>;
+
+export const setFileFavoriteSchema = z.object({
+  isFavorite: z.boolean(),
+});
+
+export type SetFileFavoriteRequest = z.output<typeof setFileFavoriteSchema>;
+
+export const trashFilesResponseSchema = z.object({
+  items: z.array(fileItemSchema),
+});
+
+export type TrashFilesResponse = z.output<typeof trashFilesResponseSchema>;
 
 export const batchDeleteFilesSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(100),

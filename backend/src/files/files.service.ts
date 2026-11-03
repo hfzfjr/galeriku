@@ -41,8 +41,10 @@ type FileRow = {
   durationS: number | null;
   thumbKey: string | null;
   status: string;
+  isFavorite?: boolean;
   takenAt: Date | null;
   createdAt: Date;
+  deletedAt?: Date | null;
 };
 
 export function toFileItem(file: FileRow): FileItem {
@@ -57,8 +59,10 @@ export function toFileItem(file: FileRow): FileItem {
     durationS: file.durationS,
     thumbKey: file.thumbKey,
     status: file.status,
+    isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
     createdAt: file.createdAt.toISOString(),
+    deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
   };
 }
 
@@ -83,11 +87,19 @@ export class FilesService {
     }
 
     const query: FilesQuery = parsed.data;
-    const where = {
+    const where: Record<string, unknown> = {
       ownerId: userId,
       status: FileStatus.ready,
       deletedAt: null,
     };
+
+    if (query.kind) {
+      where.kind = query.kind;
+    }
+
+    if (query.favorite) {
+      where.isFavorite = true;
+    }
 
     if (query.cursor !== undefined) {
       const jangkar = decodeCursor(query.cursor);
@@ -155,7 +167,6 @@ export class FilesService {
     if (
       !file ||
       file.ownerId !== userId ||
-      file.deletedAt !== null ||
       file.status !== FileStatus.ready
     ) {
       throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
@@ -229,7 +240,40 @@ export class FilesService {
       where: { id: fileId },
       data: { deletedAt: new Date() },
     });
+  }
 
+  async deleteFilesBatch(
+    userId: string,
+    fileIds: string[],
+  ): Promise<{ count: number }> {
+    const uniqueIds = Array.from(new Set(fileIds));
+    const files = await this.prisma.file.findMany({
+      where: {
+        id: { in: uniqueIds },
+        ownerId: userId,
+        deletedAt: null,
+        status: FileStatus.ready,
+      },
+      select: { id: true },
+    });
+
+    if (files.length === 0) {
+      return { count: 0 };
+    }
+
+    const idsToDelete = files.map((f) => f.id);
+    await this.prisma.file.updateMany({
+      where: { id: { in: idsToDelete } },
+      data: { deletedAt: new Date() },
+    });
+
+    return { count: files.length };
+  }
+
+  private async hapusBerkasFisik(file: {
+    storageKey: string;
+    thumbKey: string | null;
+  }): Promise<void> {
     const mediaDir = resolveMediaDir();
     try {
       await rm(join(mediaDir, file.storageKey), { force: true });
@@ -245,50 +289,99 @@ export class FilesService {
     }
   }
 
-  async deleteFilesBatch(
+  async setFavorite(
     userId: string,
-    fileIds: string[],
-  ): Promise<{ count: number }> {
-    const uniqueIds = Array.from(new Set(fileIds));
+    fileId: string,
+    isFavorite: boolean,
+  ): Promise<FileItem> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    const updated = await this.prisma.file.update({
+      where: { id: fileId },
+      data: { isFavorite },
+    });
+
+    return toFileItem(updated as FileRow);
+  }
+
+  async listTrash(userId: string): Promise<{ items: FileItem[] }> {
+    const rows = await this.prisma.file.findMany({
+      where: {
+        ownerId: userId,
+        deletedAt: { not: null },
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
+
+    return {
+      items: (rows as FileRow[]).map(toFileItem),
+    };
+  }
+
+  async restoreFile(userId: string, fileId: string): Promise<FileItem> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!file || file.ownerId !== userId || file.deletedAt === null) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan di tempat sampah.');
+    }
+
+    const restored = await this.prisma.file.update({
+      where: { id: fileId },
+      data: { deletedAt: null },
+    });
+
+    return toFileItem(restored as FileRow);
+  }
+
+  async deletePermanent(userId: string, fileId: string): Promise<void> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!file || file.ownerId !== userId) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    await this.hapusBerkasFisik(file);
+    await this.prisma.file.delete({
+      where: { id: fileId },
+    });
+  }
+
+  async emptyTrash(userId: string): Promise<{ count: number }> {
     const files = await this.prisma.file.findMany({
       where: {
-        id: { in: uniqueIds },
         ownerId: userId,
-        deletedAt: null,
-        status: FileStatus.ready,
+        deletedAt: { not: null },
       },
       select: { id: true, storageKey: true, thumbKey: true },
     });
 
-    if (files.length === 0) {
-      return { count: 0 };
+    for (const file of files) {
+      await this.hapusBerkasFisik(file);
     }
 
-    const idsToDelete = files.map((f) => f.id);
-    await this.prisma.file.updateMany({
-      where: { id: { in: idsToDelete } },
-      data: { deletedAt: new Date() },
+    const result = await this.prisma.file.deleteMany({
+      where: {
+        ownerId: userId,
+        deletedAt: { not: null },
+      },
     });
 
-    const mediaDir = resolveMediaDir();
-    await Promise.all(
-      files.map(async (file) => {
-        try {
-          await rm(join(mediaDir, file.storageKey), { force: true });
-        } catch {
-          // Abaikan
-        }
-        if (file.thumbKey) {
-          try {
-            await rm(join(mediaDir, file.thumbKey), { force: true });
-          } catch {
-            // Abaikan
-          }
-        }
-      }),
-    );
-
-    return { count: files.length };
+    return { count: result.count };
   }
 }
 

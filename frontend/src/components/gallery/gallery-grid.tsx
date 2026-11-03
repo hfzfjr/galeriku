@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Play,
   RefreshCw,
+  Star,
   Trash2,
   Upload,
   X,
@@ -68,9 +69,19 @@ type GroupedFiles = {
 
 interface GalleryGridProps {
   onTriggerUpload?: () => void;
+  kind?: "image" | "video";
+  favoriteOnly?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
+export function GalleryGrid({
+  onTriggerUpload,
+  kind,
+  favoriteOnly,
+  emptyTitle = "Belum ada foto atau video",
+  emptyDescription = "Foto dan video yang kamu unggah dari HP akan tersimpan rapi di sini.",
+}: GalleryGridProps) {
   const queryClient = useQueryClient();
   const observerRef = useRef<HTMLDivElement | null>(null);
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
@@ -91,8 +102,14 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
     fetchNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ["files"],
-    queryFn: ({ pageParam }) => fetchFiles({ cursor: pageParam, limit: 24 }),
+    queryKey: ["files", { kind, favoriteOnly }],
+    queryFn: ({ pageParam }) =>
+      fetchFiles({
+        cursor: pageParam,
+        limit: 24,
+        kind,
+        favorite: favoriteOnly,
+      }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
@@ -238,9 +255,9 @@ export function GalleryGrid({ onTriggerUpload }: GalleryGridProps) {
           <ImageIcon size={32} className="text-ink-muted" strokeWidth={1.5} />
         </div>
         <div className="space-y-1">
-          <h2 className="text-h2 font-serif text-ink">Belum ada foto atau video</h2>
+          <h2 className="text-h2 font-serif text-ink">{emptyTitle}</h2>
           <p className="text-body text-ink-muted">
-            Foto dan video yang kamu unggah dari HP akan tersimpan rapi di sini.
+            {emptyDescription}
           </p>
         </div>
         {onTriggerUpload ? (
@@ -514,6 +531,17 @@ function GalleryItem({
           </span>
         </div>
       )}
+
+      {/* Indikator Favorit */}
+      {file.isFavorite && !isSelectionMode ? (
+        <div
+          className={`absolute ${isVideo ? "top-1.5 left-1.5" : "top-1.5 right-1.5"} flex h-5 w-5 items-center justify-center rounded-full bg-scrim text-amber-400`}
+          title="Item favorit"
+          aria-label="Item favorit"
+        >
+          <Star size={11} className="fill-amber-400" />
+        </div>
+      ) : null}
 
       {/* Indikator Video: Ikon putar di kanan atas & pil durasi di kiri bawah */}
       {isVideo ? (

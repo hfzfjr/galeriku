@@ -23,8 +23,10 @@ function toFileItem(file: {
   durationS: number | null;
   thumbKey: string | null;
   status: FileStatus;
+  isFavorite?: boolean;
   takenAt: Date | null;
   createdAt: Date;
+  deletedAt?: Date | null;
 }): FileItem {
   return {
     id: file.id,
@@ -37,8 +39,10 @@ function toFileItem(file: {
     durationS: file.durationS,
     thumbKey: file.thumbKey,
     status: file.status,
+    isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
     createdAt: file.createdAt.toISOString(),
+    deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
   };
 }
 

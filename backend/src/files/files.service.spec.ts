@@ -52,8 +52,10 @@ describe('FilesService helpers', () => {
         durationS: null,
         thumbKey: 'file-1.thumb.webp',
         status: 'ready',
+        isFavorite: false,
         takenAt: null,
         createdAt: '2026-10-31T12:00:00.000Z',
+        deletedAt: null,
       });
     });
 

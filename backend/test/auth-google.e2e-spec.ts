@@ -294,7 +294,7 @@ describe('Auth Google (e2e)', () => {
         { code: 'kode-uji', state },
         cookieOauth,
       ).expect(302);
-      expect(res.headers.location).toBe(`${ORIGIN}/app`);
+      expect(res.headers.location).toBe(`${ORIGIN}/galeri`);
       const mentah = cookies(res);
       const sesi = mentah.find((c) => c.startsWith('galeriku_session='));
       expect(sesi).toBeDefined();
@@ -344,7 +344,7 @@ describe('Auth Google (e2e)', () => {
       await panggilCallback(app, { code: 'kode-uji', state }, cookieOauth)
         .expect(302)
         .expect((res) => {
-          if (res.headers.location !== `${ORIGIN}/app`) {
+          if (res.headers.location !== `${ORIGIN}/galeri`) {
             throw new Error(`tujuan salah: ${res.headers.location}`);
           }
         });

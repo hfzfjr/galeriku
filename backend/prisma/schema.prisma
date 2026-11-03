@@ -126,6 +126,7 @@ model File {
   durationS    Float?     @map("duration_s")
   thumbKey     String?    @map("thumb_key")
   status       FileStatus
+  isFavorite   Boolean    @default(false) @map("is_favorite")
   takenAt      DateTime?  @map("taken_at")
   createdAt    DateTime   @default(now()) @map("created_at")
   deletedAt    DateTime?  @map("deleted_at")
@@ -134,6 +135,7 @@ model File {
   coverOf    Album[]     @relation("AlbumCover")
 
   @@index([ownerId, createdAt(sort: Desc)])
+  @@index([ownerId, isFavorite])
   @@map("files")
 }
 

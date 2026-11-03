@@ -594,5 +594,123 @@ describe('FilesController (e2e) — US-20', () => {
       expect(db.files.get('f-batch-3')?.deletedAt).toBeNull();
     });
   });
+
+  describe('Favorit & Sampah (Trash)', () => {
+    it('PATCH /files/:id/favorite mengubah status favorit dan IDOR merespon 404', async () => {
+      const userA = await seedUser(db);
+      const userB = await seedUser(db);
+      const tokenA = craftSession(db, userA.id as string);
+      const tokenB = craftSession(db, userB.id as string);
+
+      db.files.set('f-fav-1', {
+        id: 'f-fav-1',
+        ownerId: userA.id,
+        originalName: 'fav.jpg',
+        storageKey: 'key-fav',
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      // User A jadikan favorit
+      const res = await http()
+        .patch('/files/f-fav-1/favorite')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${tokenA}`)
+        .send({ isFavorite: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.isFavorite).toBe(true);
+
+      // User B mencoba ubah milik User A -> 404 identik (IDOR)
+      await expectOwnerOnly(app, {
+        cookieA: tokenA,
+        cookieB: tokenB,
+        origin: ORIGIN,
+        createResource: async () => {
+          const fid = `file-fav-idor-${Date.now()}`;
+          db.files.set(fid, {
+            id: fid,
+            ownerId: userA.id,
+            originalName: 'fav.jpg',
+            storageKey: `key-${fid}`,
+            mimeType: 'image/jpeg',
+            sizeBytes: 100n,
+            kind: FileKind.image,
+            width: null,
+            height: null,
+            durationS: null,
+            thumbKey: null,
+            status: FileStatus.ready,
+            isFavorite: false,
+            takenAt: null,
+            createdAt: new Date(),
+            deletedAt: null,
+          });
+          return fid;
+        },
+        buildRequests: (id: string) => [
+          {
+            method: 'patch',
+            url: `/files/${id}/favorite`,
+            body: { isFavorite: true },
+          },
+        ],
+      });
+    });
+
+    it('GET /files/trash, restore, dan permanent delete bekerja dengan baik', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('f-sampah-1', {
+        id: 'f-sampah-1',
+        ownerId: user.id,
+        originalName: 'dibuang.jpg',
+        storageKey: 'key-dibuang',
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: new Date(),
+      });
+
+      // Cek list sampah
+      const resList = await http()
+        .get('/files/trash')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(resList.status).toBe(200);
+      expect(resList.body.items).toHaveLength(1);
+      expect(resList.body.items[0].id).toBe('f-sampah-1');
+
+      // Pulihkan file
+      const resRestore = await http()
+        .post('/files/f-sampah-1/restore')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(resRestore.status).toBe(200);
+      expect(resRestore.body.deletedAt).toBeNull();
+      expect(db.files.get('f-sampah-1')?.deletedAt).toBeNull();
+    });
+  });
 });
 
