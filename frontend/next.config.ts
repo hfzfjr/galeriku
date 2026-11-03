@@ -46,6 +46,20 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [
+      {
+        source: "/app",
+        destination: "/galeri",
+        permanent: true,
+      },
+      {
+        source: "/app/:path*",
+        destination: "/galeri",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
@@ -62,7 +76,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/app/:path*",
+        source: "/(galeri|album|shares|settings|admin|app)/:path*",
         headers: [
           {
             key: "X-Robots-Tag",
