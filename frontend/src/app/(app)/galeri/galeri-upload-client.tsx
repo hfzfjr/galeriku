@@ -18,11 +18,9 @@ import {
   Play,
   Plus,
   RotateCcw,
-  Upload as IkonUnggah,
   WifiOff,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { GalleryGrid } from "@/components/gallery/gallery-grid";
 
 const CHUNK_SIZE = 5242880; // 5 MB, sama dengan PRD.
@@ -372,21 +370,16 @@ export function GaleriUploadClient() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" onClick={() => masukanRef.current?.click()}>
-          <IkonUnggah size={20} strokeWidth={1.5} aria-hidden="true" />
-          Unggah
-        </Button>
-        <input
-          ref={masukanRef}
-          type="file"
-          multiple
-          accept="image/*,video/*"
-          className="hidden"
-          aria-label="Pilih foto atau video untuk diunggah"
-          onChange={(e) => tambahBerkas(e.target.files)}
-        />
-      </div>
+      {/* Input file tersembunyi yang dipicu oleh tombol FAB atau aksi galeri */}
+      <input
+        ref={masukanRef}
+        type="file"
+        multiple
+        accept="image/*,video/*"
+        className="hidden"
+        aria-label="Pilih foto atau video untuk diunggah"
+        onChange={(e) => tambahBerkas(e.target.files)}
+      />
 
       <GalleryGrid onTriggerUpload={() => masukanRef.current?.click()} />
 
@@ -572,7 +565,7 @@ export function GaleriUploadClient() {
         type="button"
         aria-label="Unggah file"
         onClick={() => masukanRef.current?.click()}
-        className="fixed bottom-[calc(72px+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-on-accent shadow-float active:bg-accent-hover lg:hidden"
+        className="fixed bottom-[calc(72px+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-accent text-on-accent shadow-float active:bg-accent-hover lg:bottom-8 lg:right-8 hover:bg-accent-hover hover:scale-105 transition-all"
       >
         <Plus size={24} strokeWidth={1.5} aria-hidden="true" />
       </button>
