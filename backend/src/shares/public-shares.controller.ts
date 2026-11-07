@@ -22,6 +22,7 @@ import { getClientIp, getUserAgent } from '../common/utils/client-ip';
 import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
 import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { contentDisposition } from '../common/utils/content-disposition';
 import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
 import { createZipStream } from './zip-stream';
@@ -194,10 +195,7 @@ export class PublicSharesController {
     res.header('X-Robots-Tag', 'noindex, nofollow');
 
     if (isDownload) {
-      res.header(
-        'Content-Disposition',
-        `attachment; filename="${encodeURIComponent(originalName)}"`,
-      );
+      res.header('Content-Disposition', contentDisposition(originalName));
       res.header('Content-Type', mimeType);
       res.header('Content-Length', sizeBytes);
       const stream = createReadStream(filePath);
@@ -251,10 +249,7 @@ export class PublicSharesController {
     const filename = `${safeTitle}.zip`;
 
     res.header('Content-Type', 'application/zip');
-    res.header(
-      'Content-Disposition',
-      `attachment; filename="${encodeURIComponent(filename)}"`,
-    );
+    res.header('Content-Disposition', contentDisposition(filename));
     res.header('X-Content-Type-Options', 'nosniff');
     res.header('X-Robots-Tag', 'noindex, nofollow');
 
@@ -264,6 +259,11 @@ export class PublicSharesController {
     }));
 
     const zipStream = createZipStream(entries);
+    zipStream.on('error', (err) => {
+      if (!res.raw.destroyed) {
+        res.raw.destroy(err);
+      }
+    });
     return res.send(zipStream);
   }
 }

@@ -27,6 +27,7 @@ import {
 } from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { contentDisposition } from '../common/utils/content-disposition';
 import { FilesService } from './files.service';
 
 export function parseRange(
@@ -127,12 +128,7 @@ export class FilesController {
       .header('X-Content-Type-Options', 'nosniff');
 
     if (isDownload) {
-      const sanitizedName = originalName.replace(/"/g, '');
-      const encodedFilename = encodeURIComponent(originalName);
-      reply.header(
-        'Content-Disposition',
-        `attachment; filename="${sanitizedName}"; filename*=UTF-8''${encodedFilename}`,
-      );
+      reply.header('Content-Disposition', contentDisposition(originalName));
     } else {
       reply.header('Cache-Control', 'private, max-age=86400');
     }

@@ -1,12 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  Film,
-  Image as ImageIcon,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -19,6 +16,7 @@ import {
 import { restoreFile } from "@/lib/api";
 import { toIndonesianMessage } from "@/lib/auth-errors";
 import { Button } from "@/components/ui/button";
+import { MediaThumb } from "@/components/ui/media-thumb";
 
 function formatBytes(bytesStr: string): string {
   try {
@@ -134,27 +132,18 @@ export function SampahClient() {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {items.map((file) => {
-            const isVideo = file.kind === "video";
             return (
               <div
                 key={file.id}
                 className="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-surface p-2 transition hover:border-ink-muted"
               >
                 <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-sunken">
-                  {file.thumbKey ? (
-                    <Image
-                      src={getThumbnailUrl(file.id)}
-                      alt={file.originalName}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
-                      className="object-cover opacity-85 group-hover:opacity-100 transition-opacity"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-ink-muted">
-                      {isVideo ? <Film size={32} /> : <ImageIcon size={32} />}
-                    </div>
-                  )}
+                  <MediaThumb
+                    src={file.thumbKey ? getThumbnailUrl(file.id) : null}
+                    alt={file.originalName}
+                    kind={file.kind}
+                    durationS={file.durationS}
+                  />
                 </div>
 
                 <div className="mt-2 min-w-0">

@@ -78,7 +78,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 ### Fase 0 — Dokumen dan Hotfix
 - [x] RF-00 Amandemen dokumen
 - [x] RF-01 Hotfix hapus permanen, sampul album, retensi sampah
-- [ ] RF-02 Hotfix unduhan, ZIP64, fallback video
+- [x] RF-02 Hotfix unduhan, ZIP64, fallback video
 - [ ] RF-03 Hotfix link publik: unlock, hitungan view, link yatim, album service
 
 ### Fase 1 — Fondasi Metadata

@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   Download,
-  Film,
   Flag,
   KeyRound,
   Lock,
@@ -15,6 +13,7 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { MediaThumb } from "@/components/ui/media-thumb";
 import { PublicViewer } from "@/components/public/public-viewer";
 import {
   fetchPublicShare,
@@ -287,26 +286,18 @@ export function PublicShareClient({ token }: { token: string }) {
                   onClick={() => setActiveViewerIndex(idx)}
                   className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <Image
-                    src={getPublicThumbnailUrl(token, file.id)}
+                  <MediaThumb
+                    src={
+                      file.thumbKey
+                        ? getPublicThumbnailUrl(token, file.id)
+                        : null
+                    }
                     alt={file.originalName}
-                    fill
-                    sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 16vw"
-                    className="object-cover transition-transform duration-200 group-hover:scale-105"
-                    unoptimized
+                    kind={file.kind}
+                    durationS={file.durationS}
+                    crossOrigin="anonymous"
                   />
                 </button>
-
-                {file.kind === "video" && (
-                  <div className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-xs">
-                    <Film size={12} />
-                    <span>
-                      {file.durationS
-                        ? `${Math.round(file.durationS)}s`
-                        : "Video"}
-                    </span>
-                  </div>
-                )}
               </div>
             ))}
           </div>

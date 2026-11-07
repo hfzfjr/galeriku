@@ -55,6 +55,13 @@ describe('Public Shares (US-25)', () => {
 
   afterAll(async () => {
     await app.app.close();
+    const mediaDir = resolveMediaDir();
+    try {
+      rmSync(join(mediaDir, 'f-pub-1.jpg'), { force: true });
+      rmSync(join(mediaDir, 'f-pub-1.thumb.webp'), { force: true });
+    } catch {
+      // Abaikan
+    }
   });
 
   it('penerima dapat membuka tautan publik dan melihat file tanpa login', async () => {

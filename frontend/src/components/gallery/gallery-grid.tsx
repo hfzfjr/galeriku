@@ -7,9 +7,7 @@ import {
   Check,
   CheckSquare,
   Download,
-  Film,
   Image as ImageIcon,
-  Play,
   RefreshCw,
   Star,
   Trash2,
@@ -23,17 +21,8 @@ import {
   getThumbnailUrl,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { MediaThumb } from "@/components/ui/media-thumb";
 import { FullViewer } from "./full-viewer";
-
-function formatDuration(seconds: number | null): string | null {
-  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) {
-    return null;
-  }
-  const total = Math.max(0, Math.round(seconds));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 function formatDateHeader(isoString: string): string {
   try {
@@ -443,14 +432,8 @@ function GalleryItem({
   onLongPress?: () => void;
   onClick?: () => void;
 }) {
-  const [loaded, setLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
   const longPressTimerRef = useRef<number | null>(null);
-
   const isVideo = file.kind === "video";
-  const duration = formatDuration(file.durationS);
-  const hasThumb = Boolean(file.thumbKey);
-  const thumbUrl = getThumbnailUrl(file.id);
 
   function handleTouchStart() {
     if (isSelectionMode) return;
@@ -496,7 +479,7 @@ function GalleryItem({
             e.stopPropagation();
             onToggleSelect?.();
           }}
-          className={`absolute top-1.5 left-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+          className={`absolute top-1.5 left-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
             isSelected
               ? "bg-accent text-on-accent"
               : "border-2 border-white/80 bg-black/30 text-transparent"
@@ -506,61 +489,22 @@ function GalleryItem({
         </button>
       ) : null}
 
-      {hasThumb && !hasError ? (
-        /* eslint-disable-next-line @next/next/no-img-element -- Thumbnail langsung dari API host, byte file dilarang lewat Vercel (AD-3) */
-        <img
-          src={thumbUrl}
-          crossOrigin="use-credentials"
-          loading="lazy"
-          alt={file.originalName}
-          onLoad={() => setLoaded(true)}
-          onError={() => setHasError(true)}
-          className={`h-full w-full object-cover transition-opacity duration-150 ${
-            loaded ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-ink-muted">
-          {isVideo ? (
-            <Film size={28} strokeWidth={1.5} className="text-ink-muted" />
-          ) : (
-            <ImageIcon size={28} strokeWidth={1.5} className="text-ink-muted" />
-          )}
-          <span className="line-clamp-1 max-w-full text-center text-[10px]">
-            {file.originalName}
-          </span>
-        </div>
-      )}
+      <MediaThumb
+        src={file.thumbKey ? getThumbnailUrl(file.id) : null}
+        alt={file.originalName}
+        kind={file.kind}
+        durationS={file.durationS}
+      />
 
       {/* Indikator Favorit */}
       {file.isFavorite && !isSelectionMode ? (
         <div
-          className={`absolute ${isVideo ? "top-1.5 left-1.5" : "top-1.5 right-1.5"} flex h-5 w-5 items-center justify-center rounded-full bg-scrim text-amber-400`}
+          className={`absolute ${isVideo ? "top-1.5 left-1.5" : "top-1.5 right-1.5"} z-10 flex h-5 w-5 items-center justify-center rounded-full bg-scrim text-amber-400`}
           title="Item favorit"
           aria-label="Item favorit"
         >
           <Star size={11} className="fill-amber-400" />
         </div>
-      ) : null}
-
-      {/* Indikator Video: Ikon putar di kanan atas & pil durasi di kiri bawah */}
-      {isVideo ? (
-        <>
-          <div
-            className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-scrim text-on-accent"
-            aria-hidden="true"
-          >
-            <Play size={10} className="fill-current" />
-          </div>
-          {duration ? (
-            <div
-              className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-scrim px-1 py-0.5 text-caption text-on-accent"
-              aria-hidden="true"
-            >
-              {duration}
-            </div>
-          ) : null}
-        </>
       ) : null}
     </div>
   );

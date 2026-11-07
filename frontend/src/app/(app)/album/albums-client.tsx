@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { FolderPlus, Images, Plus, X } from "lucide-react";
+import { FolderPlus, Plus, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AlbumItem } from "@galeriku/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MediaThumb } from "@/components/ui/media-thumb";
 import { createAlbum, fetchAlbums, getThumbnailUrl } from "@/lib/api";
 import { toIndonesianMessage } from "@/lib/auth-errors";
 
@@ -175,20 +175,12 @@ function AlbumCard({ album }: { album: AlbumItem }) {
       className="group flex flex-col gap-2 rounded-xl border border-line bg-surface p-2.5 transition hover:border-accent hover:shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-sunken">
-        {album.coverFileId ? (
-          <Image
-            src={getThumbnailUrl(album.coverFileId)}
-            alt={album.title}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            unoptimized
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-ink-muted">
-            <Images size={32} strokeWidth={1.5} />
-          </div>
-        )}
+        <MediaThumb
+          src={album.coverFileId ? getThumbnailUrl(album.coverFileId) : null}
+          alt={album.title}
+          showDuration={false}
+          showVideoBadge={false}
+        />
       </div>
       <div className="min-w-0">
         <h4 className="truncate text-body font-medium text-ink group-hover:text-accent">
