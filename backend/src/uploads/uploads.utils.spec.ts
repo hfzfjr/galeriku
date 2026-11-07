@@ -290,6 +290,29 @@ describe('sniffAndValidateFile (US-18)', () => {
     expect(res.kind).toBe('image');
   });
 
+  it('tetap meloloskan file PNG valid yang memiliki metadata SVG (mis. XMP/C2PA)', async () => {
+    const pngPath = join(tempDir, 'valid-with-svg-meta.png');
+    // Header minimal PNG valid + metadata yang mengandung substring '<svg'
+    const pngHeader = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48,
+      0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0, 0x90, 0x77, 0x53,
+      0xde,
+    ]);
+    const pngWithMeta = Buffer.concat([
+      pngHeader,
+      Buffer.from('<svg xmlns="http://www.w3.org/2000/svg">...</svg>'),
+    ]);
+    await writeFile(pngPath, pngWithMeta);
+
+    const res = await sniffAndValidateFile(
+      pngPath,
+      26214400n,
+      2147483648n,
+    );
+    expect(res.mime).toBe('image/png');
+    expect(res.kind).toBe('image');
+  });
+
   it('mendeteksi JPEG asli dengan benar', async () => {
     const jpgPath = join(tempDir, 'sample.jpg');
     // Header minimal JPEG

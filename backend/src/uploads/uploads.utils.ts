@@ -252,36 +252,35 @@ export async function sniffAndValidateFile(
   maxImageBytes: bigint,
   maxVideoBytes: bigint,
 ): Promise<{ mime: string; kind: FileKindLike }> {
-  // Cek apakah file berupa teks SVG yang disamarkan (file-type mengembalikan undefined untuk SVG).
-  let handle;
-  try {
-    handle = await open(filePath, 'r');
-    const buf = Buffer.alloc(1024);
-    const { bytesRead } = await handle.read(buf, 0, 1024, 0);
-    const headerStr = buf.subarray(0, bytesRead).toString('utf8').toLowerCase();
-    if (
-      headerStr.includes('<svg') ||
-      headerStr.includes('xmlns="http://www.w3.org/2000/svg"')
-    ) {
-      throw {
-        status_code: 415,
-        body: JSON.stringify({
-          statusCode: 415,
-          code: 'UNSUPPORTED_MEDIA_TYPE',
-          message: 'Format SVG tidak diizinkan.',
-        }),
-      };
-    }
-  } catch (err) {
-    if ((err as { status_code?: unknown })?.status_code === 415) {
-      throw err;
-    }
-  } finally {
-    await handle?.close();
-  }
-
   const detected = await fileTypeFromFile(filePath);
+
+  // Jika file-type tidak mendeteksi magic bytes gambar/video biner yang ada di whitelist,
+  // periksa apakah file sebenarnya berupa teks XML/SVG yang disamarkan (file-type mengembalikan
+  // undefined untuk dokumen XML teks seperti SVG).
   if (!detected || !WHITELIST_MIME_TYPES.has(detected.mime)) {
+    let handle;
+    try {
+      handle = await open(filePath, 'r');
+      const buf = Buffer.alloc(1024);
+      const { bytesRead } = await handle.read(buf, 0, 1024, 0);
+      const headerStr = buf.subarray(0, bytesRead).toString('utf8').toLowerCase();
+      if (
+        headerStr.includes('<svg') ||
+        headerStr.includes('xmlns="http://www.w3.org/2000/svg"')
+      ) {
+        throw {
+          status_code: 415,
+          body: JSON.stringify({
+            statusCode: 415,
+            code: 'UNSUPPORTED_MEDIA_TYPE',
+            message: 'Format SVG tidak diizinkan.',
+          }),
+        };
+      }
+    } finally {
+      await handle?.close();
+    }
+
     throw {
       status_code: 415,
       body: JSON.stringify({

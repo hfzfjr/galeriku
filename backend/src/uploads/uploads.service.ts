@@ -67,7 +67,9 @@ export class UploadsService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    const directory = tusDirOf(resolveMediaDir());
+    const mediaDir = resolveMediaDir();
+    const directory = tusDirOf(mediaDir);
+    mkdirSync(mediaDir, { recursive: true });
     mkdirSync(directory, { recursive: true });
     this.server = new Server({
       path: TUS_ROUTE_PATH,
