@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { FileStatus, ShareTarget } from '../generated/prisma/client';
 import { ApiError } from '../common/errors/api-error';
 import { SharesService } from './shares.service';
@@ -117,5 +118,61 @@ describe('SharesService', () => {
 
     const service = new SharesService(fakePrisma);
     await expect(service.revokeShare('u-1', 'sh-1')).rejects.toThrow(ApiError);
+  });
+
+  describe('Unlock Token HMAC & Expiry', () => {
+    const fakeConfig: any = { ipHashSecret: 'kunci-rahasia-ip-123' };
+    const service = new SharesService(
+      {} as any,
+      {} as any,
+      fakeConfig,
+    );
+
+    it('menghasilkan token yang valid dan dapat diverifikasi', () => {
+      const shareId = 'sh-test-1';
+      const pwdHash = '$argon2id$v=19$m=65536,t=3,p=4$somehash';
+      const token = service.generateUnlockToken(shareId, pwdHash);
+
+      expect(typeof token).toBe('string');
+      expect(token).toContain('.');
+
+      const isValid = service.verifyUnlockToken(shareId, pwdHash, token);
+      expect(isValid).toBe(true);
+    });
+
+    it('menolak token jika passwordHash berubah atau dihapus', () => {
+      const shareId = 'sh-test-1';
+      const pwdHashLama = '$argon2id$v=19$m=65536,t=3,p=4$hashLama';
+      const token = service.generateUnlockToken(shareId, pwdHashLama);
+
+      const pwdHashBaru = '$argon2id$v=19$m=65536,t=3,p=4$hashBaru';
+      expect(service.verifyUnlockToken(shareId, pwdHashBaru, token)).toBe(false);
+      expect(service.verifyUnlockToken(shareId, null, token)).toBe(false);
+    });
+
+    it('menolak token yang kedaluwarsa', () => {
+      const shareId = 'sh-test-1';
+      const pwdHash = '$argon2id$v=19$m=65536,t=3,p=4$somehash';
+      const expiredTimestamp = Date.now() - 10_000;
+      const fingerprint = service.getPasswordFingerprint(pwdHash);
+      const payload = `${shareId}:${fingerprint}:${expiredTimestamp}`;
+      const sig = createHmac('sha256', fakeConfig.ipHashSecret)
+        .update(payload)
+        .digest('hex');
+      const expiredToken = `${expiredTimestamp}.${sig}`;
+
+      expect(service.verifyUnlockToken(shareId, pwdHash, expiredToken)).toBe(false);
+    });
+
+    it('menolak token rusak atau signature salah', () => {
+      const shareId = 'sh-test-1';
+      const pwdHash = '$argon2id$v=19$m=65536,t=3,p=4$somehash';
+      const validToken = service.generateUnlockToken(shareId, pwdHash);
+
+      expect(service.verifyUnlockToken(shareId, pwdHash, undefined)).toBe(false);
+      expect(service.verifyUnlockToken(shareId, pwdHash, 'token-tanpa-titik')).toBe(false);
+      expect(service.verifyUnlockToken(shareId, pwdHash, `${validToken}bad`)).toBe(false);
+      expect(service.verifyUnlockToken('sh-lain', pwdHash, validToken)).toBe(false);
+    });
   });
 });

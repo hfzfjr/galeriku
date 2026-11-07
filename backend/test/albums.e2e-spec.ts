@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { createHash } from 'node:crypto';
-import { FileKind, FileStatus } from '../src/generated/prisma/client';
+import { FileKind, FileStatus, ShareTarget } from '../src/generated/prisma/client';
 import {
   createTestApp,
   type FakeDb,
@@ -198,6 +198,95 @@ describe('Albums (US-23)', () => {
       .get(`/albums/${albumId}`)
       .set('Cookie', `galeriku_session=${cookieA}`)
       .expect(404);
+  });
+
+  it('B17: menghapus album mencabut semua tautan berbagi yang menarget album tersebut', async () => {
+    app.db.albums.clear();
+    app.db.albumFiles.clear();
+
+    const http = () =>
+      request(app.app.getHttpAdapter().getInstance().server);
+
+    // 1. Buat album
+    const resCreate = await http()
+      .post('/albums')
+      .set('Cookie', `galeriku_session=${cookieA}`)
+      .set('Origin', ORIGIN)
+      .send({ title: 'Album Liburan' })
+      .expect(201);
+    const albumId = resCreate.body.id;
+
+    // 2. Buat share link publik untuk album tersebut
+    const tokenShare = 'token-share-b17-album';
+    app.db.shareLinks.set('sh-b17-album', {
+      id: 'sh-b17-album',
+      token: tokenShare,
+      ownerId: 'user-a',
+      targetType: ShareTarget.album,
+      targetId: albumId,
+      allowDownload: true,
+      viewCount: 0,
+      expiresAt: null,
+      passwordHash: null,
+      revokedAt: null,
+      createdAt: new Date(),
+    });
+
+    // Share link aktif dan bisa diakses
+    await http().get(`/public/s/${tokenShare}`).expect(200);
+
+    // 3. Hapus album
+    await http()
+      .delete(`/albums/${albumId}`)
+      .set('Cookie', `galeriku_session=${cookieA}`)
+      .set('Origin', ORIGIN)
+      .expect(204);
+
+    // 4. Verifikasi bahwa share link dicabut (revokedAt terisi) dan akses publik mengembalikan 404
+    const shareAfter = app.db.shareLinks.get('sh-b17-album');
+    expect(shareAfter?.revokedAt).toBeTruthy();
+
+    await http().get(`/public/s/${tokenShare}`).expect(404);
+  });
+
+  it('B17: PATCH /albums/:id mengembalikan coverFileId aktif dan fileCount konsisten', async () => {
+    app.db.albums.clear();
+    app.db.albumFiles.clear();
+
+    const http = () =>
+      request(app.app.getHttpAdapter().getInstance().server);
+
+    // 1. Buat album
+    const resCreate = await http()
+      .post('/albums')
+      .set('Cookie', `galeriku_session=${cookieA}`)
+      .set('Origin', ORIGIN)
+      .send({ title: 'Album Tanpa Cover' })
+      .expect(201);
+    const albumId = resCreate.body.id;
+
+    seedFile(app.db, 'f-patch-1', 'user-a', 'satu.jpg');
+    seedFile(app.db, 'f-patch-2', 'user-a', 'dua.jpg');
+
+    // 2. Tambah file
+    await http()
+      .post(`/albums/${albumId}/files`)
+      .set('Cookie', `galeriku_session=${cookieA}`)
+      .set('Origin', ORIGIN)
+      .send({ fileIds: ['f-patch-1', 'f-patch-2'] })
+      .expect(201);
+
+    // 3. Patch album
+    const resPatch = await http()
+      .patch(`/albums/${albumId}`)
+      .set('Cookie', `galeriku_session=${cookieA}`)
+      .set('Origin', ORIGIN)
+      .send({ title: 'Album Berganti Judul' })
+      .expect(200);
+
+    expect(resPatch.body.title).toBe('Album Berganti Judul');
+    expect(resPatch.body.coverFileId).toBe('f-patch-1');
+    expect(resPatch.body.fileCount).toBe(2);
   });
 });
 

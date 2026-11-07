@@ -1,7 +1,8 @@
 import request from 'supertest';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { FileKind, FileStatus, ShareTarget } from '../src/generated/prisma/client';
+import { PasswordService } from '../src/auth/services/password.service';
 import {
   createTestApp,
   type FakeDb,
@@ -193,6 +194,179 @@ describe('Public Shares (US-25)', () => {
       .expect(403);
 
     expect(res.body.code).toBe('DOWNLOAD_FORBIDDEN');
+  });
+
+  it('B6: dua link berpassword di satu browser membaca cookie galeriku_unlock_<share.id> yang tepat', async () => {
+    const http = () =>
+      request(app.app.getHttpAdapter().getInstance().server);
+
+    const passwords = app.app.get(PasswordService);
+    const pwdHash1 = await passwords.hashPassword('RahasiaSatu123!');
+    const pwdHash2 = await passwords.hashPassword('RahasiaDua456!');
+
+    app.db.shareLinks.set('sh-pwd-1', {
+      id: 'sh-pwd-1',
+      token: 'token-pwd-1',
+      ownerId: 'user-active',
+      targetType: ShareTarget.file,
+      targetId: 'f-pub-1',
+      allowDownload: true,
+      viewCount: 0,
+      expiresAt: null,
+      passwordHash: pwdHash1,
+      revokedAt: null,
+      createdAt: new Date(),
+    });
+
+    app.db.shareLinks.set('sh-pwd-2', {
+      id: 'sh-pwd-2',
+      token: 'token-pwd-2',
+      ownerId: 'user-active',
+      targetType: ShareTarget.file,
+      targetId: 'f-pub-1',
+      allowDownload: true,
+      viewCount: 0,
+      expiresAt: null,
+      passwordHash: pwdHash2,
+      revokedAt: null,
+      createdAt: new Date(),
+    });
+
+    // 1. Unlock link 1
+    const resUnlock1 = await http()
+      .post('/public/s/token-pwd-1/unlock')
+      .send({ password: 'RahasiaSatu123!' })
+      .expect(200);
+
+    expect(resUnlock1.body.unlocked).toBe(true);
+    const cookie1Header = resUnlock1.headers['set-cookie']?.[0] ?? '';
+    expect(cookie1Header).toContain('galeriku_unlock_sh-pwd-1=');
+
+    // 2. Unlock link 2
+    const resUnlock2 = await http()
+      .post('/public/s/token-pwd-2/unlock')
+      .send({ password: 'RahasiaDua456!' })
+      .expect(200);
+
+    expect(resUnlock2.body.unlocked).toBe(true);
+    const cookie2Header = resUnlock2.headers['set-cookie']?.[0] ?? '';
+    expect(cookie2Header).toContain('galeriku_unlock_sh-pwd-2=');
+
+    const cookieVal1 = resUnlock1.body.unlockToken;
+    const cookieVal2 = resUnlock2.body.unlockToken;
+
+    // Akses link 2 dengan HANYA cookie link 1 -> harus terkunci (isUnlocked: false)
+    const resLocked2 = await http()
+      .get('/public/s/token-pwd-2')
+      .set('Cookie', `galeriku_unlock_sh-pwd-1=${cookieVal1}`)
+      .expect(200);
+    expect(resLocked2.body.isUnlocked).toBe(false);
+
+    // Akses link 2 dengan kedua cookie (link 1 dulu lalu link 2) -> harus membaca cookie link 2 dan unlocked
+    const resUnlocked2 = await http()
+      .get('/public/s/token-pwd-2')
+      .set(
+        'Cookie',
+        `galeriku_unlock_sh-pwd-1=${cookieVal1}; galeriku_unlock_sh-pwd-2=${cookieVal2}`,
+      )
+      .expect(200);
+    expect(resUnlocked2.body.isUnlocked).toBe(true);
+  });
+
+  it('B6: mengganti kata sandi link mencabut unlock token lama', async () => {
+    const http = () =>
+      request(app.app.getHttpAdapter().getInstance().server);
+
+    const passwords = app.app.get(PasswordService);
+    const pwdLama = await passwords.hashPassword('PasswordLama123!');
+
+    app.db.shareLinks.set('sh-ubah-pwd', {
+      id: 'sh-ubah-pwd',
+      token: 'token-ubah-pwd',
+      ownerId: 'user-active',
+      targetType: ShareTarget.file,
+      targetId: 'f-pub-1',
+      allowDownload: true,
+      viewCount: 0,
+      expiresAt: null,
+      passwordHash: pwdLama,
+      revokedAt: null,
+      createdAt: new Date(),
+    });
+
+    // 1. Unlock dengan password lama
+    const resUnlock = await http()
+      .post('/public/s/token-ubah-pwd/unlock')
+      .send({ password: 'PasswordLama123!' })
+      .expect(200);
+    const oldUnlockToken = resUnlock.body.unlockToken;
+
+    // Verifikasi unlocked
+    const resBefore = await http()
+      .get('/public/s/token-ubah-pwd')
+      .set('Cookie', `galeriku_unlock_sh-ubah-pwd=${oldUnlockToken}`)
+      .expect(200);
+    expect(resBefore.body.isUnlocked).toBe(true);
+
+    // 2. Ganti password link di DB (seperti dipanggil oleh PATCH /shares/:id)
+    const pwdBaru = await passwords.hashPassword('PasswordBaru456!');
+    const shareRow = app.db.shareLinks.get('sh-ubah-pwd')!;
+    shareRow.passwordHash = pwdBaru;
+
+    // 3. Akses kembali dengan token lama -> harus ditolak / terkunci
+    const resAfter = await http()
+      .get('/public/s/token-ubah-pwd')
+      .set('Cookie', `galeriku_unlock_sh-ubah-pwd=${oldUnlockToken}`)
+      .expect(200);
+    expect(resAfter.body.isUnlocked).toBe(false);
+  });
+
+  it('B7: viewCount hanya naik 1x per (link, ipHash) per 30 menit; /cover dan thumbnail tidak menaikkan viewCount', async () => {
+    const http = () =>
+      request(app.app.getHttpAdapter().getInstance().server);
+
+    const tokenB7 = 'token-viewcount-b7';
+    app.db.shareLinks.set('sh-b7', {
+      id: 'sh-b7',
+      token: tokenB7,
+      ownerId: 'user-active',
+      targetType: ShareTarget.file,
+      targetId: 'f-pub-1',
+      allowDownload: true,
+      viewCount: 0,
+      expiresAt: null,
+      passwordHash: null,
+      revokedAt: null,
+      createdAt: new Date(),
+    });
+
+    // 1. Akses pertama: viewCount naik jadi 1
+    await http()
+      .get(`/public/s/${tokenB7}`)
+      .set('x-forwarded-for', '203.0.113.10')
+      .expect(200);
+    expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);
+
+    // 2. Akses kedua langsung dari IP sama: viewCount tetap 1
+    await http()
+      .get(`/public/s/${tokenB7}`)
+      .set('x-forwarded-for', '203.0.113.10')
+      .expect(200);
+    expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);
+
+    // 3. Akses cover: viewCount tidak boleh bertambah
+    await http()
+      .get(`/public/s/${tokenB7}/cover`)
+      .set('x-forwarded-for', '203.0.113.10')
+      .expect(200);
+    expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);
+
+    // 4. Akses thumbnail: viewCount tidak boleh bertambah
+    await http()
+      .get(`/public/s/${tokenB7}/files/f-pub-1/thumb`)
+      .set('x-forwarded-for', '203.0.113.10')
+      .expect(200);
+    expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);
   });
 });
 

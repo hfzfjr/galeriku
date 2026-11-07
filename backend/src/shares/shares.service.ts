@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { FileKind, FileStatus, ShareTarget, UserStatus } from '../generated/prisma/client';
 import type {
@@ -78,15 +78,52 @@ export class SharesService {
     }
   }
 
-  generateUnlockToken(shareId: string): string {
-    return createHmac('sha256', this.config.ipHashSecret)
-      .update(`unlock:${shareId}`)
-      .digest('hex');
+  getPasswordFingerprint(passwordHash: string | null): string {
+    if (!passwordHash) return 'none';
+    return createHash('sha256').update(passwordHash).digest('hex').slice(0, 16);
   }
 
-  verifyUnlockToken(shareId: string, token: string | undefined): boolean {
-    if (!token) return false;
-    return token === this.generateUnlockToken(shareId);
+  generateUnlockToken(shareId: string, passwordHash: string | null): string {
+    const expiresAt = Date.now() + 24 * 3600 * 1000;
+    const fingerprint = this.getPasswordFingerprint(passwordHash);
+    const payload = `${shareId}:${fingerprint}:${expiresAt}`;
+    const sig = createHmac('sha256', this.config.ipHashSecret)
+      .update(payload)
+      .digest('hex');
+    return `${expiresAt}.${sig}`;
+  }
+
+  verifyUnlockToken(
+    shareId: string,
+    passwordHash: string | null,
+    token: string | undefined,
+  ): boolean {
+    if (!token || typeof token !== 'string') return false;
+    const dotIndex = token.indexOf('.');
+    if (dotIndex === -1) return false;
+
+    const expiresAtStr = token.slice(0, dotIndex);
+    const sigHex = token.slice(dotIndex + 1);
+    const expiresAt = Number(expiresAtStr);
+
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      return false;
+    }
+
+    const fingerprint = this.getPasswordFingerprint(passwordHash);
+    const payload = `${shareId}:${fingerprint}:${expiresAtStr}`;
+    const expectedSig = createHmac('sha256', this.config.ipHashSecret)
+      .update(payload)
+      .digest('hex');
+
+    const expectedBuf = Buffer.from(expectedSig, 'hex');
+    const actualBuf = Buffer.from(sigHex, 'hex');
+
+    if (expectedBuf.length !== actualBuf.length) {
+      return false;
+    }
+
+    return timingSafeEqual(expectedBuf, actualBuf);
   }
 
   async createShare(
@@ -236,7 +273,7 @@ export class SharesService {
       fileIds.length > 0
         ? this.prisma.file.findMany({
             where: { id: { in: fileIds } },
-            select: { id: true, originalName: true },
+            select: { id: true, originalName: true, deletedAt: true },
           })
         : [],
       albumIds.length > 0
@@ -247,14 +284,19 @@ export class SharesService {
         : [],
     ]);
 
-    const fileMap = new Map(files.map((f) => [f.id, f.originalName]));
+    const fileMap = new Map(
+      files.map((f) => [
+        f.id,
+        f.deletedAt === null ? f.originalName : 'File dihapus',
+      ]),
+    );
     const albumMap = new Map(albums.map((a) => [a.id, a.title]));
 
     const items: ShareLinkItem[] = shares.map((share) => {
       const targetTitle =
         share.targetType === ShareTarget.file
-          ? fileMap.get(share.targetId) ?? 'File'
-          : albumMap.get(share.targetId) ?? 'Album';
+          ? fileMap.get(share.targetId) ?? 'File dihapus'
+          : albumMap.get(share.targetId) ?? 'Album dihapus';
 
       return {
         id: share.id,
@@ -290,15 +332,23 @@ export class SharesService {
     if (share.targetType === ShareTarget.file) {
       const file = await this.prisma.file.findUnique({
         where: { id: share.targetId },
-        select: { originalName: true },
+        select: { originalName: true, deletedAt: true },
       });
-      if (file) targetTitle = file.originalName;
+      if (!file || file.deletedAt !== null) {
+        targetTitle = 'File dihapus';
+      } else {
+        targetTitle = file.originalName;
+      }
     } else {
       const album = await this.prisma.album.findUnique({
         where: { id: share.targetId },
         select: { title: true },
       });
-      if (album) targetTitle = album.title;
+      if (!album) {
+        targetTitle = 'Album dihapus';
+      } else {
+        targetTitle = album.title;
+      }
     }
 
     return {
@@ -361,55 +411,93 @@ export class SharesService {
       }
     }
 
-    const unlockToken = this.generateUnlockToken(share.id);
+    const unlockToken = this.generateUnlockToken(share.id, share.passwordHash);
     const cookieName = `galeriku_unlock_${share.id}`;
     return { unlockToken, cookieName };
+  }
+
+  async resolvePublicShare(token: string) {
+    return this.validateActiveShare(token);
+  }
+
+  async recordPublicShareView(
+    shareId: string,
+    clientIp: string,
+    userAgent?: string,
+  ): Promise<void> {
+    const ipHash = hashIp(clientIp, this.config.ipHashSecret);
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+    const recentLog = await this.prisma.shareAccessLog.findFirst({
+      where: {
+        linkId: shareId,
+        ipHash,
+        createdAt: { gte: thirtyMinutesAgo },
+      },
+    });
+
+    if (!recentLog) {
+      await Promise.all([
+        this.prisma.shareLink.update({
+          where: { id: shareId },
+          data: { viewCount: { increment: 1 } },
+        }),
+        this.prisma.shareAccessLog.create({
+          data: {
+            linkId: shareId,
+            ipHash,
+            userAgent: userAgent ? userAgent.slice(0, 255) : null,
+          },
+        }),
+      ]);
+    }
   }
 
   async getPublicShare(
     token: string,
     clientIp: string,
     userAgent?: string,
-    unlockToken?: string,
+    unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
   ): Promise<PublicShareResponse> {
-    const share = await this.validateActiveShare(token);
+    const share = await this.resolvePublicShare(token);
+    const unlockToken =
+      typeof unlockTokenOrGetter === 'function'
+        ? unlockTokenOrGetter(share.id)
+        : unlockTokenOrGetter;
 
     // Ambil judul target
     let targetTitle = 'Tautan Berbagi';
     if (share.targetType === ShareTarget.file) {
       const f = await this.prisma.file.findUnique({
         where: { id: share.targetId },
-        select: { originalName: true },
+        select: { originalName: true, deletedAt: true },
       });
-      if (f) targetTitle = f.originalName;
+      if (f && f.deletedAt === null) {
+        targetTitle = f.originalName;
+      } else {
+        targetTitle = 'File dihapus';
+      }
     } else {
       const a = await this.prisma.album.findUnique({
         where: { id: share.targetId },
         select: { title: true },
       });
-      if (a) targetTitle = a.title;
+      if (a) {
+        targetTitle = a.title;
+      } else {
+        targetTitle = 'Album dihapus';
+      }
     }
 
     const hasPassword = share.passwordHash !== null;
     const isUnlocked =
-      !hasPassword || this.verifyUnlockToken(share.id, unlockToken);
+      !hasPassword ||
+      this.verifyUnlockToken(share.id, share.passwordHash, unlockToken);
 
     // Catat log akses & viewCount hanya saat unlocked atau jika tidak ada password
+    // dan dibatasi paling banyak sekali per (link, ipHash) per 30 menit
     if (isUnlocked) {
-      const ipHash = hashIp(clientIp, this.config.ipHashSecret);
-      await Promise.all([
-        this.prisma.shareLink.update({
-          where: { id: share.id },
-          data: { viewCount: { increment: 1 } },
-        }),
-        this.prisma.shareAccessLog.create({
-          data: {
-            linkId: share.id,
-            ipHash,
-            userAgent: userAgent ? userAgent.slice(0, 255) : null,
-          },
-        }),
-      ]);
+      await this.recordPublicShareView(share.id, clientIp, userAgent);
     }
 
     if (!isUnlocked) {
@@ -486,18 +574,22 @@ export class SharesService {
     token: string,
     fileId: string,
     download = false,
-    unlockToken?: string,
+    unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
   ): Promise<{
     filePath: string;
     originalName: string;
     mimeType: string;
     sizeBytes: number;
   }> {
-    const share = await this.validateActiveShare(token);
+    const share = await this.resolvePublicShare(token);
+    const unlockToken =
+      typeof unlockTokenOrGetter === 'function'
+        ? unlockTokenOrGetter(share.id)
+        : unlockTokenOrGetter;
 
     if (
       share.passwordHash &&
-      !this.verifyUnlockToken(share.id, unlockToken)
+      !this.verifyUnlockToken(share.id, share.passwordHash, unlockToken)
     ) {
       throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
     }
@@ -561,16 +653,20 @@ export class SharesService {
 
   async getAlbumZipInfo(
     token: string,
-    unlockToken?: string,
+    unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
   ): Promise<{
     title: string;
     files: Array<{ originalName: string; filePath: string }>;
   }> {
-    const share = await this.validateActiveShare(token);
+    const share = await this.resolvePublicShare(token);
+    const unlockToken =
+      typeof unlockTokenOrGetter === 'function'
+        ? unlockTokenOrGetter(share.id)
+        : unlockTokenOrGetter;
 
     if (
       share.passwordHash &&
-      !this.verifyUnlockToken(share.id, unlockToken)
+      !this.verifyUnlockToken(share.id, share.passwordHash, unlockToken)
     ) {
       throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
     }
@@ -629,16 +725,69 @@ export class SharesService {
     };
   }
 
-  async getPublicThumbnailPath(
+  async getPublicCoverPath(
     token: string,
-    fileId: string,
-    unlockToken?: string,
+    unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
   ): Promise<string> {
-    const share = await this.validateActiveShare(token);
+    const share = await this.resolvePublicShare(token);
+    const unlockToken =
+      typeof unlockTokenOrGetter === 'function'
+        ? unlockTokenOrGetter(share.id)
+        : unlockTokenOrGetter;
 
     if (
       share.passwordHash &&
-      !this.verifyUnlockToken(share.id, unlockToken)
+      !this.verifyUnlockToken(share.id, share.passwordHash, unlockToken)
+    ) {
+      throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
+    }
+
+    let firstFileId: string | null = null;
+    if (share.targetType === ShareTarget.file) {
+      firstFileId = share.targetId;
+    } else {
+      const album = await this.prisma.album.findUnique({
+        where: { id: share.targetId },
+        include: {
+          albumFiles: {
+            where: {
+              file: {
+                deletedAt: null,
+                status: FileStatus.ready,
+              },
+            },
+            orderBy: { position: 'asc' },
+            take: 1,
+            select: { fileId: true },
+          },
+        },
+      });
+      if (album && album.albumFiles.length > 0) {
+        firstFileId = album.albumFiles[0].fileId;
+      }
+    }
+
+    if (!firstFileId) {
+      throw new ApiError(404, 'NOT_FOUND', 'Cover tidak tersedia.');
+    }
+
+    return this.getPublicThumbnailPath(token, firstFileId, unlockToken);
+  }
+
+  async getPublicThumbnailPath(
+    token: string,
+    fileId: string,
+    unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
+  ): Promise<string> {
+    const share = await this.resolvePublicShare(token);
+    const unlockToken =
+      typeof unlockTokenOrGetter === 'function'
+        ? unlockTokenOrGetter(share.id)
+        : unlockTokenOrGetter;
+
+    if (
+      share.passwordHash &&
+      !this.verifyUnlockToken(share.id, share.passwordHash, unlockToken)
     ) {
       throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
     }

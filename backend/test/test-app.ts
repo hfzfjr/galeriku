@@ -491,105 +491,108 @@ export function createFakePrisma(db: FakeDb) {
       },
     };
   })(),
-    album: {
-      ...makeModel(db.albums),
-      findUnique: async ({
-        where,
-        include,
-      }: {
-        where: Record<string, unknown>;
-        include?: Record<string, unknown>;
-      }) => {
-        let found: Record<string, unknown> | null = null;
-        for (const row of db.albums.values()) {
-          if (matchWhere(row, where)) {
-            found = { ...row };
-            break;
-          }
+    album: (() => {
+      function attachAlbumIncludes(
+        row: Record<string, unknown>,
+        include?: Record<string, unknown>,
+      ) {
+        if (!include) return row;
+        if (include.coverFile) {
+          row.coverFile = row.coverFileId
+            ? db.files.get(row.coverFileId as string) ?? null
+            : null;
         }
-        if (!found) return null;
-        if (include) {
-          if (include.coverFile) {
-            found.coverFile = found.coverFileId
-              ? db.files.get(found.coverFileId as string) ?? null
-              : null;
-          }
-          if (include.albumFiles) {
-            const afs = [...db.albumFiles.values()]
-              .filter((af) => af.albumId === found!.id)
-              .sort((a, b) => compareValues(a.position, b.position))
-              .map((af) => {
-                const f = db.files.get(af.fileId as string);
-                return {
-                  ...af,
-                  file: f ? { ...f } : null,
-                };
-              });
-            found.albumFiles = afs;
-          }
+        if (include.albumFiles) {
+          const afs = [...db.albumFiles.values()]
+            .filter((af) => af.albumId === row.id)
+            .sort((a, b) => compareValues(a.position, b.position))
+            .map((af) => {
+              const f = db.files.get(af.fileId as string);
+              return {
+                ...af,
+                file: f ? { ...f } : null,
+              };
+            });
+          row.albumFiles = afs;
         }
-        return found;
-      },
-      findMany: async (args?: {
-        where?: Record<string, unknown>;
-        orderBy?: Record<string, string> | Array<Record<string, string>>;
-        include?: Record<string, unknown>;
-      }) => {
-        let rows = [...db.albums.values()].filter((row) =>
-          matchWhere(row, args?.where ?? {}),
-        );
-        const rules = args?.orderBy
-          ? Array.isArray(args.orderBy)
-            ? args.orderBy
-            : [args.orderBy]
-          : [];
-        for (const rule of rules.reverse()) {
-          const [field, arah] = Object.entries(rule)[0];
-          rows = [...rows].sort(
-            (a, b) =>
-              (arah === 'desc' ? -1 : 1) * compareValues(a[field], b[field]),
+        return row;
+      }
+
+      return {
+        ...makeModel(db.albums),
+        findUnique: async ({
+          where,
+          include,
+        }: {
+          where: Record<string, unknown>;
+          include?: Record<string, unknown>;
+        }) => {
+          let found: Record<string, unknown> | null = null;
+          for (const row of db.albums.values()) {
+            if (matchWhere(row, where)) {
+              found = { ...row };
+              break;
+            }
+          }
+          if (!found) return null;
+          return attachAlbumIncludes(found, include);
+        },
+        findMany: async (args?: {
+          where?: Record<string, unknown>;
+          orderBy?: Record<string, string> | Array<Record<string, string>>;
+          include?: Record<string, unknown>;
+        }) => {
+          let rows = [...db.albums.values()].filter((row) =>
+            matchWhere(row, args?.where ?? {}),
           );
-        }
-        return rows.map((row) => {
-          const res = { ...row };
-          if (args?.include) {
-            if (args.include.coverFile) {
-              res.coverFile = res.coverFileId
-                ? db.files.get(res.coverFileId as string) ?? null
-                : null;
-            }
-            if (args.include.albumFiles) {
-              const afs = [...db.albumFiles.values()]
-                .filter((af) => af.albumId === res.id)
-                .sort((a, b) => compareValues(a.position, b.position))
-                .map((af) => {
-                  const f = db.files.get(af.fileId as string);
-                  return {
-                    ...af,
-                    file: f ? { ...f } : null,
-                  };
-                });
-              res.albumFiles = afs;
+          const rules = args?.orderBy
+            ? Array.isArray(args.orderBy)
+              ? args.orderBy
+              : [args.orderBy]
+            : [];
+          for (const rule of rules.reverse()) {
+            const [field, arah] = Object.entries(rule)[0];
+            rows = [...rows].sort(
+              (a, b) =>
+                (arah === 'desc' ? -1 : 1) * compareValues(a[field], b[field]),
+            );
+          }
+          return rows.map((row) => attachAlbumIncludes({ ...row }, args?.include));
+        },
+        update: async ({
+          where,
+          data,
+          include,
+        }: {
+          where: Record<string, unknown>;
+          data: Record<string, unknown>;
+          include?: Record<string, unknown>;
+        }) => {
+          for (const [id, row] of db.albums) {
+            if (matchWhere(row, where)) {
+              const next = { ...row, ...data };
+              db.albums.set(id, next);
+              return attachAlbumIncludes({ ...next }, include);
             }
           }
-          return res;
-        });
-      },
-      delete: async ({ where }: { where: Record<string, unknown> }) => {
-        for (const [id, row] of db.albums) {
-          if (matchWhere(row, where)) {
-            db.albums.delete(id);
-            for (const [afId, af] of db.albumFiles) {
-              if (af.albumId === id) {
-                db.albumFiles.delete(afId);
+          throw recordNotFound();
+        },
+        delete: async ({ where }: { where: Record<string, unknown> }) => {
+          for (const [id, row] of db.albums) {
+            if (matchWhere(row, where)) {
+              db.albums.delete(id);
+              for (const [afId, af] of db.albumFiles) {
+                if (af.albumId === id) {
+                  db.albumFiles.delete(afId);
+                }
               }
+              return { ...row };
             }
-            return { ...row };
           }
-        }
-        throw Object.assign(new Error('Record not found'), { code: 'P2025' });
-      },
-    },
+          throw Object.assign(new Error('Record not found'), { code: 'P2025' });
+        },
+      };
+    })(),
     albumFile: {
       ...makeModel(db.albumFiles),
       create: async ({ data }: { data: Record<string, unknown> }) => {

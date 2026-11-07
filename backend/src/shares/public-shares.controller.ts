@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -27,31 +28,33 @@ import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
 import { createZipStream } from './zip-stream';
 
-function getUnlockTokenFromReq(req: FastifyRequest): string | undefined {
+function getUnlockTokenFromReq(
+  req: FastifyRequest,
+  shareId?: string,
+): string | undefined {
   // 1. Ambil dari header kustom jika ada
   const headerToken = req.headers['x-unlock-token'];
   if (typeof headerToken === 'string' && headerToken) {
     return headerToken;
   }
 
-  // 2. Ambil dari cookie galeriku_unlock_*
-  const cookies = req.cookies as Record<string, string | undefined> | undefined;
-  if (cookies) {
-    for (const [key, val] of Object.entries(cookies)) {
-      if (key.startsWith('galeriku_unlock_') && typeof val === 'string') {
-        return val;
-      }
+  // 2. Ambil dari cookie tepat galeriku_unlock_<share.id>
+  if (shareId) {
+    const exactCookieName = `galeriku_unlock_${shareId}`;
+    const cookies = req.cookies as Record<string, string | undefined> | undefined;
+    if (cookies && typeof cookies[exactCookieName] === 'string' && cookies[exactCookieName]) {
+      return cookies[exactCookieName];
     }
-  }
 
-  // 3. Fallback parse manual cookie header jika req.cookies kosong
-  const rawCookie = req.headers.cookie;
-  if (typeof rawCookie === 'string') {
-    const parts = rawCookie.split(';');
-    for (const p of parts) {
-      const [k, v] = p.trim().split('=');
-      if (k.startsWith('galeriku_unlock_') && v) {
-        return decodeURIComponent(v);
+    // Fallback parse manual cookie header jika req.cookies kosong/belum diparse
+    const rawCookie = req.headers.cookie;
+    if (typeof rawCookie === 'string') {
+      const parts = rawCookie.split(';');
+      for (const p of parts) {
+        const [k, v] = p.trim().split('=');
+        if (k === exactCookieName && v) {
+          return decodeURIComponent(v);
+        }
       }
     }
   }
@@ -75,13 +78,18 @@ export class PublicSharesController {
     res.header('X-Robots-Tag', 'noindex, nofollow');
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
-    const unlockToken = getUnlockTokenFromReq(req);
-    return this.sharesService.getPublicShare(token, ip, userAgent, unlockToken);
+    return this.sharesService.getPublicShare(
+      token,
+      ip,
+      userAgent,
+      (shareId) => getUnlockTokenFromReq(req, shareId),
+    );
   }
 
   @Public()
   @UseGuards(RateLimitGuard)
   @RateLimit({ limit: 5, windowMs: 60_000, keyPrefix: 'share:unlock' })
+  @HttpCode(200)
   @Post(':token/unlock')
   @UsePipes(new ZodValidationPipe(unlockShareSchema))
   async unlockShare(
@@ -114,11 +122,10 @@ export class PublicSharesController {
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ): Promise<void> {
-    const unlockToken = getUnlockTokenFromReq(req);
     const thumbPath = await this.sharesService.getPublicThumbnailPath(
       token,
       fileId,
-      unlockToken,
+      (shareId) => getUnlockTokenFromReq(req, shareId),
     );
 
     res.header('Content-Type', 'image/webp');
@@ -137,30 +144,9 @@ export class PublicSharesController {
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ): Promise<void> {
-    const ip = getClientIp(req);
-    const userAgent = getUserAgent(req);
-    const unlockToken = getUnlockTokenFromReq(req);
-    const share = await this.sharesService.getPublicShare(
+    const thumbPath = await this.sharesService.getPublicCoverPath(
       token,
-      ip,
-      userAgent,
-      unlockToken,
-    );
-
-    if (share.files.length === 0) {
-      res.status(404).send({
-        statusCode: 404,
-        code: 'NOT_FOUND',
-        message: 'Cover tidak tersedia.',
-      });
-      return;
-    }
-
-    const firstFileId = share.files[0].id;
-    const thumbPath = await this.sharesService.getPublicThumbnailPath(
-      token,
-      firstFileId,
-      unlockToken,
+      (shareId) => getUnlockTokenFromReq(req, shareId),
     );
 
     res.header('Content-Type', 'image/webp');
@@ -182,13 +168,12 @@ export class PublicSharesController {
     @Res() res: FastifyReply,
   ): Promise<void> {
     const isDownload = downloadQuery === '1';
-    const unlockToken = getUnlockTokenFromReq(req);
     const { filePath, originalName, mimeType, sizeBytes } =
       await this.sharesService.getPublicFileContentInfo(
         token,
         fileId,
         isDownload,
-        unlockToken,
+        (shareId) => getUnlockTokenFromReq(req, shareId),
       );
 
     res.header('X-Content-Type-Options', 'nosniff');
@@ -239,10 +224,9 @@ export class PublicSharesController {
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ): Promise<void> {
-    const unlockToken = getUnlockTokenFromReq(req);
     const { title, files } = await this.sharesService.getAlbumZipInfo(
       token,
-      unlockToken,
+      (shareId) => getUnlockTokenFromReq(req, shareId),
     );
 
     const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';

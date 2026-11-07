@@ -38,6 +38,7 @@ export function PublicShareClient({ token }: { token: string }) {
     queryKey: ["public-share", token],
     queryFn: () => fetchPublicShare(token),
     retry: false,
+    refetchOnWindowFocus: false,
   });
 
   const unlockMutation = useMutation({

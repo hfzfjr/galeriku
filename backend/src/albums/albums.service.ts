@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FileKind, FileStatus } from '../generated/prisma/client';
+import { FileKind, FileStatus, ShareTarget } from '../generated/prisma/client';
 import type {
   AddAlbumFilesRequest,
   AlbumDetail,
@@ -184,6 +184,9 @@ export class AlbumsService {
       where: { id: albumId },
       data: { title: data.title },
       include: {
+        coverFile: {
+          select: { id: true, thumbKey: true, deletedAt: true, status: true },
+        },
         albumFiles: {
           where: {
             file: {
@@ -191,15 +194,30 @@ export class AlbumsService {
               status: FileStatus.ready,
             },
           },
+          orderBy: { position: 'asc' },
+          include: {
+            file: true,
+          },
         },
       },
     });
 
+    let activeCoverId =
+      updated.coverFile &&
+      updated.coverFile.deletedAt === null &&
+      updated.coverFile.status === FileStatus.ready
+        ? updated.coverFile.id
+        : null;
+
+    if (!activeCoverId && updated.albumFiles.length > 0) {
+      activeCoverId = updated.albumFiles[0].file.id;
+    }
+
     return {
       id: updated.id,
       title: updated.title,
-      coverFileId: updated.coverFileId,
-      fileCount: (updated as any).albumFiles?.length ?? 0,
+      coverFileId: activeCoverId,
+      fileCount: updated.albumFiles.length,
       createdAt: (updated.createdAt ?? new Date()).toISOString(),
     };
   }
@@ -213,9 +231,19 @@ export class AlbumsService {
       throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
     }
 
-    await this.prisma.album.delete({
-      where: { id: albumId },
-    });
+    await this.prisma.$transaction([
+      this.prisma.shareLink.updateMany({
+        where: {
+          targetType: ShareTarget.album,
+          targetId: albumId,
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.album.delete({
+        where: { id: albumId },
+      }),
+    ]);
   }
 
   async addFilesToAlbum(
