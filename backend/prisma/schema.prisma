@@ -62,6 +62,21 @@ enum ShareTarget {
   album
 }
 
+enum CapturedAtSource {
+  exif
+  video
+  filename
+  client_modified
+  upload
+  manual
+}
+
+enum LiveKind {
+  none
+  ios_pair
+  motion
+}
+
 model User {
   id              String     @id @default(cuid())
   email           String     @unique
@@ -113,27 +128,56 @@ model EmailCode {
 }
 
 model File {
-  id           String     @id @default(cuid())
-  ownerId      String     @map("owner_id")
-  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  originalName String     @map("original_name")
-  storageKey   String     @unique @map("storage_key")
-  mimeType     String     @map("mime_type")
-  sizeBytes    BigInt     @map("size_bytes")
-  kind         FileKind
-  width        Int?
-  height       Int?
-  durationS    Float?     @map("duration_s")
-  thumbKey     String?    @map("thumb_key")
-  status       FileStatus
-  isFavorite   Boolean    @default(false) @map("is_favorite")
-  takenAt      DateTime?  @map("taken_at")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  deletedAt    DateTime?  @map("deleted_at")
+  id                  String           @id @default(cuid())
+  ownerId             String           @map("owner_id")
+  owner               User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  originalName        String           @map("original_name")
+  storageKey          String           @unique @map("storage_key")
+  mimeType            String           @map("mime_type")
+  sizeBytes           BigInt           @map("size_bytes")
+  kind                FileKind
+  width               Int?
+  height              Int?
+  durationS           Float?           @map("duration_s")
+  thumbKey            String?          @map("thumb_key")
+  status              FileStatus
+  isFavorite          Boolean          @default(false) @map("is_favorite")
+  takenAt             DateTime?        @map("taken_at")
+  capturedAt          DateTime         @default(now()) @map("captured_at")
+  capturedTzOffsetMin Int?             @map("captured_tz_offset_min")
+  capturedAtSource    CapturedAtSource @default(upload) @map("captured_at_source")
+  gpsLat              Float?           @map("gps_lat")
+  gpsLng              Float?           @map("gps_lng")
+  gpsAltM             Float?           @map("gps_alt_m")
+  placeCountry        String?          @map("place_country")
+  placeAdmin1         String?          @map("place_admin1")
+  placeCity           String?          @map("place_city")
+  cameraMake          String?          @map("camera_make")
+  cameraModel         String?          @map("camera_model")
+  lensModel           String?          @map("lens_model")
+  iso                 Int?             @map("iso")
+  fNumber             Float?           @map("f_number")
+  exposureS           Float?           @map("exposure_s")
+  focalLengthMm       Float?           @map("focal_length_mm")
+  orientation         Int?             @map("orientation")
+  previewKey          String?          @map("preview_key")
+  contentHash         String?          @map("content_hash")
+  duplicateOfId       String?          @map("duplicate_of_id")
+  liveKind            LiveKind         @default(none) @map("live_kind")
+  liveGroupId         String?          @map("live_group_id")
+  liveVideoKey        String?          @map("live_video_key")
+  liveOffset          BigInt?          @map("live_offset")
+  liveLength          BigInt?          @map("live_length")
+  metaVersion         Int              @default(0) @map("meta_version")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  deletedAt           DateTime?        @map("deleted_at")
 
   albumFiles AlbumFile[]
   coverOf    Album[]     @relation("AlbumCover")
 
+  @@index([ownerId, capturedAt(sort: Desc), id(sort: Desc)])
+  @@index([ownerId, contentHash])
+  @@index([ownerId, liveGroupId])
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([ownerId, isFavorite])
   @@map("files")

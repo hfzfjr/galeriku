@@ -10,6 +10,7 @@ import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import type { SessionUser } from '../auth/guards/auth.guard';
 import { FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MetadataService } from './metadata.service';
 import { ThumbnailService } from './thumbnail.service';
 import {
   TUS_AUTH_USER_KEY,
@@ -64,6 +65,7 @@ export class UploadsService implements OnModuleInit {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
     private readonly thumbnail: ThumbnailService,
+    private readonly metadataService: MetadataService,
   ) {}
 
   onModuleInit(): void {
@@ -318,6 +320,21 @@ export class UploadsService implements OnModuleInit {
       }
     }
 
+    // 4. Ekstraksi metadata (RF-10: tanggal pengambilan, GPS, kamera, dimensi)
+    const rawClientMod = upload.metadata?.['lastModified'];
+    const clientLastModified = rawClientMod ? Number(rawClientMod) : null;
+    const meta = await this.metadataService.extractMetadata({
+      filePath: tujuan,
+      originalName,
+      mimeType: sniffed.mime,
+      clientLastModified,
+      fallbackWidth: width,
+      fallbackHeight: height,
+    });
+
+    const finalWidth = meta.width ?? width;
+    const finalHeight = meta.height ?? height;
+
     try {
       await this.prisma.file.create({
         data: {
@@ -328,8 +345,23 @@ export class UploadsService implements OnModuleInit {
           sizeBytes: BigInt(ukuran),
           kind: sniffed.kind,
           thumbKey,
-          width,
-          height,
+          width: finalWidth,
+          height: finalHeight,
+          capturedAt: meta.capturedAt,
+          capturedTzOffsetMin: meta.capturedTzOffsetMin,
+          capturedAtSource: meta.capturedAtSource as any,
+          gpsLat: meta.gpsLat,
+          gpsLng: meta.gpsLng,
+          gpsAltM: meta.gpsAltM,
+          cameraMake: meta.cameraMake,
+          cameraModel: meta.cameraModel,
+          lensModel: meta.lensModel,
+          iso: meta.iso,
+          fNumber: meta.fNumber,
+          exposureS: meta.exposureS,
+          focalLengthMm: meta.focalLengthMm,
+          orientation: meta.orientation,
+          metaVersion: 1,
           status: FileStatus.ready,
         },
       });

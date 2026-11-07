@@ -204,6 +204,7 @@ export function GaleriUploadClient() {
       metadata: {
         filename: berkas.name,
         filetype: berkas.type || "application/octet-stream",
+        lastModified: String(berkas.lastModified ?? 0),
       },
       onBeforeRequest(req) {
         // Cookie sesi HttpOnly ikut terkirim (same-site + CORS credentials).

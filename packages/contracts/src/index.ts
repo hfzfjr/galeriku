@@ -212,7 +212,17 @@ export const updateQuotaRequestSchema = z.object({
 
 export type UpdateQuotaRequest = z.output<typeof updateQuotaRequestSchema>;
 
-// Files (US-20: Grid Galeri)
+// Files (US-20: Grid Galeri & RF-10: Metadata)
+export const capturedAtSourceSchema = z.enum([
+  'exif',
+  'video',
+  'filename',
+  'client_modified',
+  'upload',
+  'manual',
+]);
+export type CapturedAtSourceType = z.output<typeof capturedAtSourceSchema>;
+
 export const fileItemSchema = z.object({
   id: z.string(),
   originalName: z.string(),
@@ -225,7 +235,12 @@ export const fileItemSchema = z.object({
   thumbKey: z.string().nullable(),
   status: z.string(),
   isFavorite: z.boolean().default(false),
-  takenAt: z.string().nullable(),
+  takenAt: z.string().nullable().optional(),
+  capturedAt: z.string(),
+  capturedTzOffsetMin: z.number().nullable().optional(),
+  capturedAtSource: capturedAtSourceSchema.optional(),
+  place: z.string().nullable().optional(),
+  hasLocation: z.boolean().default(false),
   createdAt: z.string(),
   deletedAt: z.string().nullable().optional(),
 });

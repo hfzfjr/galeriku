@@ -144,6 +144,8 @@ describe('FilesController (e2e) — US-20', () => {
       // Urut terbaru (file 30 sampai file 7)
       expect(resPage1.body.items[0].id).toBe('file-30');
       expect(resPage1.body.items[0].sizeBytes).toBe('30720'); // BigInt diserialisasi string
+      expect(resPage1.body.items[0].capturedAt).toBeTruthy();
+      expect(typeof resPage1.body.items[0].hasLocation).toBe('boolean');
       expect(resPage1.body.items[23].id).toBe('file-07');
       expect(resPage1.body.nextCursor).toBeTruthy();
 

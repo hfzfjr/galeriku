@@ -533,6 +533,62 @@ describe('Upload tus (US-16 spike)', () => {
       }
     });
 
+    it('RF-10: mengekstrak metadata capturedAt dari nama file atau lastModified tus', async () => {
+      const a = await seedUser(db, 'rf10@contoh.id');
+      const cookie = craftSession(db, a.id as string);
+      const isi = SAMPLE_JPEG;
+
+      // 1. Upload dengan pola nama file IMG_YYYYMMDD_HHMMSS
+      const { id: id1 } = await buatUploadDenganTipe(
+        cookie,
+        isi.length,
+        'IMG_20261108_143022.jpg',
+        'image/jpeg',
+      );
+      await kirimPatch(cookie, id1, 0, isi).expect(204);
+
+      const f1 = [...db.files.values()].find(
+        (f) => f.storageKey === id1,
+      ) as Record<string, unknown>;
+      expect(f1).toBeDefined();
+      expect(f1.capturedAtSource).toBe('filename');
+      const cap1 = f1.capturedAt as Date;
+      expect(cap1.getFullYear()).toBe(2026);
+      expect(cap1.getMonth()).toBe(10);
+      expect(cap1.getDate()).toBe(8);
+      expect(f1.width).toBe(1);
+      expect(f1.height).toBe(1);
+
+      // 2. Upload dengan metadata lastModified
+      const modTimestamp = new Date('2025-07-20T08:00:00Z').getTime();
+      const res2 = await request(server().getHttpAdapter().getInstance().server)
+        .post('/uploads')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Upload-Length', String(isi.length))
+        .set(
+          'Upload-Metadata',
+          [
+            `filename ${Buffer.from('pantai.jpg', 'utf8').toString('base64')}`,
+            `filetype ${Buffer.from('image/jpeg', 'utf8').toString('base64')}`,
+            `lastModified ${Buffer.from(String(modTimestamp), 'utf8').toString('base64')}`,
+          ].join(','),
+        )
+        .expect(201);
+
+      const loc2 = res2.headers['location'] as string;
+      const id2 = (loc2.split('/').pop() ?? '').split('?')[0];
+      await kirimPatch(cookie, id2, 0, isi).expect(204);
+
+      const f2 = [...db.files.values()].find(
+        (f) => f.storageKey === id2,
+      ) as Record<string, unknown>;
+      expect(f2).toBeDefined();
+      expect(f2.capturedAtSource).toBe('client_modified');
+      expect((f2.capturedAt as Date).getTime()).toBe(modTimestamp);
+    });
+
     it('gagal tulis DB setelah pindah -> berkas dibersihkan, galat ramah', async () => {
       const a = await seedUser(db, 'a@contoh.id');
       const cookie = craftSession(db, a.id as string);

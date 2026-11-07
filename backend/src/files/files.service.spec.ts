@@ -54,6 +54,11 @@ describe('FilesService helpers', () => {
         status: 'ready',
         isFavorite: false,
         takenAt: null,
+        capturedAt: '2026-10-31T12:00:00.000Z',
+        capturedTzOffsetMin: null,
+        capturedAtSource: undefined,
+        place: null,
+        hasLocation: false,
         createdAt: '2026-10-31T12:00:00.000Z',
         deletedAt: null,
       });

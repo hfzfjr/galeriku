@@ -42,12 +42,29 @@ type FileRow = {
   thumbKey: string | null;
   status: string;
   isFavorite?: boolean;
-  takenAt: Date | null;
+  takenAt?: Date | null;
+  capturedAt?: Date | null;
+  capturedTzOffsetMin?: number | null;
+  capturedAtSource?: string | null;
+  placeCountry?: string | null;
+  placeAdmin1?: string | null;
+  placeCity?: string | null;
+  gpsLat?: number | null;
+  gpsLng?: number | null;
   createdAt: Date;
   deletedAt?: Date | null;
 };
 
 export function toFileItem(file: FileRow): FileItem {
+  const capturedAt = file.capturedAt ?? file.takenAt ?? file.createdAt;
+  const hasLocation =
+    file.gpsLat !== null &&
+    file.gpsLat !== undefined &&
+    file.gpsLng !== null &&
+    file.gpsLng !== undefined;
+  const placeParts = [file.placeCity, file.placeAdmin1, file.placeCountry].filter(Boolean);
+  const place = placeParts.length > 0 ? placeParts.join(', ') : null;
+
   return {
     id: file.id,
     originalName: file.originalName,
@@ -61,6 +78,11 @@ export function toFileItem(file: FileRow): FileItem {
     status: file.status,
     isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
+    capturedAt: capturedAt.toISOString(),
+    capturedTzOffsetMin: file.capturedTzOffsetMin ?? null,
+    capturedAtSource: (file.capturedAtSource as any) ?? undefined,
+    place,
+    hasLocation,
     createdAt: file.createdAt.toISOString(),
     deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
   };
