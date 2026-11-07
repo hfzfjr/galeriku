@@ -711,6 +711,125 @@ describe('FilesController (e2e) — US-20', () => {
       expect(resRestore.body.deletedAt).toBeNull();
       expect(db.files.get('f-sampah-1')?.deletedAt).toBeNull();
     });
+
+    it('album dengan sampul file X; X ke Sampah; DELETE /files/:id/permanent dan DELETE /files/trash harus berhasil', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      // File X menjadi sampul album
+      db.files.set('f-cover-1', {
+        id: 'f-cover-1',
+        ownerId: user.id,
+        originalName: 'cover.jpg',
+        storageKey: 'key-cover',
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: new Date(), // sudah di sampah
+      });
+
+      db.albums.set('alb-1', {
+        id: 'alb-1',
+        ownerId: user.id,
+        title: 'Liburan',
+        coverFileId: 'f-cover-1',
+        createdAt: new Date(),
+      });
+
+      // Test 1: deletePermanent harus sukses (tidak 500 karena FK coverFileId)
+      const resPermanent = await http()
+        .delete('/files/f-cover-1/permanent')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(resPermanent.status).toBe(204);
+      expect(db.files.has('f-cover-1')).toBe(false);
+      expect(db.albums.get('alb-1')?.coverFileId).toBeNull();
+
+      // Test 2: emptyTrash dengan file yang menjadi sampul album
+      db.files.set('f-cover-2', {
+        id: 'f-cover-2',
+        ownerId: user.id,
+        originalName: 'cover2.jpg',
+        storageKey: 'key-cover2',
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: new Date(),
+      });
+      db.albums.get('alb-1')!.coverFileId = 'f-cover-2';
+
+      const resEmpty = await http()
+        .delete('/files/trash')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(resEmpty.status).toBe(200);
+      expect(resEmpty.body.count).toBe(1);
+      expect(db.files.has('f-cover-2')).toBe(false);
+      expect(db.albums.get('alb-1')?.coverFileId).toBeNull();
+    });
+
+    it('restore dan deletePermanent milik orang lain mengembalikan 404 identik (A-vs-B)', async () => {
+      const userA = await seedUser(db);
+      const userB = await seedUser(db);
+      const tokenA = craftSession(db, userA.id as string);
+      const tokenB = craftSession(db, userB.id as string);
+
+      await expectOwnerOnly(app, {
+        cookieA: tokenA,
+        cookieB: tokenB,
+        origin: ORIGIN,
+        createResource: async () => {
+          const fid = `file-trash-idor-${Date.now()}`;
+          db.files.set(fid, {
+            id: fid,
+            ownerId: userA.id,
+            originalName: 'sampah.jpg',
+            storageKey: `key-${fid}`,
+            mimeType: 'image/jpeg',
+            sizeBytes: 100n,
+            kind: FileKind.image,
+            width: null,
+            height: null,
+            durationS: null,
+            thumbKey: null,
+            status: FileStatus.ready,
+            isFavorite: false,
+            takenAt: null,
+            createdAt: new Date(),
+            deletedAt: new Date(),
+          });
+          return fid;
+        },
+        buildRequests: (id: string) => [
+          {
+            method: 'post',
+            url: `/files/${id}/restore`,
+          },
+          {
+            method: 'delete',
+            url: `/files/${id}/permanent`,
+          },
+        ],
+      });
+    });
   });
 });
 

@@ -34,6 +34,17 @@ function formatBytes(bytesStr: string): string {
   }
 }
 
+function hitungSisaHari(deletedAtStr?: string | null): string {
+  if (!deletedAtStr) return "30 hari";
+  const waktuHapus = new Date(deletedAtStr).getTime();
+  const selisihHari = Math.floor(
+    (Date.now() - waktuHapus) / (24 * 60 * 60 * 1000),
+  );
+  const sisa = 30 - selisihHari;
+  if (sisa <= 0) return "Hari ini";
+  return `${sisa} hari lagi`;
+}
+
 export function SampahClient() {
   const queryClient = useQueryClient();
   const [showEmptyModal, setShowEmptyModal] = useState(false);
@@ -150,9 +161,12 @@ export function SampahClient() {
                   <p className="truncate text-caption font-medium text-ink">
                     {file.originalName}
                   </p>
-                  <p className="text-[11px] text-ink-muted">
-                    {formatBytes(file.sizeBytes)}
-                  </p>
+                  <div className="flex items-center justify-between text-[11px] text-ink-muted">
+                    <span>{formatBytes(file.sizeBytes)}</span>
+                    <span className="text-accent">
+                      {hitungSisaHari(file.deletedAt)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Tombol Pulihkan & Hapus Permanen */}

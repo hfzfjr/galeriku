@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { UserStatus } from '../generated/prisma/client';
+import { FileStatus, UserStatus } from '../generated/prisma/client';
 import {
   checkDiskGuard,
   checkUserQuotaAndStatus,
@@ -257,6 +257,30 @@ describe('checkUserQuotaAndStatus (US-18)', () => {
     await expect(
       checkUserQuotaAndStatus('u1', 400n, mockPrisma),
     ).resolves.toBeUndefined();
+  });
+
+  it('menghitung file yang ada di tempat sampah (status bukan failed) dalam pengecekan kuota', async () => {
+    let capturedWhere: Record<string, unknown> | undefined;
+    const mockPrisma = {
+      user: {
+        findUnique: async () => ({
+          status: UserStatus.ACTIVE,
+          quotaBytes: 1000n,
+        }),
+      },
+      file: {
+        aggregate: async ({ where }: { where: Record<string, unknown> }) => {
+          capturedWhere = where;
+          return { _sum: { sizeBytes: 500n } };
+        },
+      },
+    } as unknown as Parameters<typeof checkUserQuotaAndStatus>[2];
+
+    await checkUserQuotaAndStatus('u1', 400n, mockPrisma);
+    expect(capturedWhere).toEqual({
+      ownerId: 'u1',
+      status: { not: FileStatus.failed },
+    });
   });
 });
 

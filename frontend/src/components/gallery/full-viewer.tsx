@@ -30,21 +30,20 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
 
   const total = files.length;
   const currentFile = files[currentIndex];
-  const [isFavorite, setIsFavorite] = useState(Boolean(currentFile?.isFavorite));
-
-  useEffect(() => {
-    setIsFavorite(Boolean(currentFile?.isFavorite));
-  }, [currentFile]);
+  const [favOverrides, setFavOverrides] = useState<Record<string, boolean>>({});
+  const isFavorite = currentFile
+    ? (favOverrides[currentFile.id] ?? Boolean(currentFile.isFavorite))
+    : false;
 
   const handleToggleFavorite = async () => {
     if (!currentFile) return;
     const nextFav = !isFavorite;
-    setIsFavorite(nextFav);
+    setFavOverrides((prev) => ({ ...prev, [currentFile.id]: nextFav }));
     try {
       await toggleFavoriteFile(currentFile.id, nextFav);
       queryClient.invalidateQueries({ queryKey: ["files"] });
     } catch {
-      setIsFavorite(!nextFav);
+      setFavOverrides((prev) => ({ ...prev, [currentFile.id]: !nextFav }));
     }
   };
 
@@ -360,10 +359,10 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
         >
           <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
             <h3 id="dialog-hapus-judul" className="text-h3 font-serif">
-              Hapus file ini?
+              Pindahkan ke Sampah?
             </h3>
             <p id="dialog-hapus-pesan" className="text-body text-ink-muted">
-              File &ldquo;{currentFile.originalName}&rdquo; dan thumbnail akan dihapus permanen dari server. Tindakan ini tidak dapat dibatalkan.
+              Pindahkan 1 file ke Sampah? Kamu bisa memulihkannya dalam 30 hari.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <Button
@@ -380,7 +379,7 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
                 disabled={isDeleting}
                 onClick={handleDelete}
               >
-                {isDeleting ? "Menghapus..." : "Hapus"}
+                {isDeleting ? "Memindahkan..." : "Pindahkan"}
               </Button>
             </div>
           </div>

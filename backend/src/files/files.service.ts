@@ -346,6 +346,37 @@ export class FilesService {
     return toFileItem(restored as FileRow);
   }
 
+  private async lepaskanSampulAlbum(
+    tx: PrismaService,
+    fileIds: string[],
+  ): Promise<void> {
+    const fileIdSet = new Set(fileIds);
+    const affectedAlbums = await tx.album.findMany({
+      where: { coverFileId: { in: fileIds } },
+    });
+
+    for (const album of affectedAlbums) {
+      const candidates = await tx.albumFile.findMany({
+        where: { albumId: album.id },
+        orderBy: { position: 'asc' },
+      });
+      let nextCoverId: string | null = null;
+      for (const cand of candidates) {
+        if (!fileIdSet.has(cand.fileId)) {
+          const f = await tx.file.findUnique({ where: { id: cand.fileId } });
+          if (f && f.deletedAt === null) {
+            nextCoverId = f.id;
+            break;
+          }
+        }
+      }
+      await tx.album.update({
+        where: { id: album.id },
+        data: { coverFileId: nextCoverId },
+      });
+    }
+  }
+
   async deletePermanent(userId: string, fileId: string): Promise<void> {
     const file = await this.prisma.file.findUnique({
       where: { id: fileId },
@@ -355,33 +386,148 @@ export class FilesService {
       throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
     }
 
-    await this.hapusBerkasFisik(file);
-    await this.prisma.file.delete({
-      where: { id: fileId },
+    await this.prisma.$transaction(async (tx) => {
+      await this.lepaskanSampulAlbum(tx as unknown as PrismaService, [fileId]);
+      await tx.file.delete({
+        where: { id: fileId },
+      });
     });
+
+    // Hapus fisik setelah commit transaksi berhasil
+    await this.hapusBerkasFisik(file);
   }
 
   async emptyTrash(userId: string): Promise<{ count: number }> {
-    const files = await this.prisma.file.findMany({
-      where: {
-        ownerId: userId,
-        deletedAt: { not: null },
-      },
-      select: { id: true, storageKey: true, thumbKey: true },
-    });
+    const BATCH_SIZE = 100;
+    let totalDeleted = 0;
 
-    for (const file of files) {
-      await this.hapusBerkasFisik(file);
+    while (true) {
+      const files = await this.prisma.file.findMany({
+        where: {
+          ownerId: userId,
+          deletedAt: { not: null },
+        },
+        take: BATCH_SIZE,
+        select: { id: true, storageKey: true, thumbKey: true },
+      });
+
+      if (files.length === 0) {
+        break;
+      }
+
+      const idsToDelete = files.map((f) => f.id);
+
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await this.lepaskanSampulAlbum(
+            tx as unknown as PrismaService,
+            idsToDelete,
+          );
+          await tx.file.deleteMany({
+            where: {
+              id: { in: idsToDelete },
+            },
+          });
+        });
+
+        // Hapus fisik setelah commit berhasil
+        for (const file of files) {
+          await this.hapusBerkasFisik(file);
+        }
+        totalDeleted += files.length;
+      } catch {
+        // Fallback per-file jika batch gagal agar satu file gagal tidak membatalkan seluruhnya
+        for (const file of files) {
+          try {
+            await this.prisma.$transaction(async (tx) => {
+              await this.lepaskanSampulAlbum(tx as unknown as PrismaService, [
+                file.id,
+              ]);
+              await tx.file.delete({ where: { id: file.id } });
+            });
+            await this.hapusBerkasFisik(file);
+            totalDeleted++;
+          } catch {
+            // Abaikan dan lanjutkan file berikutnya
+          }
+        }
+        break;
+      }
+
+      if (files.length < BATCH_SIZE) {
+        break;
+      }
     }
 
-    const result = await this.prisma.file.deleteMany({
-      where: {
-        ownerId: userId,
-        deletedAt: { not: null },
-      },
-    });
+    return { count: totalDeleted };
+  }
 
-    return { count: result.count };
+  async purgeExpiredTrash(
+    retentionDays: number = 30,
+  ): Promise<{ count: number }> {
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const BATCH_SIZE = 100;
+    let totalDeleted = 0;
+
+    while (true) {
+      const files = await this.prisma.file.findMany({
+        where: {
+          deletedAt: { lte: cutoffDate },
+        },
+        take: BATCH_SIZE,
+        select: { id: true, storageKey: true, thumbKey: true },
+      });
+
+      if (files.length === 0) {
+        break;
+      }
+
+      const idsToDelete = files.map((f) => f.id);
+
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          await this.lepaskanSampulAlbum(
+            tx as unknown as PrismaService,
+            idsToDelete,
+          );
+          await tx.file.deleteMany({
+            where: {
+              id: { in: idsToDelete },
+            },
+          });
+        });
+
+        for (const file of files) {
+          await this.hapusBerkasFisik(file);
+        }
+        totalDeleted += files.length;
+      } catch {
+        // Fallback per-file jika batch gagal
+        for (const file of files) {
+          try {
+            await this.prisma.$transaction(async (tx) => {
+              await this.lepaskanSampulAlbum(tx as unknown as PrismaService, [
+                file.id,
+              ]);
+              await tx.file.delete({ where: { id: file.id } });
+            });
+            await this.hapusBerkasFisik(file);
+            totalDeleted++;
+          } catch {
+            // Abaikan dan lanjutkan file berikutnya
+          }
+        }
+        break;
+      }
+
+      if (files.length < BATCH_SIZE) {
+        break;
+      }
+    }
+
+    return { count: totalDeleted };
   }
 }
 

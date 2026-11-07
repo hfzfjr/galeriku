@@ -290,7 +290,7 @@ describe('Admin (e2e)', () => {
         });
     });
 
-    it('usedBytes hanya file aktif miliknya (string)', async () => {
+    it('usedBytes menghitung file aktif dan di tempat sampah (string)', async () => {
       const admin = await seedAdmin(db);
       const korban = await seedUser(db);
       const lain = await seedUser(db);
@@ -311,7 +311,7 @@ describe('Admin (e2e)', () => {
         craftSession(db, admin.id as string),
       ).expect(200);
       expect(res.body.items).toHaveLength(1);
-      expect(res.body.items[0].usedBytes).toBe('300');
+      expect(res.body.items[0].usedBytes).toBe('1188');
     });
   });
 

@@ -111,7 +111,7 @@ export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Satu agregat untuk seluruh halaman (bukan N+1): SUM(size_bytes)
-  // file milik pengguna dengan deleted_at NULL dan status bukan failed.
+  // file milik pengguna (termasuk di sampah) dengan status bukan failed.
   private async usedBytesByOwner(ids: string[]): Promise<Map<string, bigint>> {
     if (ids.length === 0) {
       return new Map();
@@ -120,7 +120,6 @@ export class AdminService {
       by: ['ownerId'],
       where: {
         ownerId: { in: ids },
-        deletedAt: null,
         status: { not: FileStatus.failed },
       },
       _sum: { sizeBytes: true },

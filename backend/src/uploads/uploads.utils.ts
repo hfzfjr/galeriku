@@ -2,7 +2,7 @@ import { statfsSync } from 'node:fs';
 import { open, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileTypeFromFile } from 'file-type';
-import { UserStatus } from '../generated/prisma/client';
+import { FileStatus, UserStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   FORBIDDEN_EXTENSIONS,
@@ -229,7 +229,7 @@ export async function checkUserQuotaAndStatus(
     return;
   }
   const agg = await prisma.file.aggregate({
-    where: { ownerId: userId, deletedAt: null },
+    where: { ownerId: userId, status: { not: FileStatus.failed } },
     _sum: { sizeBytes: true },
   });
   const currentUsed = agg._sum.sizeBytes ?? 0n;

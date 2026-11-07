@@ -410,9 +410,43 @@ export function createFakePrisma(db: FakeDb) {
         return { count: before - db.emailCodes.length };
       },
     },
-    file: {
-      ...makeModel(db.files),
-      // Agregat kuota per user (US-18): sum sizeBytes
+    file: (() => {
+      const base = makeModel(db.files);
+      return {
+        ...base,
+        delete: async ({ where }: { where: Record<string, unknown> }) => {
+          for (const [id, row] of db.files) {
+            if (matchWhere(row, where)) {
+              for (const album of db.albums.values()) {
+                if (album.coverFileId === id) {
+                  const err = new Error(
+                    'Foreign key constraint failed on the field: `cover_file_id`',
+                  );
+                  Object.assign(err, { code: 'P2003' });
+                  throw err;
+                }
+              }
+            }
+          }
+          return base.delete({ where });
+        },
+        deleteMany: async ({ where }: { where: Record<string, unknown> }) => {
+          for (const [id, row] of db.files) {
+            if (matchWhere(row, where)) {
+              for (const album of db.albums.values()) {
+                if (album.coverFileId === id) {
+                  const err = new Error(
+                    'Foreign key constraint failed on the field: `cover_file_id`',
+                  );
+                  Object.assign(err, { code: 'P2003' });
+                  throw err;
+                }
+              }
+            }
+          }
+          return base.deleteMany({ where });
+        },
+        // Agregat kuota per user (US-18): sum sizeBytes
       aggregate: async (args: {
         where?: Record<string, unknown>;
         _sum?: { sizeBytes?: boolean };
@@ -455,7 +489,8 @@ export function createFakePrisma(db: FakeDb) {
           _sum: { sizeBytes: total },
         }));
       },
-    },
+    };
+  })(),
     album: {
       ...makeModel(db.albums),
       findUnique: async ({

@@ -11,7 +11,12 @@ import type {
   VerifyEmailRequest,
 } from '@galeriku/contracts';
 import { APP_CONFIG, type AppConfig } from '../config/app-config';
-import { EmailCodeKind, Role, UserStatus } from '../generated/prisma/client';
+import {
+  EmailCodeKind,
+  FileStatus,
+  Role,
+  UserStatus,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAIL_SERVICE, type MailSender } from '../mail/mail.service';
 import {
@@ -501,7 +506,7 @@ export class AuthService {
       );
     }
     const agg = await this.prisma.file.aggregate({
-      where: { ownerId: userId, deletedAt: null },
+      where: { ownerId: userId, status: { not: FileStatus.failed } },
       _sum: { sizeBytes: true },
     });
     const usedBytes = agg._sum.sizeBytes ?? 0n;

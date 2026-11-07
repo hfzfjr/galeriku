@@ -1,5 +1,6 @@
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -101,6 +102,7 @@ describe('Upload tus (US-16 spike)', () => {
   beforeEach(async () => {
     mediaDir = mkdtempSync(join(tmpdir(), 'galeriku-tus-'));
     tusDir = join(mediaDir, '_tus');
+    mkdirSync(tusDir, { recursive: true });
     process.env.MEDIA_DIR = mediaDir;
     ({ app, db } = await createTestApp());
   });
@@ -108,7 +110,11 @@ describe('Upload tus (US-16 spike)', () => {
   afterEach(async () => {
     await app.close();
     delete process.env.MEDIA_DIR;
-    rmSync(mediaDir, { recursive: true, force: true });
+    try {
+      rmSync(mediaDir, { recursive: true, force: true });
+    } catch {
+      // Abaikan lock file Windows
+    }
   });
 
   const server = () => app;

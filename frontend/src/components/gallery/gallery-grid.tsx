@@ -398,10 +398,10 @@ export function GalleryGrid({
         >
           <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
             <h3 id="dialog-batch-hapus-judul" className="text-h3 font-serif">
-              Hapus {selectedIds.size} file?
+              Pindahkan {selectedIds.size} file ke Sampah?
             </h3>
             <p id="dialog-batch-hapus-pesan" className="text-body text-ink-muted">
-              {selectedIds.size} file dan thumbnail-nya akan dihapus permanen dari server. Tindakan ini tidak dapat dibatalkan.
+              Pindahkan {selectedIds.size} file ke Sampah? Kamu bisa memulihkannya dalam 30 hari.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <Button
@@ -418,7 +418,7 @@ export function GalleryGrid({
                 disabled={isDeletingBatch}
                 onClick={handleConfirmBatchDelete}
               >
-                {isDeletingBatch ? "Menghapus..." : `Hapus (${selectedIds.size})`}
+                {isDeletingBatch ? "Memindahkan..." : `Pindahkan (${selectedIds.size})`}
               </Button>
             </div>
           </div>

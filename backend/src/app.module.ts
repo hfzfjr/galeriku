@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { AccountCleanupService } from './cleanup/account-cleanup.service';
+import { TrashCleanupService } from './cleanup/trash-cleanup.service';
 import { UploadCleanupService } from './cleanup/upload-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
@@ -25,6 +26,11 @@ import { SharesModule } from './shares/shares.module';
     SharesModule,
   ],
   controllers: [AppController, HealthController],
-  providers: [AppService, AccountCleanupService, UploadCleanupService],
+  providers: [
+    AppService,
+    AccountCleanupService,
+    UploadCleanupService,
+    TrashCleanupService,
+  ],
 })
 export class AppModule {}
