@@ -66,4 +66,4 @@ Do not rename these folders.
 ## Out of scope for v1.0
 
 - Do not proxy uploads or downloads through Next.js route handlers.
-- Do not add Redis, MinIO, or a separate tus server. Video processing (ffmpeg, transcode, job queue) is Phase 2.
+- Do not add Redis, MinIO, or a separate tus server. Transcoding video and background job queues (pg-boss/bullmq) remain out of scope for v1.1; ffmpeg/ffprobe is used strictly for video metadata and poster frame generation.

@@ -1,6 +1,6 @@
 # PRD — Galeriku: Aplikasi Cloud Storage Pribadi (Berbagi Foto & Video)
 
-Versi 1.2 · 11 Oktober 2026 · Product Owner & Developer: Hafiz · Status: Draft siap dikerjakan
+Versi 1.3 · 7 November 2026 · Product Owner & Developer: Hafiz · Status: Disetujui (Refactor v1.1)
 
 ## 1. Ringkasan
 
@@ -26,10 +26,11 @@ Skala: pribadi dengan registrasi terbuka. Siapa pun boleh mendaftar dan memakai 
 - Link publik untuk file atau album, dengan opsi kedaluwarsa, password, dan izin unduh.
 - Berjalan stabil di server lokal dengan sumber daya terbatas.
 
-**Non-tujuan v1.0**
+**Non-tujuan v1.0 & v1.1**
 
-- Pemrosesan video (kompresi/transcode) dicatat sebagai Fase 2.
-- Folder bersarang, tempat sampah (trash), komentar, kolaborasi real-time, aplikasi native, enkripsi end-to-end.
+- Transcoding video penuh ke berbagai resolusi (720p/480p) dan antrian job berat (pg-boss/bullmq) dicatat sebagai Fase 2 (v2.0).
+- Komentar, kolaborasi real-time multi-pengguna, aplikasi native (Android/iOS murni), enkripsi end-to-end.
+- Catatan v1.1: Album bersarang (maks 4 tingkat), Sampah (retensi 30 hari), Favorit, Live/Motion Photo, dan ekstraksi metadata/poster video (ffmpeg/ffprobe) telah disetujui dan masuk lingkup v1.1.
 
 **Indikator keberhasilan**
 
@@ -111,12 +112,24 @@ Skala: pribadi dengan registrasi terbuka. Siapa pun boleh mendaftar dan memakai 
 | FR-16 | Unduh album sebagai ZIP | Should | 6 |
 | FR-17 | PWA dan Web Share API | Should | 6 |
 | FR-18 | Backup dan monitoring | Must | 7 |
-| FR-19 | Poster/thumbnail video dan metadata (ffprobe) | Could | Fase 2 |
-| FR-20 | Transcode video ke 720p | Could | Fase 2 |
-| FR-21 | Folder bersarang dan trash | Won't (v1.0) | Backlog |
-| FR-22 | Dashboard pemakaian storage | Could | Backlog |
-| FR-23 | Hapus metadata lokasi (EXIF GPS) dari file yang dibagikan | Could | Backlog |
+| FR-19 | Poster/thumbnail video dan metadata (ffprobe/ffmpeg) | Must | v1.1 |
+| FR-20 | Transcode video ke 720p | Could | Fase 2 (v2.0) |
+| FR-21 | Album bersarang (maks 4 tingkat) dan Sampah (retensi 30 hari) | Must | v1.1 |
+| FR-22 | Dashboard pemakaian storage terperinci | Could | Backlog |
+| FR-23 | Hapus metadata lokasi (EXIF GPS) dari file yang dibagikan secara publik | Must | v1.1 |
 | FR-24 | Verifikasi email (OTP) dan lupa password | Must | 1 |
+| FR-25 | Ekstraksi metadata foto (EXIF, kamera, lensa, exposure, captured_at) | Must | v1.1 |
+| FR-26 | Preview 2048 px dan pipeline decode HEIC | Must | v1.1 |
+| FR-27 | Urutan dan pengelompokan galeri berdasarkan tanggal foto diambil (`captured_at`) | Must | v1.1 |
+| FR-28 | MediaViewer terpadu dengan gesture pinch-zoom, pan, dan preload | Must | v1.1 |
+| FR-29 | Panel Info media (EXIF, kamera, resolusi, lokasi, ubah tanggal) | Must | v1.1 |
+| FR-30 | Resolusi nama tempat offline (reverse geocoding tanpa internet) | Must | v1.1 |
+| FR-31 | Halaman publik SSR dengan metadata Open Graph dinamis | Must | v1.1 |
+| FR-32 | Dukungan media bergerak: Motion Photo (Android) & Live Photo pairing (iOS) | Must | v1.1 |
+| FR-33 | API daftar lanjutan: sortir, filter chip, scrubber timeline, dan aksi massal | Must | v1.1 |
+| FR-34 | Pengunduhan arsip ZIP untuk pilihan foto pemilik | Must | v1.1 |
+| FR-35 | Deteksi duplikat berbasis hash SHA-256 | Must | v1.1 |
+| FR-36 | Berbagi subtree album dan pengunduhan ZIP berstruktur folder | Must | v1.1 |
 
 ## 7. Kebutuhan Non-Fungsional
 
@@ -179,14 +192,14 @@ HP / Browser
 | users | id, email (unik), email\_verified\_at (null = belum verifikasi), name, avatar\_url, password\_hash (opsional), google\_sub (opsional, unik), role (USER/ADMIN), status (ACTIVE/SUSPENDED), quota\_bytes, created\_at, last\_login\_at |
 | sessions | id (hash token sesi), user\_id, expires\_at, created\_at, ip\_hash, user\_agent |
 | ~~allowed\_emails~~ | DIHAPUS di migrasi US-09 (registrasi terbuka tidak memakai allowlist) |
-| files | id, owner\_id, original\_name, storage\_key (UUID), mime\_type, size\_bytes, kind (image/video), width, height, duration\_s, thumb\_key, status (uploading/ready/failed), taken\_at, created\_at, deleted\_at |
-| albums | id, owner\_id, title, cover\_file\_id, created\_at |
+| files | id, owner\_id, original\_name, storage\_key (UUID), mime\_type, size\_bytes, kind (image/video), width, height, duration\_s, thumb\_key, status (uploading/ready/failed), taken\_at (dipertahankan untuk kompatibilitas), captured\_at (timestamptz not null), captured\_tz\_offset\_min, captured\_at\_source, gps\_lat, gps\_lng, gps\_alt\_m, place\_country, place\_admin1, place\_city, camera\_make, camera\_model, lens\_model, iso, f\_number, exposure\_s, focal\_length\_mm, orientation, preview\_key, content\_hash, duplicate\_of\_id, live\_kind, live\_group\_id, live\_video\_key, live\_offset, live\_length, meta\_version, is\_favorite, created\_at, deleted\_at |
+| albums | id, owner\_id, title, cover\_file\_id, parent\_id (self FK, Restrict, nullable), created\_at |
 | album\_files | album\_id, file\_id, position, added\_at |
-| share\_links | id, token (unik), owner\_id, target\_type (file/album), target\_id, expires\_at, password\_hash, allow\_download (default aktif), view\_count, revoked\_at, created\_at |
+| share\_links | id, token (unik), owner\_id, target\_type (file/album), target\_id, expires\_at, password\_hash, allow\_download (default aktif), show\_location (default false), include\_children (default true), view\_count, revoked\_at, created\_at |
 | share\_access\_logs | id, link\_id, accessed\_at, ip\_hash, user\_agent (opsional) |
 | email\_codes (baru di migrasi US-09) | id, email, jenis (VERIFY\_EMAIL/RESET\_PASSWORD), code\_hash, expires\_at, attempts, last\_sent\_at |
 
-Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`, `album_files(album_id, position)`.
+Indeks yang disarankan: `files(owner_id, captured_at DESC, id DESC)`, `files(owner_id, content_hash)`, `files(owner_id, live_group_id)`, `share_links(token)`, `album_files(album_id, position)`, `albums(owner_id, parent_id)`.
 
 **Kepemilikan dan berbagi.** Pembuat file/album adalah pemilik lewat `owner_id`. Membagikan link TIDAK mengubah role siapa pun: `share_links` adalah capability baca anonim untuk satu target — penerima boleh melihat/mengunduh bila diizinkan, tidak pernah upload/ubah/hapus.
 
@@ -200,12 +213,14 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | Frontend | `/privasi` | Kebijakan privasi (statis, noindex) | Publik |
 | Frontend | `/login`, `/register` | Form login, registrasi terbuka, tombol Google | Publik |
 | Frontend | `/verify-email`, `/forgot-password`, `/reset-password` | Verifikasi OTP, minta dan atur ulang password | Publik |
-| Frontend | `/app` | Galeri milik pengguna | Login |
-| Frontend | `/app/albums` | Daftar album | Login |
-| Frontend | `/app/albums/[id]` | Detail album | Login |
-| Frontend | `/app/shares` | Daftar dan kelola link | Login |
-| Frontend | `/app/settings` | Profil dan kuota | Login |
-| Frontend | `/app/admin` | Daftar pengguna, kuota, suspend/aktifkan | ADMIN |
+| Frontend | `/galeri` | Galeri foto/video milik pengguna | Login |
+| Frontend | `/favorit` | Koleksi foto/video favorit | Login |
+| Frontend | `/album` | Daftar album akar pengguna | Login |
+| Frontend | `/album/[id]` | Detail album dan sub-album bersarang | Login |
+| Frontend | `/shares` | Daftar dan kelola link publik | Login |
+| Frontend | `/sampah` | Tempat sampah (retensi 30 hari) | Login |
+| Frontend | `/settings` | Profil dan kuota pengguna | Login |
+| Frontend | `/admin` | Daftar pengguna, kuota, suspend/aktifkan | ADMIN |
 | Frontend | `/s/[token]` | Halaman publik file/album (SSR, noindex) | Token valid |
 | API | `POST /auth/register` | Registrasi email + password (akun belum terverifikasi + kirim OTP) | Publik (rate limit, Turnstile) |
 | API | `POST /auth/login` | Login email + password | Publik (rate limit, Turnstile) |
@@ -216,13 +231,18 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 | API | `POST /auth/forgot-password` | Minta OTP reset (respons tidak membocorkan email) | Publik (rate limit) |
 | API | `POST /auth/reset-password` | Reset password + cabut semua sesi | Publik (rate limit) |
 | API | `/uploads/*` | Upload resumable (tus) | Login |
-| API | `GET /files`, `DELETE /files/:id` | Daftar dan hapus file | Login + pemilik |
-| API | `GET /files/:id/thumb`, `/files/:id/content` | Thumbnail dan isi file (Range, `?download=1`) | Login + pemilik |
-| API | `/albums`, `/albums/:id`, `/albums/:id/files` | CRUD album dan isinya | Login + pemilik |
+| API | `GET /files`, `DELETE /files/:id` | Daftar dan hapus file ke Sampah | Login + pemilik |
+| API | `GET /files/:id/thumb`, `/files/:id/preview`, `/files/:id/content` | Thumbnail, preview 2048px, dan isi file (Range, `?download=1`) | Login + pemilik |
+| API | `GET /files/:id`, `PATCH /files/:id/captured-at` | Detail metadata lengkap dan ubah tanggal manual | Login + pemilik |
+| API | `GET /files/timeline` | Bucket timeline tahun/bulan untuk scrubber | Login + pemilik |
+| API | `POST /files/zip` | Unduh file terpilih sebagai ZIP | Login + pemilik |
+| API | `GET /files/:id/motion` | Stream video Live/Motion Photo | Login + pemilik |
+| API | `GET /files/trash`, `DELETE /files/trash`, `DELETE /files/:id/permanent` | Kelola Sampah (lihat, kosongkan, hapus permanen) | Login + pemilik |
+| API | `/albums`, `/albums/:id`, `/albums/:id/files`, `/albums/:id/move`, `/albums/:id/zip` | CRUD album, sub-album, file, pemindahan, dan ZIP | Login + pemilik |
 | API | `/shares`, `/shares/:id` | Buat, ubah, dan cabut link | Login + pemilik |
-| API | `GET /public/s/:token`, `POST /public/s/:token/unlock` | Metadata link dan buka password | Token valid |
-| API | `GET /public/s/:token/files/:fileId` | Isi dan unduhan file untuk penerima (Range) | Token valid |
-| API | `GET /public/s/:token/zip` | Unduh ZIP album | Token valid + izin unduh |
+| API | `GET /public/s/:token`, `GET /public/s/:token/meta`, `POST /public/s/:token/unlock` | Metadata link, metadata SSR, dan buka password | Token valid |
+| API | `GET /public/s/:token/files/:fileId`, `.../preview`, `.../motion` | Isi/unduh file, preview, dan motion untuk penerima | Token valid |
+| API | `GET /public/s/:token/zip` | Unduh ZIP album (struktur folder bila bersub-album) | Token valid + izin unduh |
 | API | `GET /public/s/:token/cover` | Gambar sampul untuk preview Open Graph | Token valid, tanpa password |
 | API | `GET /admin/users`, `POST /admin/users/:id/suspend`, `POST /admin/users/:id/activate`, `PATCH /admin/users/:id/quota`, `DELETE /admin/users/:id` | Daftar pengguna (paginasi cursor), suspend/aktifkan (cabut sesi), ubah kuota, hapus pengguna beserta datanya | ADMIN |
 | API | `GET /health` | Status DB dan sisa disk | Internal |
@@ -235,6 +255,9 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 - Password di-hash dengan argon2id; rate limit per IP dan per email, dengan penundaan setelah beberapa kali gagal. Pesan error login tidak membocorkan keberadaan email.
 - Registrasi terbuka: siapa pun boleh mendaftar dengan email + password atau Google, tanpa undangan. Pendaftaran membuat akun belum terverifikasi (`email_verified_at` null) dan mengirim kode OTP 6 digit (berlaku 10 menit, hanya hash yang disimpan, maks 5 percobaan lalu hangus; kirim ulang berjeda 60 detik; rate limit per email dan per IP). Login sebelum verifikasi ditolak dan mengarah ke layar kode; setelah verifikasi sukses sesi langsung dibuat. Pendaftaran ulang dengan email yang akunnya belum terverifikasi menimpa akun tersebut (tanpa mewarisi peran apa pun) agar pemilik email asli tidak terkunci; akun belum terverifikasi dibersihkan otomatis setelah 24 jam. Login/daftar via Google dianggap terverifikasi bila email Google terverifikasi. Satu email satu akun.
 - Lupa password lewat OTP email: `POST /auth/forgot-password` dan `POST /auth/reset-password` (kode OTP terpisah dari verifikasi, aturan kedaluwarsa/percobaan sama; reset mencabut semua sesi aktif; respons tidak membocorkan apakah email terdaftar).
+- Privasi Lokasi: Koordinat GPS dan nama tempat disembunyikan di link publik secara default (`show_location = false`). Pada kondisi ini, unduhan JPEG dibersihkan dari segmen EXIF GPS (lossless APP1 stripping). Unduhan format lain yang memuat GPS diekspor sebagai JPEG bebas GPS dengan pemberitahuan di UI. Koordinat mentah tidak pernah diekspos di list/publik; hanya di detail pemilik (`GET /files/:id`).
+- `allowDownload` Nyata: Bila `allowDownload = false`, link publik menolak request `?download=1` (403) dan request gambar inline hanya menyajikan versi preview 2048 px teroptimasi, tidak pernah menyajikan file biner asli.
+- Proteksi Unlock Token: Token unlock link publik berpassword dihasilkan dari HMAC(`shareId` + sidik jari `passwordHash` + waktu kedaluwarsa 24 jam) dan diverifikasi dengan perbandingan timing-safe (`timingSafeEqual`). Mengubah password otomatis membatalkan seluruh unlock token yang aktif.
 - Peran ADMIN dari env `ADMIN_EMAIL` hanya diberikan SETELAH email itu terverifikasi (lewat OTP atau Google), bukan saat pendaftaran. Akun yang belum terverifikasi tidak pernah mendapat peran istimewa.
 - Email dikirim lewat MailService (satu antarmuka) yang memanggil REST API penyedia transaksional dengan `fetch`, tanpa dependency npm baru. Env: `MAIL_PROVIDER`, `MAIL_API_KEY` (generik; mis. kunci Resend), `MAIL_FROM` (mis. "Galeriku <noreply@send.hafizfajar.com>"). Di non-produksi tanpa kunci API, kode dicetak ke log (jangan pernah di produksi). Operasional: domain pengirim diverifikasi lewat record DNS di Cloudflare (DNS only). Risiko: form publik disalahgunakan untuk spam email ke alamat orang lain sehingga merusak reputasi domain; mitigasi wajib Turnstile + rate limit.
 - Akun SUSPENDED: login ditolak, semua sesi dicabut, dan link publik miliknya tidak aktif.
@@ -343,7 +366,7 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| US-26 | Sebagai pengguna, saya ingin mengatur opsi link | 3 | Kedaluwarsa (1 hari / 7 hari / 30 hari / tanpa batas, default 30 hari); password opsional; toggle izin unduh |
+| US-26 | Sebagai pengguna, saya ingin mengatur opsi link | 3 | Kedaluwarsa (1 hari / 7 hari / 30 hari / tanpa batas, default tanpa batas untuk target album dan 30 hari untuk file tunggal); password opsional; toggle izin unduh; toggle tampilkan lokasi |
 | US-27 | Sebagai pengguna, saya ingin mengelola dan mencabut link | 2 | Daftar link aktif dengan jumlah dilihat; pencabutan berlaku seketika |
 | US-28 | Sebagai penerima, saya ingin mengunduh album sebagai ZIP | 3 | ZIP di-stream tanpa kompresi dan tanpa file sementara; hanya jika izin unduh aktif |
 | US-29 | Sebagai admin, saya ingin rate limit dan header keamanan | 3 | `@nestjs/throttler` pada login, endpoint publik, dan percobaan password; CSP, nosniff, dan `X-Robots-Tag` aktif |
@@ -360,13 +383,12 @@ Indeks yang disarankan: `files(owner_id, created_at DESC)`, `share_links(token)`
 
 _Catatan: US-14 dihapus, digabung ke US-09/10/11 (tombol Google, logout, sesi 30 hari, status sesi)._
 
-## 13. Fase 2 — Pemrosesan Video (Dicatat, Dikerjakan Setelah v1.0 Stabil)
+## 13. Fase 2 — Pemrosesan Video Lanjutan (Backlog v2.0)
 
-Pemrosesan video baru dimulai setelah v1.0 berjalan lancar minimal 2–4 minggu pemakaian nyata. Pada v1.0, video disimpan apa adanya dan diputar langsung (streaming) dengan ikon penanda di galeri.
+Catatan v1.1: US-35 (Poster dan metadata video) telah dimajukan ke rilis v1.1 (RF-34) dengan pemrosesan konkurensi 1 berbasis ffmpeg/ffprobe. Transcoding video (US-37) dan antrian job berat (US-36) tetap menjadi lingkup Fase 2 (v2.0) setelah v1.1 stabil.
 
 | ID | User story | SP | Kriteria penerimaan |
 | --- | --- | --- | --- |
-| US-35 | Sebagai pengguna, saya ingin poster dan metadata video | 5 | ffprobe di backend membaca durasi dan resolusi; satu frame diambil sebagai poster di galeri |
 | US-36 | Sebagai developer, saya ingin antrian job | 3 | pg-boss di backend NestJS dengan konkurensi 1 dan prioritas rendah; job gagal dapat diulang |
 | US-37 | Sebagai pengguna, saya ingin video dikompres agar hemat disk dan kuota penerima | 8 | Transcode ke MP4 H.264 maksimal 720p dengan `+faststart`; memakai Intel QSV bila tersedia (`/dev/dri` diteruskan ke container backend), jika tidak libx264 preset veryfast dengan prioritas CPU rendah |
 | US-38 | Sebagai pengguna, saya ingin melihat status pemrosesan | 3 | Status menunggu / diproses / siap / gagal terlihat di UI |

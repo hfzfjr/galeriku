@@ -73,9 +73,51 @@ Catatan carry-over: link publik hanya berfungsi bila pemilik berstatus ACTIVE (a
 
 _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 
-## Fase 2 — Pemrosesan Video
+## Refactor v1.1 — Metadata, Live Foto, Berbagi, dan Album Bersarang
 
-- [ ] US-35 Sebagai pengguna, saya ingin poster dan metadata video
+### Fase 0 — Dokumen dan Hotfix
+- [x] RF-00 Amandemen dokumen
+- [ ] RF-01 Hotfix hapus permanen, sampul album, retensi sampah
+- [ ] RF-02 Hotfix unduhan, ZIP64, fallback video
+- [ ] RF-03 Hotfix link publik: unlock, hitungan view, link yatim, album service
+
+### Fase 1 — Fondasi Metadata
+- [ ] RF-10 Skema dan ekstraksi metadata saat upload
+- [ ] RF-11 Preview 2048 px dan pipeline HEIC
+- [ ] RF-12 Urutan dan pengelompokan berdasarkan captured_at
+- [ ] RF-13 MediaViewer terpadu
+- [ ] RF-14 Panel Info
+- [ ] RF-15 Backfill file lama
+- [ ] RF-16 Nama tempat offline
+
+### Fase 2 — Berbagi yang Matang
+- [ ] RF-20 Halaman publik SSR dan preview OG
+- [ ] RF-21 allowDownload yang nyata, toggle lokasi, pembersihan GPS
+- [ ] RF-22 Default kedaluwarsa album tanpa batas
+- [ ] RF-23 Unduhan ramah HP dan "Baru ditambahkan"
+
+### Fase 3 — Live Photo, Motion Photo, dan Video
+- [ ] RF-30 Spike Live Photo di iPhone asli
+- [ ] RF-31 Motion Photo Android
+- [ ] RF-32 Pairing Live Photo iOS
+- [ ] RF-33 Tampilan Live
+- [ ] RF-34 Metadata dan poster video (US-35 dimajukan)
+
+### Fase 4 — Sortir, Filter, dan Aksi Massal
+- [ ] RF-40 API daftar: sortir, filter, pencarian
+- [ ] RF-41 Timeline dan loncat waktu
+- [ ] RF-42 Filter bar dan sheet urutan
+- [ ] RF-43 Seleksi, aksi massal, picker album
+- [ ] RF-44 ZIP milik pemilik
+- [ ] RF-45 Deteksi duplikat
+
+### Fase 5 — Album Bersarang
+- [ ] RF-50 Skema dan API album bersarang
+- [ ] RF-51 UI album bersarang
+- [ ] RF-52 Berbagi subtree, halaman publik, dan ZIP berstruktur
+
+## Fase 2 — Pemrosesan Video Lanjutan (Backlog v2.0)
+
 - [ ] US-36 Sebagai developer, saya ingin antrian job
 - [ ] US-37 Sebagai pengguna, saya ingin video dikompres agar hemat disk dan kuota penerima
 - [ ] US-38 Sebagai pengguna, saya ingin melihat status pemrosesan

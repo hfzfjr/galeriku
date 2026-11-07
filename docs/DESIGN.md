@@ -143,10 +143,10 @@ Cloudflare Turnstile dipasang di form daftar, login, dan lupa password, di atas 
 
 ### Navigasi
 
-- **Bottom navigation** (area `/app`): 4 tab, tinggi 56 px + safe-area bawah, latar `surface`, garis atas 1 px `line`. Tab: **Galeri**, **Album**, **Link**, **Akun**. Tab aktif: ikon dan label `accent`, label bobot 600; tab tidak aktif `ink-muted`. Label selalu terlihat. Item **Admin** (menuju `/app/admin`) hanya muncul di tab Akun untuk pengguna ber-peran ADMIN.
+- **Bottom navigation** (area `/(app)`): 5 tab, tinggi 56 px + safe-area bawah, latar `surface`, garis atas 1 px `line`. Tab: **Galeri**, **Favorit**, **Album**, **Link**, **Akun**. Tab aktif: ikon dan label `accent`, label bobot 600; tab tidak aktif `ink-muted`. Label selalu terlihat. Item **Admin** (menuju `/admin`) hanya muncul di tab Akun untuk pengguna ber-peran ADMIN.
 - **Tombol Unggah (FAB):** lingkaran 56 px `accent`, ikon plus, di kanan bawah, 16 px di atas bottom nav. Hanya di Galeri dan Album.
 - **Bilah atas:** tinggi 56, judul halaman Fraunces h2 di kiri, aksi (cari/pilih) di kanan. Lengket di atas, latar `paper` dengan garis bawah muncul saat di-scroll.
-- Di ≥ 1024 px: bottom nav berubah menjadi sidebar kiri 240 px (desktop hanya pendukung).
+- Di ≥ 1024 px: bottom nav berubah menjadi sidebar kiri 240 px (desktop hanya pendukung) dengan grouping Koleksi (Semua Media, Foto, Video, Favorit, Album), Berbagi (Tautan Berbagi), dan Lainnya (Sampah, Akun, Kuota).
 
 ### Galeri (grid)
 
@@ -176,7 +176,37 @@ Panel melayang di atas bottom nav: satu baris ringkasan ("Mengunggah 3 dari 8 fi
 
 - Toast di atas bottom nav, latar `ink`, teks `paper`, radius `md`, durasi 3 detik, dengan tombol aksi opsional (Batalkan).
 - Badge/chip: tinggi 24, radius `sm`, latar `accent-soft` teks `accent` (dasar) atau `sunken` teks `ink-muted` (netral).
+- **Badge LIVE:** pil kecil latar `scrim`, teks caption `on-accent`, ikon konsentris Lucide di kiri. Menempel di pojok kiri atas thumbnail media bergerak (Live Photo / Motion Photo), juga di album dan halaman publik.
 - Status link: Aktif (success), Kedaluwarsa (ink-muted), Dicabut (danger), Berpassword (ikon gembok), semuanya dengan ikon + teks.
+
+### Filter bar dan sort sheet
+
+- **Filter bar:** diletakkan tepat di bawah bilah atas galeri; bar horizontal dengan chip gulir (horizontal scrollable) berisi: Jenis (Semua, Foto, Video), Tanggal, Tempat, Favorit, Belum di album, Live, Duplikat. Chip aktif memakai latar `accent-soft` teks `accent`, bobot 500. Tinggi chip 32 px, radius `full`.
+- **Sort sheet:** bottom sheet yang dipicu ikon Urutkan di bilah atas. Pilihan: Tanggal diambil (default), Baru ditambahkan (tanggal unggah), Nama berkas, Ukuran berkas; arah: Terbaru dulu (desc) / Terlama dulu (asc).
+- State filter dan sortir tersinkron ke URL query param agar state persisten saat refresh atau navigasi.
+
+### Scrubber timeline
+
+- Indikator posisi waktu (tahun dan bulan) vertikal di sisi kanan layar (lebar sentuh >= 44 px). Mengikuti posisi scroll grid foto yang dikelompokkan berdasarkan `captured_at`.
+- Mengetuk atau menggeser scrubber menampilkan pil bulan-tahun melayang di tengah layar dan melompatkan tampilan secara instan ke kelompok tanggal tersebut. Di HP, dapat dibuka sebagai sheet "Lompat ke tanggal".
+
+### Panel Info
+
+- Dibuka dari tombol Info (`Info`, `aria-label="Lihat info"`) di viewer layar penuh melalui bottom sheet.
+- Menampilkan:
+  - Header: Nama asli berkas (Fraunces h3/italic) dan tombol tutup/ubah.
+  - Tanggal & jam pengambilan foto dalam zona waktu lokal foto (dengan keterangan sumber tanggal bila manual/upload).
+  - Lokasi: Nama tempat offline ("Kota, Provinsi, Negara") atau "Tanpa lokasi". Di viewer publik, lokasi disembunyikan bila link mematikan `show_location`.
+  - Detail kamera: Pembuat kamera, model, lensa, ISO, f-number, shutter speed (exposure time), focal length.
+  - Spesifikasi teknis: Dimensi piksel (lebar x tinggi), ukuran file terformat, jenis berkas.
+  - Waktu diunggah ke server ("Diunggah pada ...").
+  - Khusus pemilik: Tombol "Ubah tanggal" untuk menyetel `captured_at` manual.
+
+### Sub-album dan Breadcrumb
+
+- **Breadcrumb:** Navigasi jalur bertingkat di bilah atas detail album (`Album > Liburan > 2026 > Bromo`). Target sentuh tiap segmen >= 44 px; jalur panjang dipotong dengan elipsis di tengah.
+- **Kartu sub-album:** Menggunakan gaya foto cetak khas Galeriku (bingkai kertas, sudut foto terakota), diletakkan di bagian atas sebelum grid foto dengan judul "Sub-album". Mendukung hingga kedalaman maksimal 4 tingkat.
+- **Bottom sheet pemilih album:** Sheet berpaginasi dengan kolom pencarian dan tombol "+ Album baru" untuk menambahkan foto terpilih ke album atau memindahkan sub-album.
 
 ### Empty state
 

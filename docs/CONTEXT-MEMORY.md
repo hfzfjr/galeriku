@@ -56,23 +56,23 @@ Urutan isi: LANGKAH 0 (git status + git branch --show-current) → KEPUTUSAN FIN
 - Rollback: git revert di main lalu push.
 
 ## 7. SEDANG DIKERJAKAN (Claude wajib memperbarui)
-Terakhir diperbarui: 31 Okt 2026
+Terakhir diperbarui: 7 Nov 2026
 
-**Posisi:** Sprint 4 (Galeri dan Viewer) 100% selesai dan terverifikasi. main HEAD c20d5f4. Seluruh story US-20, US-21, US-22, US-15 tercentang di PROGRESS.md. Branch lokal Sprint 4 sudah dihapus, `origin/main` sudah up-to-date.
+**Posisi:** Sprint 0-7 (v1.0) 100% selesai dan terverifikasi di main. Mulai Refactor v1.1 (Fase 0 — Dokumen dan hotfix, RF-00).
 **Langkah berikutnya:**
-1. Pengguna melakukan pengujian manual Sprint 3 & Sprint 4 sesuai panduan dokumen pengujian di artifacts.
-2. Melangkah ke **Sprint 5 — Album dan Link Publik Inti**:
-   - US-23: Sebagai pengguna, saya ingin membuat album.
-   - US-24: Sebagai pengguna, saya ingin membuat link publik.
-   - US-25: Sebagai penerima, saya ingin membuka dan mengunduh tanpa login (hanya berfungsi bila pemilik berstatus ACTIVE).
+1. Eksekusi RF-00: Amandemen dokumen (PRD, DESIGN, AGENTS, PROGRESS, CONTEXT-MEMORY).
+2. Lanjut ke RF-01 (Hotfix hapus permanen, sampul album, retensi sampah), RF-02, RF-03.
+3. Lanjut ke Fase 1 (Fondasi metadata RF-10 s/d RF-16).
 
-**Keputusan final Sprint 4:**
-- US-20: Grid galeri 3 kolom HP (aspect-square, fade-in 150ms), paginasi cursor 24 per halaman (`createdAt DESC, id DESC`), filter `status = READY` & `deletedAt = null`, badge video dengan durasi, date grouping header. Endpoint thumbnail streaming WebP dengan header cache private 86400s & nosniff.
-- US-21: Viewer layar penuh `#14110E`, kontrol fade-out 3 detik hening, gesture swipe horizontal antar file, swipe turun >90px untuk tutup, double-tap zoom 2.5x, video player streaming HTTP Range RFC 7233 (`206 Partial Content`) untuk instan seek.
-- US-22: Download berkas asli (`Content-Disposition: attachment`), hapus berkas tunggal dan hapus banyak (batch-delete) dengan soft-delete `deletedAt` + pembersihan fisik storageKey & thumbKey di disk via `rm(..., { force: true })`. Mode multi-seleksi di galeri (long-press 500ms atau tombol Pilih). Proteksi IDOR 404 ketat.
-- US-15: Halaman profil & pengaturan (`/app/settings`), avatar/inisial, badge peran, progress bar kuota terformat (`{usedBytes} dari {quotaBytes}`), form tambah password argon2id untuk akun Google (`POST /auth/set-password`), tombol keluar sesi server.
+**Keputusan final Refactor v1.1:**
+- D1: Urutan galeri default berdasarkan tanggal foto diambil (`captured_at`).
+- D2: File asli diunduh tanpa merusak EXIF/tanggal asli (kecuali pembersihan lokasi link publik).
+- D3: Dependensi disetujui: `exifr`, ffmpeg/ffprobe, libheif di Docker, geocoder offline.
+- D4: Lokasi hanya nama tempat offline, disembunyikan di link publik secara default.
+- D5: Link album default kedaluwarsa tanpa batas.
+- D6: Album bersarang maksimal 4 tingkat.
 
-**Belum diverifikasi:** pengujian sentuh di HP fisik nyata (gesture pinch-zoom, transisi swipe mobile), pemutaran video berukuran >500 MB di jaringan seluler.
+**Belum diverifikasi:** Pengujian HP fisik atas fitur-fitur baru v1.1.
 
 ### Aturan pembaruan bagian 7
 - Claude memperbarui bagian ini: setelah story selesai/di-merge, setelah keputusan penting, setelah perubahan urutan kerja, dan di akhir setiap sesi.
