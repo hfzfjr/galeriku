@@ -252,3 +252,22 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Buka `GET /public/s/:token/files/:fileId/motion`.
    - Pastikan video potongan Motion Photo dapat diputar secara lancar melalui browser incognito.
    - Uji foto normal tanpa Motion Photo: pastikan mengembalikan 404 identik.
+
+
+---
+
+### RF-32: Pairing Live Photo iOS
+
+1. **Unggah Pasangan Live Photo (HEIC + MOV) dari iOS / Files:**
+   - Ekspor foto Live Photo dari iPhone melalui menu "Export Unmodified Original" ke aplikasi Files sehingga menghasilkan 2 berkas: `IMG_xxxx.HEIC` dan `IMG_xxxx.MOV`.
+   - Unggah kedua berkas tersebut ke Galeriku (coba baik HEIC lebih dulu maupun MOV lebih dulu).
+   - Pastikan server berhasil membaca Apple `ContentIdentifier` dari kedua berkas dan menggabungkannya secara otomatis.
+
+2. **Verifikasi Tampilan Galeri & Kuota:**
+   - Buka Galeri: pastikan hanya muncul 1 item (foto HEIC dengan `liveKind: "ios_pair"`), dan berkas video MOV tidak muncul sebagai item terpisah.
+   - Periksa ukuran berkas: ukuran item di galeri mencakup akumulasi ukuran foto + video (`photoBytes + movBytes`).
+   - Periksa widget penyimpanan / kuota: kuota berkurang sesuai akumulasi kedua berkas.
+
+3. **Verifikasi Penghapusan:**
+   - Pindahkan foto Live Photo ke Sampah: pastikan foto dipindahkan ke Sampah sebagai satu unit.
+   - Hapus permanen dari Sampah: pastikan kedua berkas fisik di server (`.heic` dan `.mov`) terhapus dari disk.

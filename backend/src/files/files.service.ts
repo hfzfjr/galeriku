@@ -478,12 +478,20 @@ export class FilesService {
     storageKey: string;
     thumbKey: string | null;
     previewKey?: string | null;
+    liveVideoKey?: string | null;
   }): Promise<void> {
     const mediaDir = resolveMediaDir();
     try {
       await rm(join(mediaDir, file.storageKey), { force: true });
     } catch {
       // Abaikan bila file fisik sudah hilang
+    }
+    if (file.liveVideoKey) {
+      try {
+        await rm(join(mediaDir, file.liveVideoKey), { force: true });
+      } catch {
+        // Abaikan
+      }
     }
     if (file.thumbKey) {
       try {
@@ -686,7 +694,13 @@ export class FilesService {
           deletedAt: { not: null },
         },
         take: BATCH_SIZE,
-        select: { id: true, storageKey: true, thumbKey: true, previewKey: true },
+        select: {
+          id: true,
+          storageKey: true,
+          thumbKey: true,
+          previewKey: true,
+          liveVideoKey: true,
+        },
       });
 
       if (files.length === 0) {
@@ -755,7 +769,13 @@ export class FilesService {
           deletedAt: { lte: cutoffDate },
         },
         take: BATCH_SIZE,
-        select: { id: true, storageKey: true, thumbKey: true, previewKey: true },
+        select: {
+          id: true,
+          storageKey: true,
+          thumbKey: true,
+          previewKey: true,
+          liveVideoKey: true,
+        },
       });
 
       if (files.length === 0) {

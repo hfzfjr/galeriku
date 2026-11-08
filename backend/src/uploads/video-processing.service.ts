@@ -19,6 +19,7 @@ export interface VideoProbeResult {
   gpsAltM: number | null;
   cameraMake: string | null;
   cameraModel: string | null;
+  contentIdentifier: string | null;
 }
 
 /**
@@ -165,6 +166,14 @@ export class VideoProcessingService {
         videoStream?.tags?.['model'] ||
         null;
 
+      // 6. Apple ContentIdentifier untuk Live Photo MOV (RF-32)
+      const contentIdRaw =
+        parsed.format?.tags?.['com.apple.quicktime.content.identifier'] ||
+        videoStream?.tags?.['com.apple.quicktime.content.identifier'] ||
+        parsed.format?.tags?.['com.apple.quicktime.content-identifier'] ||
+        videoStream?.tags?.['com.apple.quicktime.content-identifier'];
+      const contentIdentifier = contentIdRaw ? contentIdRaw.trim().toUpperCase() : null;
+
       return {
         durationS,
         width,
@@ -175,6 +184,7 @@ export class VideoProcessingService {
         gpsAltM: parsedGps?.altM ?? null,
         cameraMake: cameraMake ? cameraMake.trim() : null,
         cameraModel: cameraModel ? cameraModel.trim() : null,
+        contentIdentifier,
       };
     } catch (err) {
       this.logger.warn(
@@ -192,6 +202,7 @@ export class VideoProcessingService {
         gpsAltM: null,
         cameraMake: null,
         cameraModel: null,
+        contentIdentifier: null,
       };
     }
   }

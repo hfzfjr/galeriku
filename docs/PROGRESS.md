@@ -99,7 +99,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 ### Fase 3 — Live Photo, Motion Photo, dan Video
 - [x] RF-30 Spike Live Photo di iPhone asli
 - [x] RF-31 Motion Photo Android
-- [ ] RF-32 Pairing Live Photo iOS
+- [x] RF-32 Pairing Live Photo iOS
 - [ ] RF-33 Tampilan Live
 - [x] RF-34 Metadata dan poster video (US-35 dimajukan)
 

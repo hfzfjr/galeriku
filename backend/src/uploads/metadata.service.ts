@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import exifr from 'exifr';
 import sharp from 'sharp';
+import { extractAppleContentIdentifier } from './live-photo';
 import {
   VideoProcessingService,
   type VideoProbeResult,
@@ -24,6 +25,7 @@ export interface ExtractedMetadata {
   fNumber: number | null;
   exposureS: number | null;
   focalLengthMm: number | null;
+  contentIdentifier: string | null;
 }
 
 export interface ExtractMetadataOptions {
@@ -184,6 +186,7 @@ export class MetadataService {
     let parsedExif: Record<string, unknown> | null = null;
     let gpsData: { latitude?: number; longitude?: number } | null = null;
     let videoProbe: VideoProbeResult | null = null;
+    let appleContentId: string | null = null;
 
     if (mimeType.startsWith('image/')) {
       try {
@@ -192,10 +195,16 @@ export class MetadataService {
           xmp: true,
           exif: true,
           gps: true,
+          makerNote: true,
           translateValues: false,
           reviveValues: true,
         });
         gpsData = await exifr.gps(filePath).catch(() => null);
+        appleContentId =
+          extractAppleContentIdentifier(parsedExif?.['MakerNote']) ??
+          (typeof parsedExif?.['ContentIdentifier'] === 'string'
+            ? (parsedExif['ContentIdentifier'] as string).toUpperCase()
+            : null);
       } catch (err) {
         this.logger.warn(
           `Gagal membaca EXIF dari ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
@@ -203,6 +212,7 @@ export class MetadataService {
       }
     } else if (mimeType.startsWith('video/') && this.videoProcessing) {
       videoProbe = await this.videoProcessing.extractMetadata(filePath);
+      appleContentId = videoProbe.contentIdentifier ?? null;
     }
 
     // 1. Rantai tanggal:
@@ -372,6 +382,7 @@ export class MetadataService {
       fNumber,
       exposureS,
       focalLengthMm,
+      contentIdentifier: appleContentId,
     };
   }
 }

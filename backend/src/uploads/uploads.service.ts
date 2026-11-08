@@ -359,6 +359,61 @@ export class UploadsService implements OnModuleInit {
       }
     }
 
+    // RF-32: Pairing Live Photo iOS (ContentIdentifier)
+    const contentId = meta.contentIdentifier;
+    const liveGroupId: string | null = contentId ?? null;
+    let liveVideoKey: string | null = null;
+
+    if (sniffed.kind === 'video' && contentId) {
+      // Bila MOV tiba dan foto pasangan sudah ada -> isi liveVideoKey pada foto
+      const partnerPhoto = await this.prisma.file.findFirst({
+        where: {
+          ownerId: user.id,
+          liveGroupId: contentId,
+          kind: 'image',
+          deletedAt: null,
+        },
+      });
+
+      if (partnerPhoto) {
+        await this.prisma.file.update({
+          where: { id: partnerPhoto.id },
+          data: {
+            liveKind: 'ios_pair',
+            liveVideoKey: storageKey,
+            sizeBytes: partnerPhoto.sizeBytes + BigInt(ukuran),
+          },
+        });
+        // Tidak membuat baris File baru untuk MOV yang sudah digabung
+        return {};
+      }
+    }
+
+    let initialSizeBytes = BigInt(ukuran);
+
+    if (sniffed.kind === 'image' && contentId) {
+      // Bila foto tiba dan MOV yatim sudah ada -> gabungkan dan hapus baris DB MOV
+      const orphanMov = await this.prisma.file.findFirst({
+        where: {
+          ownerId: user.id,
+          liveGroupId: contentId,
+          kind: 'video',
+          deletedAt: null,
+        },
+      });
+
+      if (orphanMov) {
+        liveKind = 'ios_pair';
+        liveVideoKey = orphanMov.storageKey;
+        initialSizeBytes = BigInt(ukuran) + orphanMov.sizeBytes;
+
+        await this.prisma.file.delete({ where: { id: orphanMov.id } });
+        if (orphanMov.thumbKey) {
+          await rm(join(mediaDir, orphanMov.thumbKey), { force: true }).catch(() => {});
+        }
+      }
+    }
+
     let createdFile: { id: string } | undefined;
     try {
       createdFile = await this.prisma.file.create({
@@ -367,7 +422,7 @@ export class UploadsService implements OnModuleInit {
           originalName,
           storageKey,
           mimeType: sniffed.mime,
-          sizeBytes: BigInt(ukuran),
+          sizeBytes: initialSizeBytes,
           kind: sniffed.kind,
           thumbKey,
           previewKey,
@@ -392,6 +447,8 @@ export class UploadsService implements OnModuleInit {
           focalLengthMm: meta.focalLengthMm,
           orientation: meta.orientation,
           liveKind: liveKind as any,
+          liveGroupId,
+          liveVideoKey,
           liveOffset,
           liveLength,
           metaVersion: 1,

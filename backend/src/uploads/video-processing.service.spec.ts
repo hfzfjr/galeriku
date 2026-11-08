@@ -120,6 +120,7 @@ describe('VideoProcessingService (RF-34)', () => {
         gpsAltM: null,
         cameraMake: null,
         cameraModel: null,
+        contentIdentifier: null,
       });
     });
   });
