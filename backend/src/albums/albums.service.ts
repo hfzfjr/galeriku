@@ -34,6 +34,7 @@ function toFileItem(file: {
   placeCity?: string | null;
   gpsLat?: number | null;
   gpsLng?: number | null;
+  liveKind?: string | null;
   createdAt: Date;
   deletedAt?: Date | null;
 }): FileItem {
@@ -58,6 +59,10 @@ function toFileItem(file: {
     thumbKey: file.thumbKey,
     previewKey: file.previewKey ?? null,
     status: file.status,
+    liveKind:
+      file.liveKind === 'motion' || file.liveKind === 'ios_pair'
+        ? file.liveKind
+        : 'none',
     isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
     capturedAt: capturedAt.toISOString(),

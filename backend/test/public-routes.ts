@@ -30,6 +30,7 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { method: 'GET', path: '/public/s/:token/files/:fileId/preview' },
   { method: 'GET', path: '/public/s/:token/cover' },
   { method: 'GET', path: '/public/s/:token/files/:fileId' },
+  { method: 'GET', path: '/public/s/:token/files/:fileId/motion' },
 ];
 
 export function isPublicRoute(method: string, path: string): boolean {

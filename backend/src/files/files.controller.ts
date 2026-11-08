@@ -177,6 +177,53 @@ export class FilesController {
     reply.send(stream);
   }
 
+  @Get(':id/motion')
+  async getMotionVideo(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+    @Req() req: FastifyRequest,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const info = await this.filesService.getMotionContentInfo(user.id, id);
+    const rangeHeader = req.headers.range;
+
+    reply.header('Content-Type', info.mimeType);
+    reply.header('Accept-Ranges', 'bytes');
+    reply.header('Cache-Control', 'private, max-age=86400');
+
+    if (rangeHeader) {
+      const range = parseRange(rangeHeader, info.videoLength);
+      if (!range) {
+        reply
+          .status(416)
+          .header('Content-Range', `bytes */${info.videoLength}`)
+          .send();
+        return;
+      }
+
+      const { start, end } = range;
+      const chunkSize = end - start + 1;
+      const stream = createReadStream(info.filePath, {
+        start: info.videoOffset + start,
+        end: info.videoOffset + end,
+      });
+
+      reply
+        .status(206)
+        .header('Content-Range', `bytes ${start}-${end}/${info.videoLength}`)
+        .header('Content-Length', chunkSize)
+        .send(stream);
+      return;
+    }
+
+    reply.header('Content-Length', info.videoLength);
+    const stream = createReadStream(info.filePath, {
+      start: info.videoOffset,
+      end: info.videoOffset + info.videoLength - 1,
+    });
+    reply.send(stream);
+  }
+
   @Get(':id')
   async getFileDetail(
     @Param('id') id: string,

@@ -235,6 +235,7 @@ export const fileItemSchema = z.object({
   thumbKey: z.string().nullable(),
   previewKey: z.string().nullable().optional(),
   status: z.string(),
+  liveKind: z.enum(['none', 'ios_pair', 'motion']).default('none'),
   isFavorite: z.boolean().default(false),
   takenAt: z.string().nullable().optional(),
   capturedAt: z.string(),

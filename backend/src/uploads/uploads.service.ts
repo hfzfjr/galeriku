@@ -14,6 +14,7 @@ import { MetadataService } from './metadata.service';
 import { PlaceService } from './place.service';
 import { ThumbnailService } from './thumbnail.service';
 import { VideoProcessingService } from './video-processing.service';
+import { detectMotionPhoto } from './motion-photo';
 import {
   TUS_AUTH_USER_KEY,
   TUS_OWNER_METADATA_KEY,
@@ -345,6 +346,19 @@ export class UploadsService implements OnModuleInit {
     const finalHeight = meta.height ?? height;
     const place = this.placeService.resolve(meta.gpsLat, meta.gpsLng);
 
+    // RF-31: Deteksi Motion Photo Android jika berkas JPEG
+    let liveKind: 'none' | 'motion' | 'ios_pair' = 'none';
+    let liveOffset: bigint | null = null;
+    let liveLength: bigint | null = null;
+    if (sniffed.mime === 'image/jpeg') {
+      const motion = await detectMotionPhoto(tujuan, ukuran);
+      if (motion.isMotion && motion.offset && motion.length) {
+        liveKind = 'motion';
+        liveOffset = motion.offset;
+        liveLength = motion.length;
+      }
+    }
+
     let createdFile: { id: string } | undefined;
     try {
       createdFile = await this.prisma.file.create({
@@ -377,6 +391,9 @@ export class UploadsService implements OnModuleInit {
           exposureS: meta.exposureS,
           focalLengthMm: meta.focalLengthMm,
           orientation: meta.orientation,
+          liveKind: liveKind as any,
+          liveOffset,
+          liveLength,
           metaVersion: 1,
           status: FileStatus.ready,
         },

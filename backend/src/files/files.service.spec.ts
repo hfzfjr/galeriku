@@ -65,6 +65,7 @@ describe('FilesService helpers', () => {
         thumbKey: 'file-1.thumb.webp',
         previewKey: null,
         status: 'ready',
+        liveKind: 'none',
         isFavorite: false,
         takenAt: null,
         capturedAt: '2026-10-31T12:00:00.000Z',

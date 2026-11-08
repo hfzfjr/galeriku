@@ -272,6 +272,60 @@ export class PublicSharesController {
   }
 
   @Public()
+  @Get(':token/files/:fileId/motion')
+  async getPublicMotionVideo(
+    @Param('token') token: string,
+    @Param('fileId') fileId: string,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ): Promise<void> {
+    const info = await this.sharesService.getPublicMotionContentInfo(
+      token,
+      fileId,
+      (shareId) => getUnlockTokenFromReq(req, shareId),
+    );
+
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Robots-Tag', 'noindex, nofollow');
+    res.header('Content-Type', info.mimeType);
+    res.header('Accept-Ranges', 'bytes');
+
+    const cacheControl = info.hasPassword
+      ? 'private, max-age=86400'
+      : 'public, max-age=86400';
+    res.header('Cache-Control', cacheControl);
+
+    const rangeHeader = req.headers.range;
+    if (rangeHeader) {
+      const parsed = parseRange(rangeHeader, info.videoLength);
+      if (!parsed) {
+        res.status(416);
+        res.header('Content-Range', `bytes */${info.videoLength}`);
+        return res.send();
+      }
+
+      const { start, end } = parsed;
+      const chunkSize = end - start + 1;
+      const stream = createReadStream(info.filePath, {
+        start: info.videoOffset + start,
+        end: info.videoOffset + end,
+      });
+
+      res.status(206);
+      res.header('Content-Range', `bytes ${start}-${end}/${info.videoLength}`);
+      res.header('Content-Length', chunkSize);
+      return res.send(stream);
+    }
+
+    res.header('Content-Length', info.videoLength);
+    const stream = createReadStream(info.filePath, {
+      start: info.videoOffset,
+      end: info.videoOffset + info.videoLength - 1,
+    });
+    return res.send(stream);
+  }
+
+  @Public()
   @UseGuards(RateLimitGuard)
   @RateLimit({ limit: 10, windowMs: 60_000, keyPrefix: 'share:zip' })
   @Get(':token/zip')

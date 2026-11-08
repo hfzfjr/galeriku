@@ -101,6 +101,9 @@ type FileRow = {
   exposureS?: number | null;
   focalLengthMm?: number | null;
   orientation?: number | null;
+  liveKind?: string | null;
+  liveOffset?: bigint | null;
+  liveLength?: bigint | null;
   createdAt: Date;
   deletedAt?: Date | null;
 };
@@ -127,6 +130,10 @@ export function toFileItem(file: FileRow): FileItem {
     thumbKey: file.thumbKey,
     previewKey: file.previewKey ?? null,
     status: file.status,
+    liveKind:
+      file.liveKind === 'motion' || file.liveKind === 'ios_pair'
+        ? file.liveKind
+        : 'none',
     isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
     capturedAt: capturedAt.toISOString(),
@@ -361,6 +368,61 @@ export class FilesService {
       mimeType: file.mimeType,
       sizeBytes: stat.size,
     };
+  }
+
+  async getMotionContentInfo(userId: string, fileId: string): Promise<{
+    filePath: string;
+    originalName: string;
+    mimeType: string;
+    videoLength: number;
+    videoOffset: number;
+  }> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    // Kepemilikan menjawab 404 identik (AD-12 & US-13)
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    const mediaDir = resolveMediaDir();
+
+    if (file.liveKind === 'motion' && file.liveOffset && file.liveLength) {
+      const filePath = join(mediaDir, file.storageKey);
+      if (!existsSync(filePath)) {
+        throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+      }
+      return {
+        filePath,
+        originalName: `${file.originalName.replace(/\.[^.]+$/, '')}.mp4`,
+        mimeType: 'video/mp4',
+        videoOffset: Number(file.liveOffset),
+        videoLength: Number(file.liveLength),
+      };
+    }
+
+    if (file.liveKind === 'ios_pair' && file.liveVideoKey) {
+      const filePath = join(mediaDir, file.liveVideoKey);
+      if (!existsSync(filePath)) {
+        throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+      }
+      const st = statSync(filePath);
+      return {
+        filePath,
+        originalName: `${file.originalName.replace(/\.[^.]+$/, '')}.mp4`,
+        mimeType: 'video/mp4',
+        videoOffset: 0,
+        videoLength: st.size,
+      };
+    }
+
+    throw new ApiError(404, 'NOT_FOUND', 'Motion video tidak tersedia.');
   }
 
   async deleteFile(userId: string, fileId: string): Promise<void> {

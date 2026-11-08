@@ -231,3 +231,24 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
      2. **Skenario B:** Ekspor asli tanpa modifikasi (*Export Unmodified Original*) ke aplikasi Files, lalu unggah pasangan HEIC + MOV.
      3. **Skenario C:** Ekspor ke komputer, lalu unggah berkas pasangan dari browser desktop.
    - Catat hasil pengamatan pada tabel di `docs/testing/refactor-live.md`.
+
+
+---
+
+### RF-31: Motion Photo Android
+
+1. **Unggah Foto Motion Photo dari HP Android (Google Camera / Samsung):**
+   - Ambil foto dengan fitur Motion Photo / Foto Bergerak aktif di Google Pixel atau HP Samsung.
+   - Unggah foto tersebut ke Galeriku.
+   - Periksa respons API bahwa file terdeteksi sebagai `liveKind: "motion"`.
+
+2. **Pengujian Streaming Potongan Byte Video (`/motion`):**
+   - Buka DevTools Network Tab.
+   - Panggil endpoint `GET /files/:id/motion` dengan session cookie yang aktif.
+   - Pastikan server mengembalikan stream `video/mp4` dari berkas JPEG yang sama menggunakan HTTP 206 (Range) tanpa duplikasi berkas di disk.
+
+3. **Pengujian Link Publik Motion Video:**
+   - Bagikan foto Motion Photo melalui tautan publik.
+   - Buka `GET /public/s/:token/files/:fileId/motion`.
+   - Pastikan video potongan Motion Photo dapat diputar secara lancar melalui browser incognito.
+   - Uji foto normal tanpa Motion Photo: pastikan mengembalikan 404 identik.
