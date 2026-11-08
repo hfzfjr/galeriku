@@ -83,10 +83,15 @@ describe('BackfillService (RF-15)', () => {
       }),
     };
 
+    const mockPlace = {
+      resolve: jest.fn().mockReturnValue(null),
+    };
+
     const service = new BackfillService(
       mockPrisma as any,
       mockMetadata as any,
       mockThumbnail as any,
+      mockPlace as any,
     );
 
     const result = await service.runOnce({ delayMs: 1 });
@@ -124,10 +129,15 @@ describe('BackfillService (RF-15)', () => {
       generatePhotoVariants: jest.fn(),
     };
 
+    const mockPlace = {
+      resolve: jest.fn().mockReturnValue(null),
+    };
+
     const service = new BackfillService(
       mockPrisma as any,
       mockMetadata as any,
       mockThumbnail as any,
+      mockPlace as any,
     );
 
     const result = await service.runOnce({ delayMs: 1 });

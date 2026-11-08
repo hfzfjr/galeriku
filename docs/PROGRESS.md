@@ -88,7 +88,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 - [x] RF-13 MediaViewer terpadu
 - [x] RF-14 Panel Info
 - [x] RF-15 Backfill file lama
-- [ ] RF-16 Nama tempat offline
+- [x] RF-16 Nama tempat offline
 
 ### Fase 2 — Berbagi yang Matang
 - [ ] RF-20 Halaman publik SSR dan preview OG

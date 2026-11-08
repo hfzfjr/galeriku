@@ -107,3 +107,14 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
 2. **Verifikasi Idempotensi & Ketahanan File Hilang:**
    - Pastikan file yang sudah diperbarui ditandai dengan `metaVersion = 1` dan tidak diproses ulang saat job dijalankan kembali.
    - Bila terdapat file di database yang fisiknya terhapus dari disk: pastikan server mencatat peringatan `File fisik tidak ditemukan` dan melanjutkan proses ke file berikutnya tanpa crash.
+
+---
+
+## RF-16: Nama Tempat Offline (Reverse Geocoding Tanpa Internet)
+1. **Verifikasi Nama Tempat Otomatis (Saat Upload):**
+   - Unggah foto yang memiliki metadata GPS (misal foto kamera HP di Jakarta atau Bali).
+   - Buka panel Info pada viewer foto: pastikan baris Lokasi menampilkan nama tempat berformat `"Kota, Provinsi, Negara"` (contoh: `"Jakarta Pusat, DKI Jakarta, Indonesia"` atau `"Denpasar, Bali, Indonesia"`).
+2. **Verifikasi Offline Penuh:**
+   - Putuskan koneksi internet server (atau amati network tab / firewall): resolusi nama tempat tetap berjalan lancar dan instan (< 1 ms) tanpa ada request HTTP ke layanan peta luar.
+3. **Verifikasi Koordinat di Laut / Tanpa GPS:**
+   - Unggah foto tanpa GPS atau foto dengan koordinat di tengah laut lepas: pastikan baris Lokasi menampilkan `"Tanpa lokasi"` tanpa menimbulkan kesalahan pada aplikasi.

@@ -11,6 +11,7 @@ import type { SessionUser } from '../auth/guards/auth.guard';
 import { FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetadataService } from './metadata.service';
+import { PlaceService } from './place.service';
 import { ThumbnailService } from './thumbnail.service';
 import {
   TUS_AUTH_USER_KEY,
@@ -66,6 +67,7 @@ export class UploadsService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly thumbnail: ThumbnailService,
     private readonly metadataService: MetadataService,
+    private readonly placeService: PlaceService,
   ) {}
 
   onModuleInit(): void {
@@ -339,6 +341,7 @@ export class UploadsService implements OnModuleInit {
 
     const finalWidth = meta.width ?? width;
     const finalHeight = meta.height ?? height;
+    const place = this.placeService.resolve(meta.gpsLat, meta.gpsLng);
 
     try {
       await this.prisma.file.create({
@@ -359,6 +362,9 @@ export class UploadsService implements OnModuleInit {
           gpsLat: meta.gpsLat,
           gpsLng: meta.gpsLng,
           gpsAltM: meta.gpsAltM,
+          placeCountry: place?.country ?? null,
+          placeAdmin1: place?.admin1 ?? null,
+          placeCity: place?.city ?? null,
           cameraMake: meta.cameraMake,
           cameraModel: meta.cameraModel,
           lensModel: meta.lensModel,

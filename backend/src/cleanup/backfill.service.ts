@@ -9,6 +9,7 @@ import {
 import { FileKind, FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetadataService } from '../uploads/metadata.service';
+import { PlaceService } from '../uploads/place.service';
 import { ThumbnailService } from '../uploads/thumbnail.service';
 import { resolveMediaDir } from '../uploads/uploads.utils';
 
@@ -35,6 +36,7 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly metadataService: MetadataService,
     private readonly thumbnailService: ThumbnailService,
+    private readonly placeService: PlaceService,
   ) {}
 
   onModuleInit(): void {
@@ -146,6 +148,8 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
             }
           }
 
+          const place = this.placeService.resolve(meta.gpsLat, meta.gpsLng);
+
           // 3. Simpan pembaruan metadata ke basis data secara idempoten
           await this.prisma.file.update({
             where: { id: file.id },
@@ -159,6 +163,9 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
               gpsLat: meta.gpsLat,
               gpsLng: meta.gpsLng,
               gpsAltM: meta.gpsAltM,
+              placeCountry: place?.country ?? null,
+              placeAdmin1: place?.admin1 ?? null,
+              placeCity: place?.city ?? null,
               cameraMake: meta.cameraMake,
               cameraModel: meta.cameraModel,
               lensModel: meta.lensModel,
