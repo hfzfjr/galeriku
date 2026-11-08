@@ -268,15 +268,41 @@ export const fileDetailSchema = fileItemSchema.extend({
 
 export type FileDetail = z.output<typeof fileDetailSchema>;
 
-export const filesQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(24),
-  cursor: z.string().min(1).max(200).optional(),
-  kind: z.enum(['image', 'video']).optional(),
-  favorite: z
-    .preprocess((val) => val === 'true' || val === true, z.boolean())
-    .optional(),
-  sort: z.enum(['taken', 'uploaded']).optional(),
+const queryBoolean = z
+  .union([z.boolean(), z.string()])
+  .transform((val, ctx) => {
+    if (typeof val === 'boolean') return val;
+    if (val === 'true' || val === '1') return true;
+    if (val === 'false' || val === '0') return false;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Nilai harus boolean (true/false).',
+    });
+    return z.NEVER;
+  });
+
+const queryDate = z.string().refine((val) => !isNaN(Date.parse(val)), {
+  message: 'Format tanggal tidak valid.',
 });
+
+export const filesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(24),
+    cursor: z.string().min(1).max(500).optional(),
+    sort: z.enum(['taken', 'uploaded', 'name', 'size']).default('taken'),
+    order: z.enum(['desc', 'asc']).default('desc'),
+    from: queryDate.optional(),
+    to: queryDate.optional(),
+    kind: z.enum(['image', 'video']).optional(),
+    live: queryBoolean.optional(),
+    hasLocation: queryBoolean.optional(),
+    favorite: queryBoolean.optional(),
+    unalbumed: queryBoolean.optional(),
+    place: z.string().trim().max(100).optional(),
+    duplicates: queryBoolean.optional(),
+    q: z.string().trim().max(200).optional(),
+  })
+  .strict();
 
 export type FilesQuery = z.output<typeof filesQuerySchema>;
 

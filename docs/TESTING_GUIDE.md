@@ -296,3 +296,35 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Klik tombol speaker / suara di header viewer untuk menyalakan suara klip Live Photo.
    - Pastikan suara terdengar pada klip yang memiliki audio stream.
 
+---
+
+### RF-40: API Daftar: Sortir, Filter, Pencarian
+
+1. **Sortir dan Order:**
+   - Buka `/files` dengan berbagai parameter sortir:
+     - `sort=taken&order=desc` (default: urut waktu pengambilan foto terbaru).
+     - `sort=taken&order=asc` (foto terlama lebih dulu).
+     - `sort=uploaded&order=desc` (foto baru diunggah).
+     - `sort=name&order=asc` (nama file A-Z).
+     - `sort=size&order=desc` (file ukuran terbesar).
+   - Pastikan pagination cursor stabil dan konsisten melangkah tanpa melewatkan item kembar.
+
+2. **Filter Multi-Kombinasi:**
+   - Filter `kind=image` vs `kind=video`.
+   - Filter `live=true` (hanya foto gerak Live/Motion Photo).
+   - Filter `hasLocation=true` (hanya file yang memiliki koordinat GPS).
+   - Filter `favorite=true` (hanya file yang dibintangi).
+   - Filter `unalbumed=true` (hanya file yang belum dimasukkan ke album manapun).
+   - Filter rentang tanggal: `from=YYYY-MM-DD` dan `to=YYYY-MM-DD`.
+   - Filter tempat: `place=Jakarta` atau `place=Bali`.
+
+3. **Pencarian (`q`):**
+   - Uji parameter `q=nama_file` dan `q=nama_tempat` (tidak peka huruf besar-kecil).
+   - Pastikan hasil pencarian hanya menampilkan file milik pemilik yang sedang login.
+
+4. **Validasi Strict Boundary:**
+   - Uji mengirimkan parameter tidak dikenal (misal `/files?unknown=123`).
+   - Pastikan API mengembalikan 400 `VALIDATION_ERROR` (strictness Zod).
+   - Uji cursor dengan opsi sort berbeda: pastikan ditolak 400 `INVALID_CURSOR`.
+
+

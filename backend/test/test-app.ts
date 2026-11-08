@@ -50,14 +50,13 @@ function matchField(actual: unknown, filter: unknown): boolean {
     !Array.isArray(filter)
   ) {
     const ops = filter as Record<string, unknown>;
-    if ('in' in ops) {
-      return (ops.in as unknown[]).includes(actual);
-    }
-    if ('lt' in ops) return compareValues(actual, ops.lt) < 0;
-    if ('lte' in ops) return compareValues(actual, ops.lte) <= 0;
-    if ('gt' in ops) return compareValues(actual, ops.gt) > 0;
-    if ('gte' in ops) return compareValues(actual, ops.gte) >= 0;
-    if ('equals' in ops) return actual === ops.equals;
+    let ok = true;
+    if ('in' in ops) ok = ok && (ops.in as unknown[]).includes(actual);
+    if ('lt' in ops) ok = ok && compareValues(actual, ops.lt) < 0;
+    if ('lte' in ops) ok = ok && compareValues(actual, ops.lte) <= 0;
+    if ('gt' in ops) ok = ok && compareValues(actual, ops.gt) > 0;
+    if ('gte' in ops) ok = ok && compareValues(actual, ops.gte) >= 0;
+    if ('equals' in ops) ok = ok && actual === ops.equals;
     if ('contains' in ops) {
       if (typeof actual !== 'string' || typeof ops.contains !== 'string') {
         return false;
@@ -65,9 +64,10 @@ function matchField(actual: unknown, filter: unknown): boolean {
       // contains Prisma literal: wildcard % dan _ dari input TIDAK
       // berperilaku sebagai wildcard (diuji di admin.e2e-spec).
       if (ops.mode === 'insensitive') {
-        return actual.toLowerCase().includes(ops.contains.toLowerCase());
+        ok = ok && actual.toLowerCase().includes(ops.contains.toLowerCase());
+      } else {
+        ok = ok && actual.includes(ops.contains);
       }
-      return actual.includes(ops.contains);
     }
     if ('not' in ops) {
       const nested = ops.not;
@@ -77,11 +77,12 @@ function matchField(actual: unknown, filter: unknown): boolean {
         !(nested instanceof Date) &&
         !Array.isArray(nested)
       ) {
-        return !matchField(actual, nested);
+        ok = ok && !matchField(actual, nested);
+      } else {
+        ok = ok && actual !== nested;
       }
-      return actual !== nested;
     }
-    return false;
+    return ok;
   }
   return actual === filter;
 }
@@ -89,23 +90,31 @@ function matchField(actual: unknown, filter: unknown): boolean {
 function matchWhere(
   row: Record<string, unknown>,
   where: Record<string, unknown>,
+  db?: FakeDb,
 ): boolean {
   return Object.entries(where).every(([key, value]) => {
     if (key === 'AND' && Array.isArray(value)) {
       return (value as Record<string, unknown>[]).every((w) =>
-        matchWhere(row, w),
+        matchWhere(row, w, db),
       );
     }
     if (key === 'OR' && Array.isArray(value)) {
       return (value as Record<string, unknown>[]).some((w) =>
-        matchWhere(row, w),
+        matchWhere(row, w, db),
       );
     }
     if (key === 'NOT') {
       const clauses = (
         Array.isArray(value) ? value : [value]
       ) as Record<string, unknown>[];
-      return !clauses.some((w) => matchWhere(row, w));
+      return !clauses.some((w) => matchWhere(row, w, db));
+    }
+    if (key === 'albumFiles' && typeof value === 'object' && value !== null && db) {
+      const hasAlbum = [...db.albumFiles.values()].some(
+        (af) => af.fileId === row.id,
+      );
+      if ('none' in (value as Record<string, unknown>)) return !hasAlbum;
+      if ('some' in (value as Record<string, unknown>)) return hasAlbum;
     }
     const rowVal =
       key === 'capturedAt' && row[key] === undefined
@@ -125,13 +134,13 @@ export function createFakePrisma(db: FakeDb) {
     return {
       findUnique: async ({ where }: { where: Record<string, unknown> }) => {
         for (const row of store.values()) {
-          if (matchWhere(row, where)) return { ...row };
+          if (matchWhere(row, where, db)) return { ...row };
         }
         return null;
       },
       findFirst: async ({ where }: { where: Record<string, unknown> }) => {
         for (const row of store.values()) {
-          if (matchWhere(row, where ?? {})) return { ...row };
+          if (matchWhere(row, where ?? {}, db)) return { ...row };
         }
         return null;
       },
@@ -143,7 +152,7 @@ export function createFakePrisma(db: FakeDb) {
         take?: number;
       }) => {
         let rows = [...store.values()].filter((row) =>
-          matchWhere(row, args?.where ?? {}),
+          matchWhere(row, args?.where ?? {}, db),
         );
         const rules = args?.orderBy
           ? Array.isArray(args.orderBy)

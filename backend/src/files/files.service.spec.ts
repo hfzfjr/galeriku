@@ -1,9 +1,11 @@
 import {
   decodeCursor,
   encodeCursor,
+  FilesService,
   toFileDetail,
   toFileItem,
 } from './files.service';
+import type { PrismaService } from '../prisma/prisma.service';
 import { parseRange } from './files.controller';
 
 describe('FilesService helpers', () => {
@@ -19,6 +21,24 @@ describe('FilesService helpers', () => {
       const createdAt = '2026-11-05T08:00:00.000Z';
       const encodedUploaded = encodeCursor(createdAt, id, 'uploaded');
       expect(decodeCursor(encodedUploaded)).toEqual({ createdAt, id });
+
+      // Cursor keyset universal RF-40: name & asc
+      const encodedName = encodeCursor('foto.jpg', id, 'name', 'asc');
+      expect(decodeCursor(encodedName)).toEqual({
+        sort: 'name',
+        order: 'asc',
+        val: 'foto.jpg',
+        id,
+      });
+
+      // Cursor keyset universal RF-40: size & desc
+      const encodedSize = encodeCursor(1048576n, id, 'size', 'desc');
+      expect(decodeCursor(encodedSize)).toEqual({
+        sort: 'size',
+        order: 'desc',
+        val: '1048576',
+        id,
+      });
 
       // Cursor format lama (hanya id) wajib ditolak dengan 400 INVALID_CURSOR
       const legacyCursor = Buffer.from(JSON.stringify({ id })).toString('base64url');
@@ -186,6 +206,75 @@ describe('FilesService helpers', () => {
       expect(parseRange('invalid', 1000)).toBeNull();
       expect(parseRange('bytes=1500-2000', 1000)).toBeNull();
       expect(parseRange('bytes=500-400', 1000)).toBeNull();
+    });
+  });
+
+  describe('FilesService.listFiles (RF-40)', () => {
+    let service: FilesService;
+    let findManyCalls: any[];
+
+    beforeEach(() => {
+      findManyCalls = [];
+      const mockPrisma: any = {
+        file: {
+          findMany: async (args: any) => {
+            findManyCalls.push(args);
+            return [];
+          },
+        },
+      };
+      service = new FilesService(mockPrisma as PrismaService);
+    });
+
+    it('menolak parameter tak dikenal dengan 400 VALIDATION_ERROR (strictness)', async () => {
+      await expect(
+        service.listFiles('u-1', { paramTakDikenal: 'nilai' }),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    });
+
+    it('menolak cursor jika mode sort tidak cocok dengan query', async () => {
+      const cursorTaken = encodeCursor(new Date(), 'f-1', 'taken', 'desc');
+      await expect(
+        service.listFiles('u-1', { sort: 'size', cursor: cursorTaken }),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'INVALID_CURSOR',
+      });
+    });
+
+    it('membangun query filter lengkap (kind, favorite, live, hasLocation, unalbumed, duplicates, from, to, place, q)', async () => {
+      await service.listFiles('u-1', {
+        kind: 'image',
+        favorite: 'true',
+        live: 'true',
+        hasLocation: 'true',
+        unalbumed: 'true',
+        duplicates: 'true',
+        from: '2026-01-01',
+        to: '2026-12-31',
+        place: 'Bandung',
+        q: 'liburan',
+        sort: 'size',
+        order: 'asc',
+        limit: 10,
+      });
+
+      expect(findManyCalls.length).toBe(1);
+      const args = findManyCalls[0];
+
+      expect(args.where.ownerId).toBe('u-1');
+      expect(args.where.kind).toBe('image');
+      expect(args.where.isFavorite).toBe(true);
+      expect(args.where.liveKind).toEqual({ not: 'none' });
+      expect(args.where.gpsLat).toEqual({ not: null });
+      expect(args.where.albumFiles).toEqual({ none: {} });
+      expect(args.where.duplicateOfId).toEqual({ not: null });
+      expect(args.where.capturedAt).toBeDefined();
+      expect(args.orderBy).toEqual([{ sizeBytes: 'asc' }, { id: 'asc' }]);
+      expect(args.take).toBe(11);
     });
   });
 });

@@ -15,29 +15,44 @@ import { ApiError } from '../common/errors/api-error';
 import { resolveMediaDir } from '../uploads/uploads.utils';
 
 export type KeysetCursor = {
+  sort: 'taken' | 'uploaded' | 'name' | 'size';
+  order: 'desc' | 'asc';
+  val: string;
+  id: string;
   capturedAt?: string;
   createdAt?: string;
-  id: string;
 };
 
-// Cursor keyset baru (captured_at / created_at, id) sandi base64url (RF-12, RF-23).
-// Kompatibel mundur: cursor format lama ditolak dengan 400 INVALID_CURSOR yang jelas.
+// Cursor keyset universal (RF-12, RF-23, RF-40) sandi base64url.
+// Kompatibel mundur: format lama { capturedAt, id } atau { createdAt, id } tetap diterima.
 export function encodeCursor(
-  date: Date | string,
+  val: Date | string | bigint | number,
   id: string,
-  sort: 'taken' | 'uploaded' = 'taken',
+  sort: 'taken' | 'uploaded' | 'name' | 'size' = 'taken',
+  order: 'desc' | 'asc' = 'desc',
 ): string {
-  const iso = date instanceof Date ? date.toISOString() : date;
-  const payload =
-    sort === 'uploaded' ? { createdAt: iso, id } : { capturedAt: iso, id };
+  const valStr =
+    val instanceof Date
+      ? val.toISOString()
+      : typeof val === 'bigint'
+        ? val.toString()
+        : String(val);
+
+  let payload: Record<string, unknown>;
+  if (sort === 'taken' && order === 'desc') {
+    payload = { capturedAt: valStr, id };
+  } else if (sort === 'uploaded' && order === 'desc') {
+    payload = { createdAt: valStr, id };
+  } else {
+    payload = { sort, order, val: valStr, id };
+  }
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
 
 export function decodeCursor(cursor: string): KeysetCursor {
   try {
-    const parsed = JSON.parse(
-      Buffer.from(cursor, 'base64url').toString('utf8'),
-    ) as { capturedAt?: unknown; createdAt?: unknown; id?: unknown };
+    const raw = Buffer.from(cursor, 'base64url').toString('utf8');
+    const parsed = JSON.parse(raw);
 
     if (
       typeof parsed === 'object' &&
@@ -45,21 +60,79 @@ export function decodeCursor(cursor: string): KeysetCursor {
       typeof parsed.id === 'string' &&
       parsed.id.length > 0
     ) {
+      // Format baru universal
+      if (parsed.sort && parsed.order && parsed.val !== undefined) {
+        const validSorts = ['taken', 'uploaded', 'name', 'size'];
+        const validOrders = ['desc', 'asc'];
+        if (
+          validSorts.includes(parsed.sort) &&
+          validOrders.includes(parsed.order)
+        ) {
+          return {
+            sort: parsed.sort,
+            order: parsed.order,
+            val: String(parsed.val),
+            id: parsed.id,
+          };
+        }
+      }
+
+      // Format warisan capturedAt
       if (
         typeof parsed.capturedAt === 'string' &&
         !isNaN(Date.parse(parsed.capturedAt))
       ) {
-        return { capturedAt: parsed.capturedAt, id: parsed.id };
+        const res: Record<string, unknown> = {
+          capturedAt: parsed.capturedAt,
+          id: parsed.id,
+        };
+        Object.defineProperty(res, 'sort', {
+          value: 'taken',
+          enumerable: false,
+          writable: true,
+        });
+        Object.defineProperty(res, 'order', {
+          value: 'desc',
+          enumerable: false,
+          writable: true,
+        });
+        Object.defineProperty(res, 'val', {
+          value: parsed.capturedAt,
+          enumerable: false,
+          writable: true,
+        });
+        return res as KeysetCursor;
       }
+
+      // Format warisan createdAt
       if (
         typeof parsed.createdAt === 'string' &&
         !isNaN(Date.parse(parsed.createdAt))
       ) {
-        return { createdAt: parsed.createdAt, id: parsed.id };
+        const res: Record<string, unknown> = {
+          createdAt: parsed.createdAt,
+          id: parsed.id,
+        };
+        Object.defineProperty(res, 'sort', {
+          value: 'uploaded',
+          enumerable: false,
+          writable: true,
+        });
+        Object.defineProperty(res, 'order', {
+          value: 'desc',
+          enumerable: false,
+          writable: true,
+        });
+        Object.defineProperty(res, 'val', {
+          value: parsed.createdAt,
+          enumerable: false,
+          writable: true,
+        });
+        return res as KeysetCursor;
       }
     }
   } catch {
-    // Abaikan
+    // Abaikan dan lempar ApiError di bawah
   }
 
   throw new ApiError(
@@ -188,77 +261,183 @@ export class FilesService {
     }
 
     const query: FilesQuery = parsed.data;
+    const sort = query.sort ?? 'taken';
+    const order = query.order ?? 'desc';
+
     const where: Record<string, unknown> = {
       ownerId: userId,
       status: FileStatus.ready,
       deletedAt: null,
     };
 
+    const andConditions: any[] = [];
+
+    // Filter jenis (kind)
     if (query.kind) {
       where.kind = query.kind;
     }
 
-    if (query.favorite) {
-      where.isFavorite = true;
+    // Filter favorit
+    if (query.favorite !== undefined) {
+      where.isFavorite = query.favorite;
     }
 
-    const isUploadedSort = query.sort === 'uploaded';
+    // Filter live foto (RF-40)
+    if (query.live !== undefined) {
+      where.liveKind = query.live ? { not: 'none' } : 'none';
+    }
 
+    // Filter lokasi (hasLocation: punya koordinat GPS)
+    if (query.hasLocation !== undefined) {
+      where.gpsLat = query.hasLocation ? { not: null } : null;
+    }
+
+    // Filter unalbumed (belum dimasukkan ke dalam album manapun)
+    if (query.unalbumed !== undefined) {
+      where.albumFiles = query.unalbumed ? { none: {} } : { some: {} };
+    }
+
+    // Filter duplikat (RF-40 & RF-45)
+    if (query.duplicates !== undefined) {
+      where.duplicateOfId = query.duplicates ? { not: null } : null;
+    }
+
+    // Filter rentang tanggal foto (from / to pada capturedAt)
+    if (query.from || query.to) {
+      const dateFilter: Record<string, Date> = {};
+      if (query.from) {
+        dateFilter.gte = new Date(query.from);
+      }
+      if (query.to) {
+        dateFilter.lte =
+          query.to.length === 10
+            ? new Date(`${query.to}T23:59:59.999Z`)
+            : new Date(query.to);
+      }
+      where.capturedAt = dateFilter;
+    }
+
+    // Filter tempat (kota / provinsi / negara)
+    if (query.place) {
+      andConditions.push({
+        OR: [
+          { placeCity: { contains: query.place, mode: 'insensitive' } },
+          { placeAdmin1: { contains: query.place, mode: 'insensitive' } },
+          { placeCountry: { contains: query.place, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    // Pencarian q (nama file dan tempat, tidak peka huruf besar-kecil)
+    if (query.q) {
+      andConditions.push({
+        OR: [
+          { originalName: { contains: query.q, mode: 'insensitive' } },
+          { placeCity: { contains: query.q, mode: 'insensitive' } },
+          { placeAdmin1: { contains: query.q, mode: 'insensitive' } },
+          { placeCountry: { contains: query.q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    // Paginasi Keyset Cursor (sort, order, val, id)
     if (query.cursor !== undefined) {
       const decoded = decodeCursor(query.cursor);
-      if (isUploadedSort) {
-        const cursorDate = new Date(decoded.createdAt ?? decoded.capturedAt!);
-        where.OR = [
-          { createdAt: { lt: cursorDate } },
+      if (decoded.sort !== sort || decoded.order !== order) {
+        throw new ApiError(
+          400,
+          'INVALID_CURSOR',
+          'Cursor tidak cocok dengan opsi sortir yang dipilih.',
           {
-            createdAt: cursorDate,
-            id: { lt: decoded.id },
+            fields: [
+              {
+                field: 'cursor',
+                message: 'Sort atau order pada cursor tidak cocok dengan query saat ini.',
+              },
+            ],
           },
-        ];
-      } else {
-        const cursorDate = new Date(decoded.capturedAt ?? decoded.createdAt!);
-        where.OR = [
-          { capturedAt: { lt: cursorDate } },
-          {
-            capturedAt: cursorDate,
-            id: { lt: decoded.id },
-          },
-        ];
+        );
       }
+
+      const opMain = order === 'desc' ? 'lt' : 'gt';
+      const opTie = order === 'desc' ? 'lt' : 'gt';
+
+      if (sort === 'taken') {
+        const cursorDate = new Date(decoded.val);
+        andConditions.push({
+          OR: [
+            { capturedAt: { [opMain]: cursorDate } },
+            { capturedAt: cursorDate, id: { [opTie]: decoded.id } },
+          ],
+        });
+      } else if (sort === 'uploaded') {
+        const cursorDate = new Date(decoded.val);
+        andConditions.push({
+          OR: [
+            { createdAt: { [opMain]: cursorDate } },
+            { createdAt: cursorDate, id: { [opTie]: decoded.id } },
+          ],
+        });
+      } else if (sort === 'name') {
+        andConditions.push({
+          OR: [
+            { originalName: { [opMain]: decoded.val } },
+            { originalName: decoded.val, id: { [opTie]: decoded.id } },
+          ],
+        });
+      } else if (sort === 'size') {
+        const cursorSize = BigInt(decoded.val);
+        andConditions.push({
+          OR: [
+            { sizeBytes: { [opMain]: cursorSize } },
+            { sizeBytes: cursorSize, id: { [opTie]: decoded.id } },
+          ],
+        });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    // OrderBy sesuai sort dan order
+    let orderBy: any[];
+    if (sort === 'taken') {
+      orderBy = [{ capturedAt: order }, { id: order }];
+    } else if (sort === 'uploaded') {
+      orderBy = [{ createdAt: order }, { id: order }];
+    } else if (sort === 'name') {
+      orderBy = [{ originalName: order }, { id: order }];
+    } else {
+      orderBy = [{ sizeBytes: order }, { id: order }];
     }
 
     const rows = await this.prisma.file.findMany({
       where,
-      orderBy: isUploadedSort
-        ? [{ createdAt: 'desc' }, { id: 'desc' }]
-        : [{ capturedAt: 'desc' }, { id: 'desc' }],
+      orderBy,
       take: query.limit + 1,
     });
 
-    return this.keRespons(rows as FileRow[], query.limit, isUploadedSort);
-  }
-
-  private keRespons(
-    rows: FileRow[],
-    limit: number,
-    isUploadedSort = false,
-  ): FilesResponse {
-    const halaman = rows.slice(0, limit);
-    const lanjut =
-      rows.length > limit && halaman.length > 0
-        ? encodeCursor(
-            isUploadedSort
-              ? halaman[halaman.length - 1].createdAt
-              : (halaman[halaman.length - 1].capturedAt ??
-                halaman[halaman.length - 1].createdAt),
-            halaman[halaman.length - 1].id,
-            isUploadedSort ? 'uploaded' : 'taken',
-          )
-        : null;
+    const halaman = rows.slice(0, query.limit);
+    let nextCursor: string | null = null;
+    if (rows.length > query.limit && halaman.length > 0) {
+      const last = halaman[halaman.length - 1];
+      let val: Date | string | bigint;
+      if (sort === 'taken') {
+        val = last.capturedAt ?? last.createdAt;
+      } else if (sort === 'uploaded') {
+        val = last.createdAt;
+      } else if (sort === 'name') {
+        val = last.originalName;
+      } else {
+        val = last.sizeBytes;
+      }
+      nextCursor = encodeCursor(val, last.id, sort, order);
+    }
 
     return {
       items: halaman.map(toFileItem),
-      nextCursor: lanjut,
+      nextCursor,
     };
   }
 

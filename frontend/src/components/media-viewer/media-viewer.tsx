@@ -168,7 +168,6 @@ export function MediaViewer({
 
   // Auto-play sekali saat Live Photo dibuka (kecuali prefers-reduced-motion atau saveData)
   useEffect(() => {
-    setIsLivePlaying(false);
     isHoldingRef.current = false;
     if (holdTimerRef.current) {
       window.clearTimeout(holdTimerRef.current);
@@ -176,7 +175,6 @@ export function MediaViewer({
     }
 
     if (!isLive) {
-      setIsLiveActive(false);
       return;
     }
 
@@ -189,8 +187,11 @@ export function MediaViewer({
       (navigator as any).connection?.saveData === true;
 
     if (!prefersReducedMotion && !isSaveData) {
-      setIsLiveActive(true);
-      setIsLivePlaying(true);
+      const timer = window.setTimeout(() => {
+        setIsLiveActive(true);
+        setIsLivePlaying(true);
+      }, 50);
+      return () => window.clearTimeout(timer);
     }
   }, [currentIndex, isLive]);
 

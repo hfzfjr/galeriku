@@ -252,6 +252,199 @@ describe('FilesController (e2e) — US-20', () => {
       expect(res.status).toBe(200);
       expect(res.body.items).toHaveLength(0);
     });
+
+    it('menolak parameter query tak dikenal dengan 400 VALIDATION_ERROR (strictness RF-40)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const res = await http()
+        .get('/files?halaman=1')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('mendukung sortir dan order: name, size, taken, uploaded (RF-40)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('f-apple', {
+        id: 'f-apple',
+        ownerId: user.id,
+        originalName: 'apple.jpg',
+        storageKey: 'k-apple',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000n,
+        kind: FileKind.image,
+        width: 800,
+        height: 600,
+        status: FileStatus.ready,
+        capturedAt: new Date('2026-01-01T10:00:00Z'),
+        createdAt: new Date('2026-01-01T10:00:00Z'),
+        deletedAt: null,
+      });
+
+      db.files.set('f-banana', {
+        id: 'f-banana',
+        ownerId: user.id,
+        originalName: 'banana.jpg',
+        storageKey: 'k-banana',
+        mimeType: 'image/jpeg',
+        sizeBytes: 5000n,
+        kind: FileKind.image,
+        width: 800,
+        height: 600,
+        status: FileStatus.ready,
+        capturedAt: new Date('2026-02-01T10:00:00Z'),
+        createdAt: new Date('2026-02-01T10:00:00Z'),
+        deletedAt: null,
+      });
+
+      // Sort name asc
+      const resNameAsc = await http()
+        .get('/files?sort=name&order=asc')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resNameAsc.status).toBe(200);
+      expect(resNameAsc.body.items[0].id).toBe('f-apple');
+      expect(resNameAsc.body.items[1].id).toBe('f-banana');
+
+      // Sort size desc
+      const resSizeDesc = await http()
+        .get('/files?sort=size&order=desc')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resSizeDesc.status).toBe(200);
+      expect(resSizeDesc.body.items[0].id).toBe('f-banana');
+      expect(resSizeDesc.body.items[1].id).toBe('f-apple');
+    });
+
+    it('stabilitas keyset pagination dengan nilai kembar (twin values RF-40)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      // Buat 5 file dengan size yang persis sama (2000 byte)
+      for (let i = 1; i <= 5; i++) {
+        const id = `f-kembar-${i}`;
+        db.files.set(id, {
+          id,
+          ownerId: user.id,
+          originalName: `kembar-${i}.jpg`,
+          storageKey: `k-kembar-${i}`,
+          mimeType: 'image/jpeg',
+          sizeBytes: 2000n,
+          kind: FileKind.image,
+          width: 800,
+          height: 600,
+          status: FileStatus.ready,
+          capturedAt: new Date('2026-01-01T00:00:00Z'),
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+          deletedAt: null,
+        });
+      }
+
+      // Ambil halaman 1 limit 2
+      const resP1 = await http()
+        .get('/files?sort=size&order=desc&limit=2')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resP1.status).toBe(200);
+      expect(resP1.body.items).toHaveLength(2);
+      expect(resP1.body.nextCursor).toBeTruthy();
+
+      // Ambil halaman 2 limit 2
+      const resP2 = await http()
+        .get(`/files?sort=size&order=desc&limit=2&cursor=${resP1.body.nextCursor}`)
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resP2.status).toBe(200);
+      expect(resP2.body.items).toHaveLength(2);
+
+      // Pastikan tidak ada ID yang berulang antara P1 dan P2
+      const idsP1 = resP1.body.items.map((it: any) => it.id);
+      const idsP2 = resP2.body.items.map((it: any) => it.id);
+      expect(idsP1.some((id: string) => idsP2.includes(id))).toBe(false);
+    });
+
+    it('mendukung filter lengkap: kind, live, hasLocation, favorite, place, q, from, to (RF-40)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('f-target', {
+        id: 'f-target',
+        ownerId: user.id,
+        originalName: 'liburan_bali.jpg',
+        storageKey: 'k-target',
+        mimeType: 'image/jpeg',
+        sizeBytes: 3000n,
+        kind: FileKind.image,
+        width: 800,
+        height: 600,
+        status: FileStatus.ready,
+        isFavorite: true,
+        liveKind: 'motion',
+        gpsLat: -8.4095,
+        gpsLng: 115.1889,
+        placeCity: 'Denpasar',
+        placeAdmin1: 'Bali',
+        placeCountry: 'Indonesia',
+        capturedAt: new Date('2026-06-15T12:00:00Z'),
+        createdAt: new Date('2026-06-15T12:00:00Z'),
+        deletedAt: null,
+      });
+
+      db.files.set('f-other', {
+        id: 'f-other',
+        ownerId: user.id,
+        originalName: 'kantor_jakarta.jpg',
+        storageKey: 'k-other',
+        mimeType: 'image/jpeg',
+        sizeBytes: 3000n,
+        kind: FileKind.image,
+        width: 800,
+        height: 600,
+        status: FileStatus.ready,
+        isFavorite: false,
+        liveKind: 'none',
+        gpsLat: null,
+        gpsLng: null,
+        placeCity: 'Jakarta Pusat',
+        placeAdmin1: 'DKI Jakarta',
+        placeCountry: 'Indonesia',
+        capturedAt: new Date('2026-01-10T12:00:00Z'),
+        createdAt: new Date('2026-01-10T12:00:00Z'),
+        deletedAt: null,
+      });
+
+      // Filter q=bali
+      const resQ = await http()
+        .get('/files?q=bali')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resQ.status).toBe(200);
+      expect(resQ.body.items).toHaveLength(1);
+      expect(resQ.body.items[0].id).toBe('f-target');
+
+      // Filter live=true
+      const resLive = await http()
+        .get('/files?live=true')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resLive.status).toBe(200);
+      expect(resLive.body.items).toHaveLength(1);
+      expect(resLive.body.items[0].id).toBe('f-target');
+
+      // Filter hasLocation=true
+      const resLoc = await http()
+        .get('/files?hasLocation=true')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resLoc.status).toBe(200);
+      expect(resLoc.body.items).toHaveLength(1);
+      expect(resLoc.body.items[0].id).toBe('f-target');
+
+      // Filter rentang tanggal from & to
+      const resRange = await http()
+        .get('/files?from=2026-06-01&to=2026-06-30')
+        .set('Cookie', `galeriku_session=${token}`);
+      expect(resRange.status).toBe(200);
+      expect(resRange.body.items).toHaveLength(1);
+      expect(resRange.body.items[0].id).toBe('f-target');
+    });
   });
 
   describe('GET /files/:id/thumb', () => {

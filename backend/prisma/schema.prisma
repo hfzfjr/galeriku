@@ -180,6 +180,8 @@ model File {
   @@index([ownerId, liveGroupId])
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([ownerId, isFavorite])
+  @@index([ownerId, originalName, id])
+  @@index([ownerId, sizeBytes, id])
   @@map("files")
 }
 
