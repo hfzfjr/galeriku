@@ -97,3 +97,13 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
 4. **Verifikasi Privasi pada Link Publik:**
    - Buka foto yang sama melalui tautan publik (`/s/:token`).
    - Buka panel Info: pastikan koordinat mentah GPS (`gpsLat`/`gpsLng`) tidak pernah ditampilkan atau dikirim dalam data response JSON.
+
+---
+
+## RF-15: Backfill File Lama (Idempoten, Preview, & EXIF)
+1. **Verifikasi Job Backfill (CLI / Env):**
+   - Jalankan backend dengan environment variable `BACKFILL_ENABLED=true`.
+   - Periksa log konsol server saat inisialisasi: pastikan log mencatat `[BackfillService] Backfill: ditemukan X item untuk diproses.` dan mencatat setiap item yang diperbarui.
+2. **Verifikasi Idempotensi & Ketahanan File Hilang:**
+   - Pastikan file yang sudah diperbarui ditandai dengan `metaVersion = 1` dan tidak diproses ulang saat job dijalankan kembali.
+   - Bila terdapat file di database yang fisiknya terhapus dari disk: pastikan server mencatat peringatan `File fisik tidak ditemukan` dan melanjutkan proses ke file berikutnya tanpa crash.
