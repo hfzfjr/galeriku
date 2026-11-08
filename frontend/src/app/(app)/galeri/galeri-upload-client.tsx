@@ -339,6 +339,43 @@ export function GaleriUploadClient() {
     prosesAntre();
   }
 
+  function tutupInfoUpload() {
+    setDaftar((sebelum) => {
+      for (const item of sebelum) {
+        if (item.pratinjau) URL.revokeObjectURL(item.pratinjau);
+        const unggah = unggahRef.current.get(item.id);
+        unggah?.abort();
+      }
+      unggahRef.current.clear();
+      berkasRef.current.clear();
+      antreRef.current = [];
+      aktifRef.current = 0;
+      return [];
+    });
+  }
+
+  // Auto-dismiss jika semua file berhasil diunggah (tunggu 2.5 detik untuk feedback)
+  useEffect(() => {
+    if (daftar.length === 0) return;
+    const semuaSelesai = daftar.every((item) => item.status === "selesai");
+    if (!semuaSelesai) return;
+
+    const timer = setTimeout(() => {
+      setDaftar((sebelum) => {
+        if (sebelum.length > 0 && sebelum.every((i) => i.status === "selesai")) {
+          for (const item of sebelum) {
+            if (item.pratinjau) URL.revokeObjectURL(item.pratinjau);
+          }
+          berkasRef.current.clear();
+          return [];
+        }
+        return sebelum;
+      });
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [daftar]);
+
   // Lanjut otomatis saat koneksi kembali; tandai saat koneksi putus.
   useEffect(() => {
     const simpanUnggah = unggahRef.current;
@@ -429,21 +466,33 @@ export function GaleriUploadClient() {
           aria-label="Progres upload"
           className="fixed inset-x-4 bottom-[calc(56px+env(safe-area-inset-bottom)+16px)] z-20 rounded-lg border border-line bg-surface shadow-float lg:static lg:inset-auto lg:bottom-auto lg:z-auto"
         >
-          <button
-            type="button"
-            aria-expanded={terbuka}
-            onClick={() => setTerbuka((v) => !v)}
-            className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-3 text-left"
-          >
-            <span className="text-label text-ink" aria-live="polite">
-              Mengunggah {selesai} dari {daftar.length} file · {persen}%
-            </span>
-            {terbuka ? (
-              <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" />
-            ) : (
-              <ChevronUp size={20} strokeWidth={1.5} aria-hidden="true" />
-            )}
-          </button>
+          <div className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2">
+            <button
+              type="button"
+              aria-expanded={terbuka}
+              onClick={() => setTerbuka((v) => !v)}
+              className="flex min-h-11 flex-1 items-center justify-between gap-2 text-left"
+            >
+              <span className="text-label text-ink" aria-live="polite">
+                {selesai === daftar.length
+                  ? `${daftar.length} file selesai diunggah`
+                  : `Mengunggah ${selesai} dari ${daftar.length} file · ${persen}%`}
+              </span>
+              {terbuka ? (
+                <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <ChevronUp size={20} strokeWidth={1.5} aria-hidden="true" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label="Tutup info upload"
+              onClick={tutupInfoUpload}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink hover:text-ink-muted active:opacity-70"
+            >
+              <X size={20} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          </div>
           <div
             role="progressbar"
             aria-valuemin={0}
@@ -545,16 +594,24 @@ export function GaleriUploadClient() {
                           )}
                         </button>
                       ) : null}
-                      {item.status !== "selesai" ? (
-                        <button
-                          type="button"
-                          aria-label={`Batalkan upload ${item.nama}`}
-                          onClick={() => batalkan(item.id, sedangJalan)}
-                          className="flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink"
-                        >
-                          <X size={20} strokeWidth={1.5} aria-hidden="true" />
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        aria-label={
+                          item.status === "selesai"
+                            ? `Hapus ${item.nama} dari daftar`
+                            : `Batalkan upload ${item.nama}`
+                        }
+                        onClick={() => {
+                          if (item.status === "selesai") {
+                            hapusItem(item.id);
+                          } else {
+                            batalkan(item.id, sedangJalan);
+                          }
+                        }}
+                        className="flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink hover:text-ink-muted active:opacity-70"
+                      >
+                        <X size={20} strokeWidth={1.5} aria-hidden="true" />
+                      </button>
                     </div>
                     <div
                       role="progressbar"
