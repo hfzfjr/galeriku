@@ -57,3 +57,23 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
 3. **Verifikasi Ubah Tanggal Manual:**
    - Lakukan patch tanggal (`PATCH /files/:id/captured-at`) dengan payload tanggal baru.
    - Periksa galeri: pastikan foto berpindah grup ke tanggal yang baru diperbarui dan sumber tanggal ditandai sebagai `manual`.
+
+---
+
+## RF-13: MediaViewer Terpadu (Pinch-Zoom, Swipe, & Navigasi)
+1. **Verifikasi Gestur Sentuh HP (Mobile 360x800):**
+   - Buka viewer foto di HP atau responsive mode browser (F12, set viewport 360x800).
+   - **Pinch-to-zoom:** lakukan cubit dua jari untuk memperbesar foto (skala 1x s/d 4x). Saat posisi diperbesar, geser satu/dua jari untuk pan gambar.
+   - **Double-tap:** ketuk ganda pada area tertentu foto: pastikan foto langsung memperbesar (zoom in 2.5x) ke arah titik yang diketuk, ketuk ganda lagi untuk kembali ke ukuran normal.
+   - **Swipe horizontal:** saat foto ukuran normal (1x), geser jari ke kiri/kanan: pastikan transisi slide berjalan mulus berpindah antar-foto.
+   - **Drag-down to close:** geser foto ke arah bawah (> 90px): pastikan viewer mengecil/transparan dan tertutup otomatis.
+2. **Verifikasi Otomatis Hilang Kontrol (3 Detik):**
+   - Buka foto: pastikan bilah atas dan bawah hilang otomatis setelah 3 detik tanpa sentuhan/gerakan mouse.
+   - Ketuk sekali pada layar: kontrol harus muncul kembali.
+3. **Verifikasi Mode Pemilik vs Publik:**
+   - Di Galeri pemilik: pastikan tersedia tombol Bintang (Favorit), Bagikan (membuka ShareModal), Unduh, dan Sampah (konfirmasi dialog hapus).
+   - Di Tautan publik (`/s/:token`): pastikan tidak ada tombol Bintang atau Hapus, dan tombol Unduh hanya tampil bila link mengizinkan unduhan.
+4. **Verifikasi Navigasi Keyboard & Aksesibilitas:**
+   - Gunakan tombol `ArrowLeft` / `ArrowRight` di keyboard desktop untuk berpindah foto.
+   - Tekan tombol `Esc` untuk menutup viewer.
+   - Tekan `Tab`: pastikan fokus tetap berputar di dalam elemen kontrol viewer (focus trap).

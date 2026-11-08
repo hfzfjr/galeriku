@@ -85,7 +85,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 - [x] RF-10 Skema dan ekstraksi metadata saat upload
 - [x] RF-11 Preview 2048 px dan pipeline HEIC
 - [x] RF-12 Urutan dan pengelompokan berdasarkan captured_at
-- [ ] RF-13 MediaViewer terpadu
+- [x] RF-13 MediaViewer terpadu
 - [ ] RF-14 Panel Info
 - [ ] RF-15 Backfill file lama
 - [ ] RF-16 Nama tempat offline
