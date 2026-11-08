@@ -274,6 +274,7 @@ export const filesQuerySchema = z.object({
   favorite: z
     .preprocess((val) => val === 'true' || val === true, z.boolean())
     .optional(),
+  sort: z.enum(['taken', 'uploaded']).optional(),
 });
 
 export type FilesQuery = z.output<typeof filesQuerySchema>;

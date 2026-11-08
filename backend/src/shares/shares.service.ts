@@ -535,7 +535,7 @@ export class SharesService {
                 status: FileStatus.ready,
               },
             },
-            select: { id: true },
+            select: { fileId: true },
           },
         },
       });
@@ -912,6 +912,7 @@ export class SharesService {
       mimeType: string;
       kind: FileKind;
       hasGps: boolean;
+      capturedAt?: Date;
     }>;
   }> {
     const share = await this.resolvePublicShare(token);
@@ -966,6 +967,7 @@ export class SharesService {
       mimeType: string;
       kind: FileKind;
       hasGps: boolean;
+      capturedAt?: Date;
     }> = [];
 
     for (const af of album.albumFiles) {
@@ -979,6 +981,7 @@ export class SharesService {
             mimeType: f.mimeType,
             kind: f.kind,
             hasGps: f.gpsLat !== null || f.gpsLng !== null,
+            capturedAt: f.capturedAt ?? f.takenAt ?? f.createdAt,
           });
         }
       }

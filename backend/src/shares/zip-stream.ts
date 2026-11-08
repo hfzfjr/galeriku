@@ -4,6 +4,7 @@ import { crc32 } from 'node:zlib';
 export interface ZipEntry {
   filename: string;
   getStream: () => NodeJS.ReadableStream;
+  mtime?: Date;
 }
 
 interface CentralDirectoryEntry {
@@ -18,17 +19,43 @@ interface CentralDirectoryEntry {
 const LIMIT_32BIT = 0xffffffffn;
 const LIMIT_16BIT = 0xffff;
 
-function getDosDateTime(date: Date = new Date()) {
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const seconds = Math.floor(date.getSeconds() / 2);
+export function getDosDateTime(date: Date = new Date()) {
+  const d =
+    isNaN(date.getTime()) || date.getFullYear() < 1980
+      ? new Date(1980, 0, 1)
+      : date;
+  const year = Math.min(2107, d.getFullYear());
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const hours = d.getHours();
+  const minutes = d.getMinutes();
+  const seconds = Math.floor(d.getSeconds() / 2);
 
   const dosDate = ((year - 1980) << 9) | (month << 5) | day;
   const dosTime = (hours << 11) | (minutes << 5) | seconds;
   return { dosDate, dosTime };
+}
+
+/**
+ * Format nama entri ZIP ramah HP (RF-23):
+ * {safeTitle} - {paddedIndex}{ext}
+ * Contoh: "Liburan Bali - 001.jpg"
+ */
+export function formatZipEntryName(
+  albumTitle: string,
+  index: number,
+  total: number,
+  originalFilename: string,
+): string {
+  const safeTitle =
+    albumTitle.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'Album';
+  const padding = Math.max(3, String(total).length);
+  const paddedIndex = String(index).padStart(padding, '0');
+
+  const dotIdx = originalFilename.lastIndexOf('.');
+  const ext = dotIdx >= 0 ? originalFilename.slice(dotIdx) : '';
+
+  return `${safeTitle} - ${paddedIndex}${ext}`;
 }
 
 /**
@@ -42,7 +69,6 @@ export function createZipStream(entries: ZipEntry[]): NodeJS.ReadableStream {
     (async function* () {
       const cdEntries: CentralDirectoryEntry[] = [];
       let currentOffset = 0n;
-      const { dosDate, dosTime } = getDosDateTime();
 
       // Gunakan penomoran jika ada nama file yang sama
       const usedFilenames = new Map<string, number>();
@@ -61,6 +87,8 @@ export function createZipStream(entries: ZipEntry[]): NodeJS.ReadableStream {
             finalName = `${finalName} (${count})`;
           }
         }
+
+        const { dosDate, dosTime } = getDosDateTime(entry.mtime ?? new Date());
 
         const filenameBuf = Buffer.from(finalName, 'utf-8');
         const offset = currentOffset;

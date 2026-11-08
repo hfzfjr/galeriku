@@ -169,3 +169,28 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Periksa opsi Masa Berlaku: pastikan default untuk file tunggal tetap **30 Hari**.
 3. **Verifikasi Pilihan Eksplisit:**
    - Coba ubah masa berlaku album ke 1 Hari atau 7 Hari: pastikan opsi tetap dihormati dan tanggal kedaluwarsa terhitung tepat.
+
+---
+
+### RF-23: Unduhan Ramah HP dan "Baru Ditambahkan"
+
+1. **Format Nama dan Timestamp Berkas ZIP Album:**
+   - Masuk ke salah satu album yang memiliki beberapa foto/video, atau buka link publik album yang memiliki izin unduh aktif.
+   - Klik tombol **Unduh Album (ZIP)**.
+   - Buka file ZIP yang berhasil diunduh.
+   - Pastikan nama-nama berkas di dalam ZIP berurutan dengan format `{Judul Album} - 001.ext`, `{Judul Album} - 002.ext`, dst. (padding minimal 3 digit, menyesuaikan jumlah file).
+   - Periksa tanggal modifikasi (mtime) berkas di dalam ZIP: pastikan mencerminkan tanggal pengambilan foto (`captured_at`), bukan timestamp saat ZIP di-generate.
+
+2. **Aksi "Simpan ke Galeri" di HP vs "Unduh Biasa" di Desktop:**
+   - Buka foto di `MediaViewer` menggunakan smartphone (Android Chrome / iPhone Safari):
+     - Pastikan tombol unduh memicu aksi Web Share API bawaan sistem HP untuk menyimpan foto langsung ke Galeri perangkat.
+   - Buka foto di `MediaViewer` menggunakan browser desktop:
+     - Pastikan tombol mengunduh berkas secara langsung ke folder Downloads komputer.
+   - Pengujian berkas > 50 MB:
+     - Pastikan muncul dialog konfirmasi memori sebelum berkas dimuat, dengan opsi "Tetap Simpan ke Galeri" dan "Unduh Biasa".
+
+3. **Urutan Galeri "Baru Ditambahkan" (`sort=uploaded`):**
+   - Di halaman Galeri (`/galeri`), perhatikan kontrol pemilih urutan di samping tombol "Pilih".
+   - Ubah pilihan dari **Tanggal foto** menjadi **Baru ditambahkan**.
+   - Pastikan grid seketika memuat ulang dan mengurutkan item berdasarkan waktu unggah (`createdAt` terbaru lebih dulu).
+   - Pastikan header grup tanggal menampilkan tanggal foto diunggah ke server.

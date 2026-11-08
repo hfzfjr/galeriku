@@ -1,5 +1,9 @@
 import { Readable } from 'node:stream';
-import { createZipStream } from './zip-stream';
+import {
+  createZipStream,
+  formatZipEntryName,
+  getDosDateTime,
+} from './zip-stream';
 
 describe('createZipStream (RF-02 / B9)', () => {
   it('menghasilkan stream ZIP store standar yang valid untuk file kecil', async () => {
@@ -133,4 +137,83 @@ describe('createZipStream (RF-02 / B9)', () => {
     const eocdCdOffset = tail.readUInt32LE(eocdIndex + 16);
     expect(eocdCdSize === 0xffffffff || eocdCdOffset === 0xffffffff).toBe(true);
   }, 30000); // 30 detik timeout untuk aliran sintetis 4.1 GB
+
+  describe('formatZipEntryName (RF-23)', () => {
+    it('memformat nama entri dengan nomor urut berpadding minimal 3 digit', () => {
+      expect(formatZipEntryName('Liburan', 1, 5, 'foto.png')).toBe(
+        'Liburan - 001.png',
+      );
+      expect(formatZipEntryName('Liburan', 12, 50, 'gambar.jpg')).toBe(
+        'Liburan - 012.jpg',
+      );
+      expect(formatZipEntryName('Liburan', 99, 100, 'foto.webp')).toBe(
+        'Liburan - 099.webp',
+      );
+    });
+
+    it('menyesuaikan padding jika jumlah file melebihi 999', () => {
+      expect(formatZipEntryName('Arsip', 7, 1500, 'doc.png')).toBe(
+        'Arsip - 0007.png',
+      );
+      expect(formatZipEntryName('Arsip', 1234, 1500, 'doc.png')).toBe(
+        'Arsip - 1234.png',
+      );
+    });
+
+    it('membersihkan karakter terlarang pada judul album dan fallback ke "Album"', () => {
+      expect(
+        formatZipEntryName('Liburan/Pantai:2026?*', 2, 10, 'pantai.jpeg'),
+      ).toBe('Liburan_Pantai_2026__ - 002.jpeg');
+      expect(formatZipEntryName('   ', 1, 1, 'view.png')).toBe(
+        'Album - 001.png',
+      );
+    });
+  });
+
+  describe('mtime per entri ZIP (RF-23)', () => {
+    it('mencatat dosTime dan dosDate spesifik per entri di local header dan CD', async () => {
+      const dateA = new Date('2023-08-17T09:15:30Z');
+      const dateB = new Date('2025-12-25T18:45:00Z');
+      const expectedA = getDosDateTime(dateA);
+      const expectedB = getDosDateTime(dateB);
+
+      const stream = createZipStream([
+        {
+          filename: 'a.txt',
+          mtime: dateA,
+          getStream: () => Readable.from([Buffer.from('A')]),
+        },
+        {
+          filename: 'b.txt',
+          mtime: dateB,
+          getStream: () => Readable.from([Buffer.from('B')]),
+        },
+      ]);
+
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      const zipBuffer = Buffer.concat(chunks);
+
+      // Local Header 1 ada di offset 0
+      expect(zipBuffer.readUInt16LE(10)).toBe(expectedA.dosTime);
+      expect(zipBuffer.readUInt16LE(12)).toBe(expectedA.dosDate);
+
+      // Cari Central Directory entry pertama (0x02014b50)
+      const cd1 = zipBuffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+      expect(cd1).toBeGreaterThan(0);
+      expect(zipBuffer.readUInt16LE(cd1 + 12)).toBe(expectedA.dosTime);
+      expect(zipBuffer.readUInt16LE(cd1 + 14)).toBe(expectedA.dosDate);
+
+      // Cari Central Directory entry kedua
+      const cd2 = zipBuffer.indexOf(
+        Buffer.from([0x50, 0x4b, 0x01, 0x02]),
+        cd1 + 4,
+      );
+      expect(cd2).toBeGreaterThan(cd1);
+      expect(zipBuffer.readUInt16LE(cd2 + 12)).toBe(expectedB.dosTime);
+      expect(zipBuffer.readUInt16LE(cd2 + 14)).toBe(expectedB.dosDate);
+    });
+  });
 });

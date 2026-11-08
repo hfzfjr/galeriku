@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -52,6 +53,23 @@ export interface MediaViewerProps {
   onOpenInfo?: (file: FileItem) => void;
   isInfoOpen?: boolean;
   extraFooter?: ReactNode;
+}
+
+const emptySubscribe = () => () => {};
+
+function checkCanShareFiles(): boolean {
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.canShare === "function"
+  ) {
+    try {
+      const testFile = new File([""], "test.jpg", { type: "image/jpeg" });
+      return navigator.canShare({ files: [testFile] });
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export function MediaViewer({
@@ -119,6 +137,15 @@ export function MediaViewer({
     currentFile && adapter.mode === "owner"
       ? (favOverrides[currentFile.id] ?? Boolean(currentFile.isFavorite))
       : false;
+
+  // Deteksi kemampuan navigator.canShare dengan berkas (RF-23: Simpan ke Galeri)
+  const canShareFiles = useSyncExternalStore(
+    emptySubscribe,
+    checkCanShareFiles,
+    () => false,
+  );
+  const [showLargeFileWarning, setShowLargeFileWarning] = useState(false);
+  const [isSavingToGallery, setIsSavingToGallery] = useState(false);
 
   // Preload adjacent items
   useEffect(() => {
@@ -293,6 +320,60 @@ export function MediaViewer({
       } catch {
         // clipboard denied
       }
+    }
+  };
+
+  const triggerDirectDownload = () => {
+    if (!currentFile) return;
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = currentFile.originalName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // Simpan ke Galeri via navigator.share({ files }) (RF-23)
+  const handleSaveToGallery = async (bypassWarning = false) => {
+    if (!currentFile || !allowDownload) return;
+    const size = BigInt(currentFile.sizeBytes || "0");
+    const FIFTY_MB = BigInt(50 * 1024 * 1024);
+
+    if (!bypassWarning && size > FIFTY_MB) {
+      setShowLargeFileWarning(true);
+      return;
+    }
+
+    setShowLargeFileWarning(false);
+    setIsSavingToGallery(true);
+    try {
+      const res = await fetch(downloadUrl, {
+        credentials: adapter.mode === "owner" ? "include" : "same-origin",
+      });
+      if (!res.ok) throw new Error("Gagal mengunduh berkas");
+      const blob = await res.blob();
+      const file = new File([blob], currentFile.originalName, {
+        type: currentFile.mimeType || "application/octet-stream",
+      });
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          files: [file],
+          title: currentFile.originalName,
+        });
+      } else {
+        triggerDirectDownload();
+      }
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== "AbortError") {
+        console.error("Gagal simpan ke galeri:", err);
+        triggerDirectDownload();
+      }
+    } finally {
+      setIsSavingToGallery(false);
     }
   };
 
@@ -599,18 +680,34 @@ export function MediaViewer({
             <Share2 size={20} strokeWidth={1.5} />
           </button>
 
-          {/* Tombol Unduh */}
-          {allowDownload && (
-            <a
-              href={downloadUrl}
-              download={currentFile.originalName}
-              aria-label={`Unduh ${currentFile.originalName}`}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
-              title="Unduh"
-            >
-              <Download size={20} strokeWidth={1.5} />
-            </a>
-          )}
+          {/* Tombol Unduh / Simpan ke Galeri (RF-23) */}
+          {allowDownload &&
+            (canShareFiles ? (
+              <button
+                type="button"
+                onClick={() => handleSaveToGallery(false)}
+                disabled={isSavingToGallery}
+                aria-label={`Simpan ke Galeri ${currentFile.originalName}`}
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10 disabled:opacity-50"
+                title="Simpan ke Galeri"
+              >
+                {isSavingToGallery ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Download size={20} strokeWidth={1.5} />
+                )}
+              </button>
+            ) : (
+              <a
+                href={downloadUrl}
+                download={currentFile.originalName}
+                aria-label={`Unduh ${currentFile.originalName}`}
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
+                title="Unduh"
+              >
+                <Download size={20} strokeWidth={1.5} />
+              </a>
+            ))}
 
           {/* Owner: Tombol Hapus */}
           {adapter.mode === "owner" && (
@@ -761,6 +858,52 @@ export function MediaViewer({
                 onClick={handleDelete}
               >
                 {isDeleting ? "Memindahkan..." : "Pindahkan"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog Peringatan Berkas Besar > 50 MB (RF-23) */}
+      {showLargeFileWarning && (
+        <div
+          role="alertdialog"
+          aria-labelledby="large-file-dialog-title"
+          aria-describedby="large-file-dialog-desc"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
+            <h3 id="large-file-dialog-title" className="text-h3 font-serif">
+              Berkas Berukuran Besar
+            </h3>
+            <p id="large-file-dialog-desc" className="text-body text-ink-muted">
+              Ukuran berkas melebihi 50 MB. Memuat ke memori HP dapat memperlambat perangkat. Tetap simpan atau unduh langsung?
+            </p>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => handleSaveToGallery(true)}
+              >
+                Tetap Simpan ke Galeri
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setShowLargeFileWarning(false);
+                  triggerDirectDownload();
+                }}
+              >
+                Unduh Biasa
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowLargeFileWarning(false)}
+              >
+                Batal
               </Button>
             </div>
           </div>

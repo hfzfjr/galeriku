@@ -15,32 +15,48 @@ import { ApiError } from '../common/errors/api-error';
 import { resolveMediaDir } from '../uploads/uploads.utils';
 
 export type KeysetCursor = {
-  capturedAt: string;
+  capturedAt?: string;
+  createdAt?: string;
   id: string;
 };
 
-// Cursor keyset baru (captured_at, id) sandi base64url (RF-12).
+// Cursor keyset baru (captured_at / created_at, id) sandi base64url (RF-12, RF-23).
 // Kompatibel mundur: cursor format lama ditolak dengan 400 INVALID_CURSOR yang jelas.
-export function encodeCursor(capturedAt: Date | string, id: string): string {
-  const iso = capturedAt instanceof Date ? capturedAt.toISOString() : capturedAt;
-  return Buffer.from(JSON.stringify({ capturedAt: iso, id }), 'utf8').toString('base64url');
+export function encodeCursor(
+  date: Date | string,
+  id: string,
+  sort: 'taken' | 'uploaded' = 'taken',
+): string {
+  const iso = date instanceof Date ? date.toISOString() : date;
+  const payload =
+    sort === 'uploaded' ? { createdAt: iso, id } : { capturedAt: iso, id };
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
 
 export function decodeCursor(cursor: string): KeysetCursor {
   try {
     const parsed = JSON.parse(
       Buffer.from(cursor, 'base64url').toString('utf8'),
-    ) as { capturedAt?: unknown; id?: unknown };
+    ) as { capturedAt?: unknown; createdAt?: unknown; id?: unknown };
 
     if (
       typeof parsed === 'object' &&
       parsed !== null &&
-      typeof parsed.capturedAt === 'string' &&
-      !isNaN(Date.parse(parsed.capturedAt)) &&
       typeof parsed.id === 'string' &&
       parsed.id.length > 0
     ) {
-      return { capturedAt: parsed.capturedAt, id: parsed.id };
+      if (
+        typeof parsed.capturedAt === 'string' &&
+        !isNaN(Date.parse(parsed.capturedAt))
+      ) {
+        return { capturedAt: parsed.capturedAt, id: parsed.id };
+      }
+      if (
+        typeof parsed.createdAt === 'string' &&
+        !isNaN(Date.parse(parsed.createdAt))
+      ) {
+        return { createdAt: parsed.createdAt, id: parsed.id };
+      }
     }
   } catch {
     // Abaikan
@@ -179,36 +195,57 @@ export class FilesService {
       where.isFavorite = true;
     }
 
-    if (query.cursor !== undefined) {
-      const { capturedAt, id: cursorId } = decodeCursor(query.cursor);
-      const cursorDate = new Date(capturedAt);
+    const isUploadedSort = query.sort === 'uploaded';
 
-      where.OR = [
-        { capturedAt: { lt: cursorDate } },
-        {
-          capturedAt: cursorDate,
-          id: { lt: cursorId },
-        },
-      ];
+    if (query.cursor !== undefined) {
+      const decoded = decodeCursor(query.cursor);
+      if (isUploadedSort) {
+        const cursorDate = new Date(decoded.createdAt ?? decoded.capturedAt!);
+        where.OR = [
+          { createdAt: { lt: cursorDate } },
+          {
+            createdAt: cursorDate,
+            id: { lt: decoded.id },
+          },
+        ];
+      } else {
+        const cursorDate = new Date(decoded.capturedAt ?? decoded.createdAt!);
+        where.OR = [
+          { capturedAt: { lt: cursorDate } },
+          {
+            capturedAt: cursorDate,
+            id: { lt: decoded.id },
+          },
+        ];
+      }
     }
 
     const rows = await this.prisma.file.findMany({
       where,
-      orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+      orderBy: isUploadedSort
+        ? [{ createdAt: 'desc' }, { id: 'desc' }]
+        : [{ capturedAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
     });
 
-    return this.keRespons(rows as FileRow[], query.limit);
+    return this.keRespons(rows as FileRow[], query.limit, isUploadedSort);
   }
 
-  private keRespons(rows: FileRow[], limit: number): FilesResponse {
+  private keRespons(
+    rows: FileRow[],
+    limit: number,
+    isUploadedSort = false,
+  ): FilesResponse {
     const halaman = rows.slice(0, limit);
     const lanjut =
       rows.length > limit && halaman.length > 0
         ? encodeCursor(
-            halaman[halaman.length - 1].capturedAt ??
-              halaman[halaman.length - 1].createdAt,
+            isUploadedSort
+              ? halaman[halaman.length - 1].createdAt
+              : (halaman[halaman.length - 1].capturedAt ??
+                halaman[halaman.length - 1].createdAt),
             halaman[halaman.length - 1].id,
+            isUploadedSort ? 'uploaded' : 'taken',
           )
         : null;
 

@@ -31,7 +31,7 @@ import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { contentDisposition } from '../common/utils/content-disposition';
 import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
-import { createZipStream } from './zip-stream';
+import { createZipStream, formatZipEntryName } from './zip-stream';
 
 function getUnlockTokenFromReq(
   req: FastifyRequest,
@@ -293,34 +293,43 @@ export class PublicSharesController {
     res.header('X-Content-Type-Options', 'nosniff');
     res.header('X-Robots-Tag', 'noindex, nofollow');
 
-    const entries = files.map((f) => {
+    const total = files.length;
+    const padding = Math.max(3, String(total).length);
+
+    const entries = files.map((f, index) => {
+      let entryFilename = formatZipEntryName(
+        safeTitle,
+        index + 1,
+        total,
+        f.originalName,
+      );
+      let getStream: () => NodeJS.ReadableStream = () =>
+        createReadStream(f.filePath);
+
       if (!showLocation && f.hasGps) {
         const isJpeg =
           f.mimeType === 'image/jpeg' || /\.jpe?g$/i.test(f.originalName);
         if (isJpeg) {
-          return {
-            filename: f.originalName,
-            getStream: () => {
-              const raw = readFileSync(f.filePath);
-              const stripped = stripJpegExif(raw);
-              return Readable.from(stripped);
-            },
+          getStream = () => {
+            const raw = readFileSync(f.filePath);
+            const stripped = stripJpegExif(raw);
+            return Readable.from(stripped);
           };
         } else if (f.kind === FileKind.image) {
-          const baseName = f.originalName.replace(/\.[^.]+$/, '');
-          return {
-            filename: `${baseName}.jpg`,
-            getStream: () => {
-              const pass = new PassThrough();
-              sharp(f.filePath).rotate().jpeg({ quality: 92 }).pipe(pass);
-              return pass;
-            },
+          const idxStr = String(index + 1).padStart(padding, '0');
+          entryFilename = `${safeTitle} - ${idxStr}.jpg`;
+          getStream = () => {
+            const pass = new PassThrough();
+            sharp(f.filePath).rotate().jpeg({ quality: 92 }).pipe(pass);
+            return pass;
           };
         }
       }
+
       return {
-        filename: f.originalName,
-        getStream: () => createReadStream(f.filePath),
+        filename: entryFilename,
+        mtime: f.capturedAt,
+        getStream,
       };
     });
 

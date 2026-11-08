@@ -15,6 +15,11 @@ describe('FilesService helpers', () => {
       expect(typeof encoded).toBe('string');
       expect(decodeCursor(encoded)).toEqual({ capturedAt, id });
 
+      // Bolak-balik createdAt untuk sort=uploaded (RF-23)
+      const createdAt = '2026-11-05T08:00:00.000Z';
+      const encodedUploaded = encodeCursor(createdAt, id, 'uploaded');
+      expect(decodeCursor(encodedUploaded)).toEqual({ createdAt, id });
+
       // Cursor format lama (hanya id) wajib ditolak dengan 400 INVALID_CURSOR
       const legacyCursor = Buffer.from(JSON.stringify({ id })).toString('base64url');
       expect(() => decodeCursor(legacyCursor)).toThrow();

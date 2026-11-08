@@ -250,6 +250,7 @@ export function fetchFiles(params?: {
   cursor?: string;
   kind?: "image" | "video";
   favorite?: boolean;
+  sort?: "taken" | "uploaded";
 }): Promise<FilesResponse> {
   const search = new URLSearchParams();
   if (params?.limit !== undefined) {
@@ -263,6 +264,9 @@ export function fetchFiles(params?: {
   }
   if (params?.favorite) {
     search.set("favorite", "true");
+  }
+  if (params?.sort) {
+    search.set("sort", params.sort);
   }
   const suffix = search.size > 0 ? `?${search.toString()}` : "";
   return request<FilesResponse>(`/files${suffix}`);

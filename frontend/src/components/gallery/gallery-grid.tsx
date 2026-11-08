@@ -37,6 +37,7 @@ interface GalleryGridProps {
   favoriteOnly?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  initialSort?: "taken" | "uploaded";
 }
 
 export function GalleryGrid({
@@ -45,10 +46,14 @@ export function GalleryGrid({
   favoriteOnly,
   emptyTitle = "Belum ada foto atau video",
   emptyDescription = "Foto dan video yang kamu unggah dari HP akan tersimpan rapi di sini.",
+  initialSort = "taken",
 }: GalleryGridProps) {
   const queryClient = useQueryClient();
   const observerRef = useRef<HTMLDivElement | null>(null);
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
+
+  // Urutan galeri: "taken" (Tanggal foto) atau "uploaded" (Baru ditambahkan) (RF-23)
+  const [sortBy, setSortBy] = useState<"taken" | "uploaded">(initialSort);
 
   // Selection mode
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -66,13 +71,14 @@ export function GalleryGrid({
     fetchNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ["files", { kind, favoriteOnly }],
+    queryKey: ["files", { kind, favoriteOnly, sortBy }],
     queryFn: ({ pageParam }) =>
       fetchFiles({
         cursor: pageParam,
         limit: 24,
         kind,
         favorite: favoriteOnly,
+        sort: sortBy,
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -102,14 +108,17 @@ export function GalleryGrid({
     return data.pages.flatMap((page) => page.items);
   }, [data]);
 
-  // Kelompokkan per tanggal dalam zona waktu foto (RF-12)
+  // Kelompokkan per tanggal dalam zona waktu foto (RF-12), atau tanggal unggah untuk sort=uploaded (RF-23)
   const groups = useMemo(() => {
     const map = new Map<string, GroupedFiles>();
     for (const item of allFiles) {
-      const refDate = item.capturedAt || item.takenAt || item.createdAt;
+      const refDate =
+        sortBy === "uploaded"
+          ? item.createdAt
+          : item.capturedAt || item.takenAt || item.createdAt;
       const { dateKey, displayDate } = getPhotoDateGroup(
         refDate,
-        item.capturedTzOffsetMin,
+        sortBy === "uploaded" ? undefined : item.capturedTzOffsetMin,
       );
       const existing = map.get(dateKey);
       if (existing) {
@@ -123,7 +132,7 @@ export function GalleryGrid({
       }
     }
     return Array.from(map.values());
-  }, [allFiles]);
+  }, [allFiles, sortBy]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -287,19 +296,30 @@ export function GalleryGrid({
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between px-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
           <span className="text-caption text-ink-muted">
             Tekan lama foto untuk memilih
           </span>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setIsSelectionMode(true)}
-            className="flex items-center gap-1 text-label text-ink-muted"
-          >
-            <CheckSquare size={16} />
-            Pilih
-          </Button>
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Urutan galeri"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "taken" | "uploaded")}
+              className="h-9 cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1 text-caption font-medium text-ink outline-none transition-colors hover:border-ink-muted focus:border-accent"
+            >
+              <option value="taken">Tanggal foto</option>
+              <option value="uploaded">Baru ditambahkan</option>
+            </select>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsSelectionMode(true)}
+              className="flex items-center gap-1 text-label text-ink-muted"
+            >
+              <CheckSquare size={16} />
+              Pilih
+            </Button>
+          </div>
         </div>
       )}
 

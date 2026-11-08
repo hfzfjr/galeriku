@@ -53,6 +53,41 @@ export function PublicShareClient({ token }: { token: string }) {
     },
   });
 
+  const groupedFiles = useMemo(() => {
+    if (data?.targetType !== "ALBUM" || !data.files) return [];
+    const groups: Map<
+      string,
+      { dateKey: string; displayDate: string; items: typeof data.files }
+    > = new Map();
+
+    for (const file of data.files) {
+      const dateToUse = file.capturedAt || file.takenAt || file.createdAt;
+      const { dateKey, displayDate } = getPhotoDateGroup(
+        dateToUse,
+        file.capturedTzOffsetMin,
+      );
+
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, {
+          dateKey,
+          displayDate,
+          items: [],
+        });
+      }
+      groups.get(dateKey)!.items.push(file);
+    }
+
+    return Array.from(groups.values());
+  }, [data]);
+
+  const expiryFormatted = data?.expiresAt
+    ? new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(data.expiresAt))
+    : null;
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-bg p-4 sm:p-8 flex flex-col gap-6 animate-pulse">
@@ -146,41 +181,6 @@ export function PublicShareClient({ token }: { token: string }) {
       </div>
     );
   }
-
-  const groupedFiles = useMemo(() => {
-    if (data?.targetType !== "ALBUM" || !data.files) return [];
-    const groups: Map<
-      string,
-      { dateKey: string; displayDate: string; items: typeof data.files }
-    > = new Map();
-
-    for (const file of data.files) {
-      const dateToUse = file.capturedAt || file.takenAt || file.createdAt;
-      const { dateKey, displayDate } = getPhotoDateGroup(
-        dateToUse,
-        file.capturedTzOffsetMin,
-      );
-
-      if (!groups.has(dateKey)) {
-        groups.set(dateKey, {
-          dateKey,
-          displayDate,
-          items: [],
-        });
-      }
-      groups.get(dateKey)!.items.push(file);
-    }
-
-    return Array.from(groups.values());
-  }, [data?.targetType, data?.files]);
-
-  const expiryFormatted = data?.expiresAt
-    ? new Intl.DateTimeFormat("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }).format(new Date(data.expiresAt))
-    : null;
 
   const reportMailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
     `Laporan Konten Galeriku — ${token}`,
