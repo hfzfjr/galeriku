@@ -521,6 +521,49 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Terdapat catatan penegasan bahwa foto di galeri tetap aman.
    - Pilih salah satu mode lalu konfirmasi: album terhapus dan pengguna diarahkan ke halaman yang sesuai.
 
+---
+
+### RF-52: Berbagi Subtree, Halaman Publik, dan ZIP Berstruktur
+
+1. **Berbagi Album Bersarang (Toggle "Sertakan Sub-album"):**
+   - Buka album yang memiliki sub-album (misal `Liburan Bali` yang memiliki sub-album `Pantai Kuta`).
+   - Ketuk tombol **"Bagikan"** di bilah aksi album.
+   - Periksa modal Bagikan: terdapat toggle opsi baru **"Sertakan Sub-album"** (*"Pengunjung dapat membuka seluruh sub-album di dalamnya"*), tercentang secara default.
+   - Buat link publik dengan toggle aktif (`includeChildren: true`).
+   - Salin link publik yang dihasilkan.
+
+2. **Navigasi Halaman Publik Sub-Album & Breadcrumb:**
+   - Buka link publik tersebut di mode Incognito / browser lain tanpa login.
+   - Halaman publik menampilkan:
+     - Judul album root (`Liburan Bali`).
+     - Bagian **"Sub-album"** di bawah judul dengan kartu sub-album (`Pantai Kuta`) yang menampilkan jumlah foto di dalamnya dan cover thumbnail.
+   - Ketuk kartu sub-album `Pantai Kuta`:
+     - URL berubah secara ramah SSR menjadi `/s/[token]?a=[subAlbumId]`.
+     - Judul halaman berubah menjadi `Pantai Kuta`.
+     - Di atas judul muncul **Breadcrumb Navigasi Publik**: `Liburan Bali > Pantai Kuta`.
+     - Foto-foto di dalam sub-album `Pantai Kuta` tampil dalam grid foto dan dapat dibuka di viewer layar penuh.
+   - Ketuk `Liburan Bali` pada breadcrumb:
+     - Navigasi kembali ke album induk utama dengan mulus tanpa reload halaman penuh.
+
+3. **Isolasi Keamanan 404 (A-vs-B & Non-Subtree):**
+   - Salin ID album milik pengguna lain atau album saudara yang bukan keturunan dari album yang dibagikan.
+   - Buka URL publik dengan parameter tersebut: `/s/[token]?a=[otherAlbumId]`.
+   - Pastikan backend dan frontend merespons **404 Identik** (*"Tautan Tidak Tersedia"*), tanpa membocorkan eksistensi album lain tersebut.
+   - Buat link berbagi album lain dengan opsi "Sertakan Sub-album" dinonaktifkan (`includeChildren: false`):
+     - Buka sub-album lewat link tersebut: ditolak dengan 404 Identik.
+     - Akses langsung file yang ada di sub-album lewat `/public/s/[token]/files/[childFileId]`: ditolak dengan 404 Identik.
+
+4. **Unduhan ZIP Berstruktur Folder:**
+   - Di halaman publik (atau di halaman detail album pemilik), ketuk tombol **"Unduh Album (ZIP)"**.
+   - Periksa arsip ZIP yang diunduh:
+     - Berisi struktur folder berjenjang:
+       - `Liburan Bali/Liburan Bali - 001.jpg`
+       - `Liburan Bali/Pantai Kuta/Pantai Kuta - 001.jpg`
+     - Nama folder dan file disanitasi dari karakter terlarang (`/`, `\`, `:`, dll.).
+     - Format waktu file (`mtime`) sesuai dengan tanggal `captured_at` foto asli.
+     - Menggunakan streaming ZIP64 tanpa membuat file sementara di disk server.
+
+
 
 
 

@@ -642,6 +642,12 @@ export function createFakePrisma(db: FakeDb) {
     },
     shareLink: {
       ...makeModel(db.shareLinks),
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const id = (data.id as string) || `sh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const row = { includeChildren: true, ...data, id };
+        db.shareLinks.set(id, row);
+        return { ...row };
+      },
       findUnique: async ({
         where,
         include,
@@ -657,6 +663,9 @@ export function createFakePrisma(db: FakeDb) {
           }
         }
         if (!found) return null;
+        if (found.includeChildren === undefined) {
+          found.includeChildren = true;
+        }
         if (include?.owner && found.ownerId) {
           const owner = db.users.get(found.ownerId as string);
           found.owner = owner ? { ...owner } : null;

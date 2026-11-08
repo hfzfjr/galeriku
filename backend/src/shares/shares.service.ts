@@ -6,7 +6,10 @@ import sharp from 'sharp';
 import { FileKind, FileStatus, ShareTarget, UserStatus } from '../generated/prisma/client';
 import { stripJpegExif } from '../common/utils/strip-exif';
 import { VideoProcessingService } from '../uploads/video-processing.service';
+import { formatZipEntryName } from './zip-stream';
 import type {
+  AlbumBreadcrumbItem,
+  AlbumItem,
   CreateShareLinkRequest,
   FileItem,
   PublicShareMetaResponse,
@@ -180,6 +183,131 @@ export class SharesService {
     return timingSafeEqual(expectedBuf, actualBuf);
   }
 
+  async getAllSubtreeAlbumIds(albumId: string): Promise<string[]> {
+    const ids = [albumId];
+    const children = await this.prisma.album.findMany({
+      where: { parentId: albumId },
+      select: { id: true },
+    });
+    for (const c of children) {
+      const sub = await this.getAllSubtreeAlbumIds(c.id);
+      ids.push(...sub);
+    }
+    return ids;
+  }
+
+  async isAlbumInSubtree(
+    rootAlbumId: string,
+    candidateAlbumId: string,
+  ): Promise<boolean> {
+    if (rootAlbumId === candidateAlbumId) return true;
+    let currentId: string | null = candidateAlbumId;
+    while (currentId) {
+      const alb: { parentId?: string | null } | null =
+        await this.prisma.album.findUnique({
+          where: { id: currentId },
+          select: { parentId: true },
+        });
+      if (!alb || !alb.parentId) return false;
+      if (alb.parentId === rootAlbumId) return true;
+      currentId = alb.parentId;
+    }
+    return false;
+  }
+
+  async getPublicBreadcrumb(
+    rootAlbumId: string,
+    currentAlbumId: string,
+  ): Promise<AlbumBreadcrumbItem[]> {
+    const items: AlbumBreadcrumbItem[] = [];
+    let curId: string | null = currentAlbumId;
+    while (curId) {
+      const alb: { id: string; title: string; parentId?: string | null } | null =
+        await this.prisma.album.findUnique({
+          where: { id: curId },
+          select: { id: true, title: true, parentId: true },
+        });
+      if (!alb) break;
+      items.unshift({ id: alb.id, title: alb.title });
+      if (curId === rootAlbumId) {
+        break;
+      }
+      curId = alb.parentId ?? null;
+    }
+    if (items.length === 0 || items[0].id !== rootAlbumId) {
+      return [];
+    }
+    return items;
+  }
+
+  private async resolveCoverFileId(album: {
+    id: string;
+    coverFileId?: string | null;
+    coverFile?: { id: string; deletedAt?: Date | null; status?: string } | null;
+    albumFiles?: Array<{ file: { id: string; deletedAt?: Date | null; status?: string } }>;
+  }): Promise<string | null> {
+    if (
+      album.coverFile &&
+      album.coverFile.deletedAt === null &&
+      album.coverFile.status === FileStatus.ready
+    ) {
+      return album.coverFile.id;
+    }
+    if (album.albumFiles && album.albumFiles.length > 0) {
+      const active = album.albumFiles.find(
+        (af) => !af.file.deletedAt && af.file.status === FileStatus.ready,
+      );
+      if (active) return active.file.id;
+    }
+    const childAlbums = await this.prisma.album.findMany({
+      where: { parentId: album.id },
+      include: {
+        coverFile: { select: { id: true, deletedAt: true, status: true } },
+        albumFiles: {
+          where: { file: { deletedAt: null, status: FileStatus.ready } },
+          orderBy: { position: 'asc' },
+          take: 1,
+          select: { file: { select: { id: true, deletedAt: true, status: true } } },
+        },
+      },
+    });
+    for (const child of childAlbums) {
+      const childCover = await this.resolveCoverFileId(child as any);
+      if (childCover) {
+        return childCover;
+      }
+    }
+    return null;
+  }
+
+  async isFileInShare(
+    share: { targetType: ShareTarget; targetId: string; includeChildren?: boolean },
+    fileId: string,
+  ): Promise<boolean> {
+    if (share.targetType === ShareTarget.file) {
+      return share.targetId === fileId;
+    }
+    const includeChildren = share.includeChildren ?? true;
+    if (includeChildren) {
+      const subtreeIds = await this.getAllSubtreeAlbumIds(share.targetId);
+      const af = await this.prisma.albumFile.findFirst({
+        where: {
+          albumId: { in: subtreeIds },
+          fileId,
+        },
+      });
+      return Boolean(af);
+    } else {
+      const af = await this.prisma.albumFile.findFirst({
+        where: {
+          albumId: share.targetId,
+          fileId,
+        },
+      });
+      return Boolean(af);
+    }
+  }
+
   async createShare(
     userId: string,
     data: CreateShareLinkRequest,
@@ -228,6 +356,7 @@ export class SharesService {
         targetId: data.targetId,
         allowDownload: data.allowDownload ?? true,
         showLocation: data.showLocation ?? false,
+        includeChildren: data.includeChildren ?? true,
         expiresAt,
         passwordHash,
       },
@@ -241,6 +370,7 @@ export class SharesService {
       targetTitle,
       allowDownload: share.allowDownload,
       showLocation: share.showLocation ?? false,
+      includeChildren: (share as any).includeChildren ?? true,
       viewCount: share.viewCount,
       expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
       hasPassword: share.passwordHash !== null,
@@ -270,6 +400,10 @@ export class SharesService {
 
     if (data.showLocation !== undefined) {
       updateData.showLocation = data.showLocation;
+    }
+
+    if (data.includeChildren !== undefined) {
+      updateData.includeChildren = data.includeChildren;
     }
 
     if (data.expiry !== undefined) {
@@ -369,6 +503,7 @@ export class SharesService {
         targetTitle,
         allowDownload: share.allowDownload,
         showLocation: share.showLocation ?? false,
+        includeChildren: (share as any).includeChildren ?? true,
         viewCount: share.viewCount,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
         hasPassword: share.passwordHash !== null,
@@ -423,6 +558,7 @@ export class SharesService {
       targetTitle,
       allowDownload: share.allowDownload,
       showLocation: share.showLocation ?? false,
+      includeChildren: (share as any).includeChildren ?? true,
       viewCount: share.viewCount,
       expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
       hasPassword: share.passwordHash !== null,
@@ -566,6 +702,7 @@ export class SharesService {
       fileCount,
       hasCover,
       hasPassword: false,
+      includeChildren: (share as any).includeChildren ?? true,
       expiresAt,
     };
   }
@@ -633,12 +770,15 @@ export class SharesService {
     clientIp: string,
     userAgent?: string,
     unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
+    subAlbumId?: string,
   ): Promise<PublicShareResponse> {
     const share = await this.resolvePublicShare(token);
     const unlockToken =
       typeof unlockTokenOrGetter === 'function'
         ? unlockTokenOrGetter(share.id)
         : unlockTokenOrGetter;
+
+    const includeChildren = (share as any).includeChildren ?? true;
 
     // Ambil judul target
     let targetTitle = 'Tautan Berbagi';
@@ -682,16 +822,24 @@ export class SharesService {
         title: targetTitle,
         allowDownload: share.allowDownload,
         showLocation: share.showLocation ?? false,
+        includeChildren,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword: true,
         isUnlocked: false,
         ownerName: null,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
+        currentAlbumId: null,
+        breadcrumb: [],
+        subAlbums: [],
         files: [],
       };
     }
 
     if (share.targetType === ShareTarget.file) {
+      if (subAlbumId) {
+        throw new ApiError(404, 'NOT_FOUND', 'File dalam tautan ini sudah tidak tersedia.');
+      }
+
       const file = await this.prisma.file.findUnique({
         where: { id: share.targetId },
       });
@@ -710,16 +858,32 @@ export class SharesService {
         title: file.originalName,
         allowDownload: share.allowDownload,
         showLocation: share.showLocation ?? false,
+        includeChildren: false,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword,
         isUnlocked: true,
         ownerName: share.owner.name ?? null,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
+        currentAlbumId: null,
+        breadcrumb: [],
+        subAlbums: [],
         files: [toFileItem(file, share.showLocation ?? false)],
       };
     } else {
+      const currentAlbumId = subAlbumId || share.targetId;
+
+      if (currentAlbumId !== share.targetId) {
+        if (!includeChildren) {
+          throw new ApiError(404, 'NOT_FOUND', 'Album dalam tautan ini sudah tidak tersedia.');
+        }
+        const inSubtree = await this.isAlbumInSubtree(share.targetId, currentAlbumId);
+        if (!inSubtree) {
+          throw new ApiError(404, 'NOT_FOUND', 'Album dalam tautan ini sudah tidak tersedia.');
+        }
+      }
+
       const album = await this.prisma.album.findUnique({
-        where: { id: share.targetId },
+        where: { id: currentAlbumId },
         include: {
           albumFiles: {
             where: {
@@ -738,17 +902,68 @@ export class SharesService {
         throw new ApiError(404, 'NOT_FOUND', 'Album dalam tautan ini sudah tidak tersedia.');
       }
 
+      const breadcrumb = await this.getPublicBreadcrumb(
+        share.targetId,
+        currentAlbumId,
+      );
+
+      let subAlbums: AlbumItem[] = [];
+      if (includeChildren) {
+        const rawChildren = await this.prisma.album.findMany({
+          where: { parentId: currentAlbumId },
+          orderBy: { title: 'asc' },
+          include: {
+            coverFile: { select: { id: true, deletedAt: true, status: true } },
+            albumFiles: {
+              where: {
+                file: {
+                  deletedAt: null,
+                  status: FileStatus.ready,
+                },
+              },
+              select: {
+                file: {
+                  select: { id: true, thumbKey: true, deletedAt: true, status: true },
+                },
+              },
+            },
+            children: {
+              select: { id: true },
+            },
+          },
+        });
+
+        subAlbums = await Promise.all(
+          rawChildren.map(async (child: any) => {
+            const coverId = await this.resolveCoverFileId(child);
+            return {
+              id: child.id,
+              title: child.title,
+              parentId: child.parentId ?? null,
+              coverFileId: coverId,
+              fileCount: child.albumFiles?.length ?? 0,
+              childCount: child.children?.length ?? 0,
+              createdAt: (child.createdAt ?? new Date()).toISOString(),
+            };
+          }),
+        );
+      }
+
       return {
         token: share.token,
         targetType: 'ALBUM',
         title: album.title,
         allowDownload: share.allowDownload,
         showLocation: share.showLocation ?? false,
+        includeChildren,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword,
         isUnlocked: true,
         ownerName: share.owner.name ?? null,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
+        currentAlbumId: album.id,
+        breadcrumb,
+        subAlbums,
         files: album.albumFiles.map((af) =>
           toFileItem(af.file, share.showLocation ?? false),
         ),
@@ -792,23 +1007,7 @@ export class SharesService {
       );
     }
 
-    let fileFound = false;
-    if (share.targetType === ShareTarget.file) {
-      if (share.targetId === fileId) {
-        fileFound = true;
-      }
-    } else {
-      const af = await this.prisma.albumFile.findFirst({
-        where: {
-          albumId: share.targetId,
-          fileId,
-        },
-      });
-      if (af) {
-        fileFound = true;
-      }
-    }
-
+    const fileFound = await this.isFileInShare(share as any, fileId);
     if (!fileFound) {
       throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan dalam tautan ini.');
     }
@@ -949,23 +1148,7 @@ export class SharesService {
       throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
     }
 
-    let fileFound = false;
-    if (share.targetType === ShareTarget.file) {
-      if (share.targetId === fileId) {
-        fileFound = true;
-      }
-    } else {
-      const af = await this.prisma.albumFile.findFirst({
-        where: {
-          albumId: share.targetId,
-          fileId,
-        },
-      });
-      if (af) {
-        fileFound = true;
-      }
-    }
-
+    const fileFound = await this.isFileInShare(share as any, fileId);
     if (!fileFound) {
       throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan dalam tautan ini.');
     }
@@ -1025,6 +1208,7 @@ export class SharesService {
     title: string;
     showLocation: boolean;
     files: Array<{
+      entryPath: string;
       originalName: string;
       filePath: string;
       mimeType: string;
@@ -1062,24 +1246,48 @@ export class SharesService {
       );
     }
 
-    const album = await this.prisma.album.findUnique({
+    const rootAlbum = await this.prisma.album.findUnique({
       where: { id: share.targetId },
+    });
+
+    if (!rootAlbum) {
+      throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
+    }
+
+    const includeChildren = (share as any).includeChildren ?? true;
+    const albumIds = includeChildren
+      ? await this.getAllSubtreeAlbumIds(rootAlbum.id)
+      : [rootAlbum.id];
+
+    const albums = await this.prisma.album.findMany({
+      where: { id: { in: albumIds } },
       include: {
         albumFiles: {
+          orderBy: { position: 'asc' },
           include: {
             file: true,
           },
-          orderBy: { position: 'asc' },
         },
       },
     });
 
-    if (!album) {
-      throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
-    }
+    const albumMap = new Map(albums.map((a) => [a.id, a]));
+    const sanitizeFolder = (name: string) =>
+      name.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';
+
+    const getFolderPath = (albId: string): string => {
+      const alb = albumMap.get(albId);
+      if (!alb) return sanitizeFolder(rootAlbum.title);
+      if (alb.id === rootAlbum.id || !alb.parentId) {
+        return sanitizeFolder(rootAlbum.title);
+      }
+      const parentP = getFolderPath(alb.parentId);
+      return `${parentP}/${sanitizeFolder(alb.title)}`;
+    };
 
     const mediaDir = resolveMediaDir();
     const readyFiles: Array<{
+      entryPath: string;
       originalName: string;
       filePath: string;
       mimeType: string;
@@ -1088,9 +1296,15 @@ export class SharesService {
       capturedAt?: Date;
     }> = [];
 
-    for (const af of album.albumFiles) {
-      const f = af.file;
-      if (f.deletedAt === null && f.status === FileStatus.ready) {
+    for (const alb of albums) {
+      const folderPath = getFolderPath(alb.id);
+      const validFiles = alb.albumFiles
+        .map((af) => af.file)
+        .filter((f) => f.deletedAt === null && f.status === FileStatus.ready);
+
+      const total = validFiles.length;
+      for (let i = 0; i < total; i++) {
+        const f = validFiles[i];
         const fullPath = join(mediaDir, f.storageKey);
         if (existsSync(fullPath)) {
           let zipFilePath = fullPath;
@@ -1105,7 +1319,17 @@ export class SharesService {
               fullPath,
             );
           }
+
+          const entryName = formatZipEntryName(
+            alb.title,
+            i + 1,
+            total,
+            f.originalName,
+          );
+          const entryPath = `${folderPath}/${entryName}`;
+
           readyFiles.push({
+            entryPath,
             originalName: f.originalName,
             filePath: zipFilePath,
             mimeType: f.mimeType,
@@ -1118,7 +1342,7 @@ export class SharesService {
     }
 
     return {
-      title: album.title,
+      title: rootAlbum.title,
       showLocation: share.showLocation ?? false,
       files: readyFiles,
     };
@@ -1148,6 +1372,7 @@ export class SharesService {
       const album = await this.prisma.album.findUnique({
         where: { id: share.targetId },
         include: {
+          coverFile: { select: { id: true, deletedAt: true, status: true } },
           albumFiles: {
             where: {
               file: {
@@ -1156,13 +1381,12 @@ export class SharesService {
               },
             },
             orderBy: { position: 'asc' },
-            take: 1,
-            select: { fileId: true },
+            select: { file: { select: { id: true, deletedAt: true, status: true } } },
           },
         },
       });
-      if (album && album.albumFiles.length > 0) {
-        firstFileId = album.albumFiles[0].fileId;
+      if (album) {
+        firstFileId = await this.resolveCoverFileId(album as any);
       }
     }
 
@@ -1191,23 +1415,7 @@ export class SharesService {
       throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
     }
 
-    let fileFound = false;
-    if (share.targetType === ShareTarget.file) {
-      if (share.targetId === fileId) {
-        fileFound = true;
-      }
-    } else {
-      const af = await this.prisma.albumFile.findFirst({
-        where: {
-          albumId: share.targetId,
-          fileId,
-        },
-      });
-      if (af) {
-        fileFound = true;
-      }
-    }
-
+    const fileFound = await this.isFileInShare(share as any, fileId);
     if (!fileFound) {
       throw new ApiError(404, 'NOT_FOUND', 'Thumbnail tidak ditemukan dalam tautan ini.');
     }
@@ -1253,23 +1461,7 @@ export class SharesService {
       throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
     }
 
-    let fileFound = false;
-    if (share.targetType === ShareTarget.file) {
-      if (share.targetId === fileId) {
-        fileFound = true;
-      }
-    } else {
-      const af = await this.prisma.albumFile.findFirst({
-        where: {
-          albumId: share.targetId,
-          fileId,
-        },
-      });
-      if (af) {
-        fileFound = true;
-      }
-    }
-
+    const fileFound = await this.isFileInShare(share as any, fileId);
     if (!fileFound) {
       throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan dalam tautan ini.');
     }

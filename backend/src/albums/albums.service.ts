@@ -827,8 +827,17 @@ export class AlbumsService {
     userId: string,
     albumId: string,
   ): Promise<{ filename: string; entries: ZipEntry[] }> {
-    const album = await this.prisma.album.findUnique({
+    const root = await this.prisma.album.findUnique({
       where: { id: albumId },
+    });
+
+    if (!root || root.ownerId !== userId) {
+      throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
+    }
+
+    const allAlbumIds = await this.getAllSubtreeIds(albumId);
+    const albums = await this.prisma.album.findMany({
+      where: { id: { in: allAlbumIds } },
       include: {
         albumFiles: {
           orderBy: { position: 'asc' },
@@ -839,34 +848,51 @@ export class AlbumsService {
       },
     });
 
-    if (!album || album.ownerId !== userId) {
-      throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
+    const albumMap = new Map(albums.map((a) => [a.id, a]));
+    const sanitizeFolder = (name: string) =>
+      name.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';
+
+    const getFolderPath = (albId: string): string => {
+      const alb = albumMap.get(albId);
+      if (!alb) return sanitizeFolder(root.title);
+      if (alb.id === root.id || !alb.parentId) {
+        return sanitizeFolder(root.title);
+      }
+      const parentP = getFolderPath(alb.parentId);
+      return `${parentP}/${sanitizeFolder(alb.title)}`;
+    };
+
+    const mediaDir = resolveMediaDir();
+    const entries: ZipEntry[] = [];
+
+    for (const alb of albums) {
+      const folderPath = getFolderPath(alb.id);
+      const files = alb.albumFiles
+        .map((af) => af.file)
+        .filter((f) => f.deletedAt === null && f.status === FileStatus.ready);
+
+      const total = files.length;
+      for (let i = 0; i < total; i++) {
+        const f = files[i];
+        const entryName = formatZipEntryName(
+          alb.title,
+          i + 1,
+          total,
+          f.originalName,
+        );
+        const zipPath = `${folderPath}/${entryName}`;
+        const filePath = join(mediaDir, f.storageKey);
+
+        entries.push({
+          filename: zipPath,
+          getStream: () => createReadStream(filePath),
+          mtime: f.capturedAt ?? f.createdAt,
+        });
+      }
     }
 
-    const files = album.albumFiles
-      .map((af) => af.file)
-      .filter((f) => f.deletedAt === null && f.status === FileStatus.ready);
-
-    const safeTitle =
-      album.title.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';
+    const safeTitle = sanitizeFolder(root.title);
     const filename = `${safeTitle}.zip`;
-    const total = files.length;
-    const mediaDir = resolveMediaDir();
-
-    const entries: ZipEntry[] = files.map((f, index) => {
-      const entryName = formatZipEntryName(
-        safeTitle,
-        index + 1,
-        total,
-        f.originalName,
-      );
-      const filePath = join(mediaDir, f.storageKey);
-      return {
-        filename: entryName,
-        getStream: () => createReadStream(filePath),
-        mtime: f.capturedAt ?? f.createdAt,
-      };
-    });
 
     return { filename, entries };
   }

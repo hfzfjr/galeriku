@@ -31,7 +31,7 @@ import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { contentDisposition } from '../common/utils/content-disposition';
 import { parseRange } from '../files/files.controller';
 import { SharesService } from './shares.service';
-import { createZipStream, formatZipEntryName } from './zip-stream';
+import { createZipStream } from './zip-stream';
 
 function getUnlockTokenFromReq(
   req: FastifyRequest,
@@ -91,15 +91,19 @@ export class PublicSharesController {
     @Param('token') token: string,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) res: FastifyReply,
+    @Query('path') path?: string,
+    @Query('a') a?: string,
   ): Promise<PublicShareResponse> {
     res.header('X-Robots-Tag', 'noindex, nofollow');
     const ip = getClientIp(req);
     const userAgent = getUserAgent(req);
+    const subAlbumId = (a || path)?.trim() || undefined;
     return this.sharesService.getPublicShare(
       token,
       ip,
       userAgent,
       (shareId) => getUnlockTokenFromReq(req, shareId),
+      subAlbumId,
     );
   }
 
@@ -347,16 +351,8 @@ export class PublicSharesController {
     res.header('X-Content-Type-Options', 'nosniff');
     res.header('X-Robots-Tag', 'noindex, nofollow');
 
-    const total = files.length;
-    const padding = Math.max(3, String(total).length);
-
-    const entries = files.map((f, index) => {
-      let entryFilename = formatZipEntryName(
-        safeTitle,
-        index + 1,
-        total,
-        f.originalName,
-      );
+    const entries = files.map((f) => {
+      let entryFilename = f.entryPath;
       let getStream: () => NodeJS.ReadableStream = () =>
         createReadStream(f.filePath);
 
@@ -370,8 +366,7 @@ export class PublicSharesController {
             return Readable.from(stripped);
           };
         } else if (f.kind === FileKind.image) {
-          const idxStr = String(index + 1).padStart(padding, '0');
-          entryFilename = `${safeTitle} - ${idxStr}.jpg`;
+          entryFilename = entryFilename.replace(/\.[^.]+$/, '.jpg');
           getStream = () => {
             const pass = new PassThrough();
             sharp(f.filePath).rotate().jpeg({ quality: 92 }).pipe(pass);

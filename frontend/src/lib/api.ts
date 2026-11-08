@@ -524,9 +524,15 @@ export function fetchShares(): Promise<ShareLinksResponse> {
   return request<ShareLinksResponse>("/shares");
 }
 
-// Public View & Download (US-25, US-26)
-export function fetchPublicShare(token: string): Promise<PublicShareResponse> {
-  return request<PublicShareResponse>(`/public/s/${encodeURIComponent(token)}`);
+// Public View & Download (US-25, US-26, RF-52)
+export function fetchPublicShare(
+  token: string,
+  subAlbumId?: string | null,
+): Promise<PublicShareResponse> {
+  const query = subAlbumId ? `?a=${encodeURIComponent(subAlbumId)}` : "";
+  return request<PublicShareResponse>(
+    `/public/s/${encodeURIComponent(token)}${query}`,
+  );
 }
 
 export function unlockPublicShare(

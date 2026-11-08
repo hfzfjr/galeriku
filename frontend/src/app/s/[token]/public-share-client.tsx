@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
+  ChevronRight,
   Download,
   Flag,
+  Folder,
   KeyRound,
   Lock,
   Maximize2,
@@ -30,14 +33,17 @@ const CONTACT_EMAIL =
 
 export function PublicShareClient({ token }: { token: string }) {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const activeSubAlbumId =
+    searchParams.get("a") || searchParams.get("path") || null;
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(
     null,
   );
   const [passwordInput, setPasswordInput] = useState("");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["public-share", token],
-    queryFn: () => fetchPublicShare(token),
+    queryKey: ["public-share", token, activeSubAlbumId],
+    queryFn: () => fetchPublicShare(token, activeSubAlbumId),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -247,6 +253,53 @@ export function PublicShareClient({ token }: { token: string }) {
 
       {/* Konten Halaman */}
       <main className="flex-1 p-4 sm:p-8 max-w-6xl mx-auto w-full flex flex-col gap-6">
+        {/* Breadcrumb Album Publik (RF-52) */}
+        {data.targetType === "ALBUM" &&
+          data.breadcrumb &&
+          data.breadcrumb.length > 1 && (
+            <nav aria-label="Navigasi album" className="overflow-x-auto py-1">
+              <ol className="flex items-center gap-1.5 whitespace-nowrap text-caption">
+                {data.breadcrumb.map((step, idx) => {
+                  const isLast = idx === data.breadcrumb.length - 1;
+                  const href =
+                    idx === 0
+                      ? `/s/${token}`
+                      : `/s/${token}?a=${encodeURIComponent(step.id)}`;
+                  return (
+                    <li key={step.id} className="flex items-center gap-1.5">
+                      {idx > 0 && (
+                        <ChevronRight
+                          size={14}
+                          className="text-ink-muted/60 shrink-0"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {isLast ? (
+                        <span
+                          aria-current="page"
+                          className="flex min-h-11 items-center px-1.5 font-semibold text-ink"
+                        >
+                          <span className="max-w-[140px] truncate sm:max-w-[240px]">
+                            {step.title}
+                          </span>
+                        </span>
+                      ) : (
+                        <Link
+                          href={href}
+                          className="flex min-h-11 items-center rounded-md px-1.5 font-medium text-ink-muted transition hover:text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+                        >
+                          <span className="max-w-[120px] truncate sm:max-w-[180px]">
+                            {step.title}
+                          </span>
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+          )}
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-h1 font-serif text-ink">{data.title}</h1>
@@ -269,6 +322,50 @@ export function PublicShareClient({ token }: { token: string }) {
             </a>
           )}
         </div>
+
+        {/* Sub-album publik (RF-52) */}
+        {data.targetType === "ALBUM" &&
+          data.subAlbums &&
+          data.subAlbums.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-body font-semibold text-ink">Sub-album</h2>
+                <span className="text-caption text-ink-muted">
+                  {data.subAlbums.length} sub-album
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {data.subAlbums.map((sub) => (
+                  <Link
+                    key={sub.id}
+                    href={`/s/${token}?a=${encodeURIComponent(sub.id)}`}
+                    className="group flex flex-col rounded-xl border border-line bg-surface p-2 transition hover:border-accent/40 hover:shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent min-h-11"
+                  >
+                    <div className="relative aspect-4/3 w-full overflow-hidden rounded-lg bg-sunken mb-2">
+                      {sub.coverFileId ? (
+                        <MediaThumb
+                          src={getPublicThumbnailUrl(token, sub.coverFileId)}
+                          alt={sub.title}
+                          kind="image"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-ink-muted">
+                          <Folder size={32} strokeWidth={1.5} />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="truncate text-caption font-semibold text-ink group-hover:text-accent">
+                      {sub.title}
+                    </h3>
+                    <p className="text-[11px] text-ink-muted mt-0.5">
+                      {sub.fileCount} foto/video
+                      {sub.childCount ? ` · ${sub.childCount} sub-album` : ""}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
         {/* Jika File Tunggal */}
         {data.targetType === "FILE" && data.files.length === 1 ? (
@@ -367,6 +464,23 @@ export function PublicShareClient({ token }: { token: string }) {
             ))}
           </div>
         )}
+
+        {/* Kosong (RF-52) */}
+        {data.targetType === "ALBUM" &&
+          data.files.length === 0 &&
+          (!data.subAlbums || data.subAlbums.length === 0) && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sunken text-ink-muted">
+                <Folder size={24} strokeWidth={1.5} />
+              </div>
+              <p className="font-serif text-body font-medium text-ink">
+                Belum ada foto atau video
+              </p>
+              <p className="text-caption text-ink-muted mt-1">
+                Album ini masih kosong.
+              </p>
+            </div>
+          )}
       </main>
 
       {/* Viewer Layar Penuh */}

@@ -481,6 +481,7 @@ export const createShareLinkSchema = z.object({
   targetId: z.string().min(1, 'Target ID tidak boleh kosong.'),
   allowDownload: z.boolean().default(true),
   showLocation: z.boolean().default(false),
+  includeChildren: z.boolean().default(true).optional(),
   expiry: shareExpiryOptionSchema.optional(),
   password: z.string().max(100).optional(),
 });
@@ -490,6 +491,7 @@ export type CreateShareLinkRequest = z.output<typeof createShareLinkSchema>;
 export const updateShareLinkSchema = z.object({
   allowDownload: z.boolean().optional(),
   showLocation: z.boolean().optional(),
+  includeChildren: z.boolean().optional(),
   expiry: shareExpiryOptionSchema.optional(),
   password: z.string().max(100).optional().nullable(),
 });
@@ -510,6 +512,7 @@ export const shareLinkItemSchema = z.object({
   targetTitle: z.string(),
   allowDownload: z.boolean(),
   showLocation: z.boolean().default(false),
+  includeChildren: z.boolean().default(true),
   viewCount: z.number().int().nonnegative(),
   expiresAt: z.string().nullable(),
   hasPassword: z.boolean(),
@@ -525,7 +528,7 @@ export const shareLinksResponseSchema = z.object({
 
 export type ShareLinksResponse = z.output<typeof shareLinksResponseSchema>;
 
-// Public Share View (US-25, US-26, RF-20)
+// Public Share View (US-25, US-26, RF-20, RF-52)
 export const publicShareStatusSchema = z.enum([
   'ACTIVE',
   'EXPIRED',
@@ -542,6 +545,7 @@ export const publicShareMetaResponseSchema = z.object({
   fileCount: z.number().int().nonnegative(),
   hasCover: z.boolean(),
   hasPassword: z.boolean(),
+  includeChildren: z.boolean().default(true).optional(),
   expiresAt: z.string().nullable().optional(),
 });
 
@@ -553,11 +557,15 @@ export const publicShareResponseSchema = z.object({
   title: z.string(),
   allowDownload: z.boolean(),
   showLocation: z.boolean().default(false),
+  includeChildren: z.boolean().default(true),
   createdAt: z.string(),
   hasPassword: z.boolean(),
   isUnlocked: z.boolean(),
   ownerName: z.string().nullable().optional(),
   expiresAt: z.string().nullable().optional(),
+  currentAlbumId: z.string().nullable().optional(),
+  breadcrumb: z.array(albumBreadcrumbItemSchema).default([]),
+  subAlbums: z.array(albumItemSchema).default([]),
   files: z.array(fileItemSchema),
 });
 

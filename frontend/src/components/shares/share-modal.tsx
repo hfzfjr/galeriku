@@ -30,6 +30,7 @@ export function ShareModal({
   );
   const [allowDownload, setAllowDownload] = useState(true);
   const [showLocation, setShowLocation] = useState(false);
+  const [includeChildren, setIncludeChildren] = useState(true);
   const [password, setPassword] = useState("");
   const [createdShare, setCreatedShare] = useState<ShareLinkItem | null>(null);
 
@@ -40,6 +41,7 @@ export function ShareModal({
         targetId,
         allowDownload,
         showLocation,
+        includeChildren: targetType === "ALBUM" ? includeChildren : undefined,
         expiry,
         password: password.trim() ? password.trim() : undefined,
       }),
@@ -195,6 +197,24 @@ export function ShareModal({
                   className="h-4 w-4 accent-accent rounded cursor-pointer"
                 />
               </div>
+
+              {/* Toggle Sertakan Sub-album (RF-52) */}
+              {targetType === "ALBUM" && (
+                <div className="flex items-center justify-between rounded-xl border border-line bg-sunken/50 p-3">
+                  <div>
+                    <p className="text-xs font-medium text-ink">Sertakan Sub-album</p>
+                    <p className="text-[11px] text-ink-muted">
+                      Pengunjung dapat membuka seluruh sub-album di dalamnya
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={includeChildren}
+                    onChange={(e) => setIncludeChildren(e.target.checked)}
+                    className="h-4 w-4 accent-accent rounded cursor-pointer"
+                  />
+                </div>
+              )}
 
               {/* Kata Sandi Opsional */}
               <div className="space-y-1.5">

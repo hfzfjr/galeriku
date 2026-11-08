@@ -68,6 +68,15 @@ describe('Public Shares (US-25)', () => {
       rmSync(join(mediaDir, 'f-pub-vid.thumb.webp'), { force: true });
       rmSync(join(mediaDir, 'f-pub-vid.preview.webp'), { force: true });
       rmSync(join(mediaDir, 'f-gps-strip.jpg'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-root.jpg'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-root.thumb.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-root.preview.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-child.jpg'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-child.thumb.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-child.preview.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-sibling.jpg'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-sibling.thumb.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-rf52-sibling.preview.webp'), { force: true });
     } catch {
       // Abaikan
     }
@@ -631,6 +640,203 @@ describe('Public Shares (US-25)', () => {
       // Byte hasil unduhan tidak boleh memuat marker APP1 (0xFF 0xE1)
       expect(res.body.includes(Buffer.from([0xff, 0xe1]))).toBe(false);
       expect(res.body.length).toBe(jpegWithGps.length - app1.length);
+    });
+  });
+
+  describe('Berbagi Subtree, Halaman Publik, dan ZIP Berstruktur (RF-52)', () => {
+    const http = () => request(app.app.getHttpAdapter().getInstance().server);
+
+    it('navigasi subtree album publik dengan includeChildren=true dan isolasi 404', async () => {
+      const rootId = 'alb-rf52-root';
+      const childId = 'alb-rf52-child';
+      const siblingId = 'alb-rf52-sibling';
+
+      app.db.albums.set(rootId, {
+        id: rootId,
+        ownerId: 'user-active',
+        title: 'Induk',
+        parentId: null,
+        coverFileId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      app.db.albums.set(childId, {
+        id: childId,
+        ownerId: 'user-active',
+        title: 'Anak',
+        parentId: rootId,
+        coverFileId: null,
+        createdAt: new Date('2026-01-02'),
+      });
+
+      app.db.albums.set(siblingId, {
+        id: siblingId,
+        ownerId: 'user-active',
+        title: 'Saudara',
+        parentId: null,
+        coverFileId: null,
+        createdAt: new Date('2026-01-03'),
+      });
+
+      const fRoot = 'f-rf52-root';
+      const fChild = 'f-rf52-child';
+      const fSibling = 'f-rf52-sibling';
+
+      seedPhysicalFile(fRoot, Buffer.from('root-content'));
+      seedPhysicalFile(fChild, Buffer.from('child-content'));
+      seedPhysicalFile(fSibling, Buffer.from('sibling-content'));
+
+      app.db.files.set(fRoot, {
+        id: fRoot,
+        ownerId: 'user-active',
+        originalName: 'foto_root.jpg',
+        storageKey: `${fRoot}.jpg`,
+        thumbKey: `${fRoot}.thumb.webp`,
+        previewKey: `${fRoot}.preview.webp`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: 100,
+        height: 100,
+        durationS: null,
+        status: FileStatus.ready,
+        createdAt: new Date('2026-01-01'),
+        deletedAt: null,
+      });
+
+      app.db.files.set(fChild, {
+        id: fChild,
+        ownerId: 'user-active',
+        originalName: 'foto_child.jpg',
+        storageKey: `${fChild}.jpg`,
+        thumbKey: `${fChild}.thumb.webp`,
+        previewKey: `${fChild}.preview.webp`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: 100,
+        height: 100,
+        durationS: null,
+        status: FileStatus.ready,
+        createdAt: new Date('2026-01-02'),
+        deletedAt: null,
+      });
+
+      app.db.files.set(fSibling, {
+        id: fSibling,
+        ownerId: 'user-active',
+        originalName: 'foto_sibling.jpg',
+        storageKey: `${fSibling}.jpg`,
+        thumbKey: `${fSibling}.thumb.webp`,
+        previewKey: `${fSibling}.preview.webp`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: 100,
+        height: 100,
+        durationS: null,
+        status: FileStatus.ready,
+        createdAt: new Date('2026-01-03'),
+        deletedAt: null,
+      });
+
+      app.db.albumFiles.set(`${rootId}_${fRoot}`, {
+        id: `${rootId}_${fRoot}`,
+        albumId: rootId,
+        fileId: fRoot,
+        position: 1,
+      });
+      app.db.albumFiles.set(`${childId}_${fChild}`, {
+        id: `${childId}_${fChild}`,
+        albumId: childId,
+        fileId: fChild,
+        position: 1,
+      });
+      app.db.albumFiles.set(`${siblingId}_${fSibling}`, {
+        id: `${siblingId}_${fSibling}`,
+        albumId: siblingId,
+        fileId: fSibling,
+        position: 1,
+      });
+
+      const tokenWithChildren = 'tok-rf52-with-children';
+      app.db.shareLinks.set('sh-rf52-with', {
+        id: 'sh-rf52-with',
+        token: tokenWithChildren,
+        ownerId: 'user-active',
+        targetType: ShareTarget.album,
+        targetId: rootId,
+        allowDownload: true,
+        showLocation: false,
+        includeChildren: true,
+        viewCount: 0,
+        expiresAt: null,
+        passwordHash: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      // 1. Root album: subAlbums memuat 1 item, breadcrumb 1 level
+      const resRoot = await http().get(`/public/s/${tokenWithChildren}`).expect(200);
+      expect(resRoot.body.title).toBe('Induk');
+      expect(resRoot.body.subAlbums).toHaveLength(1);
+      expect(resRoot.body.subAlbums[0].title).toBe('Anak');
+      expect(resRoot.body.breadcrumb).toHaveLength(1);
+      expect(resRoot.body.breadcrumb[0].title).toBe('Induk');
+      expect(resRoot.body.files).toHaveLength(1);
+      expect(resRoot.body.files[0].id).toBe(fRoot);
+
+      // 2. Akses sub-album via ?a=<childId>
+      const resChild = await http().get(`/public/s/${tokenWithChildren}?a=${childId}`).expect(200);
+      expect(resChild.body.title).toBe('Anak');
+      expect(resChild.body.breadcrumb).toHaveLength(2);
+      expect(resChild.body.breadcrumb[0].title).toBe('Induk');
+      expect(resChild.body.breadcrumb[1].title).toBe('Anak');
+      expect(resChild.body.files).toHaveLength(1);
+      expect(resChild.body.files[0].id).toBe(fChild);
+
+      // 3. Akses file di child album via token root -> sukses karena includeChildren=true
+      await http().get(`/public/s/${tokenWithChildren}/files/${fChild}/thumb`).expect(200);
+      await http().get(`/public/s/${tokenWithChildren}/files/${fChild}`).expect(200);
+
+      // 4. Mencoba akses album saudara lewat ?a=<siblingId> -> ditolak 404 identik
+      await http().get(`/public/s/${tokenWithChildren}?a=${siblingId}`).expect(404);
+
+      // 5. File milik album saudara tidak bisa diakses lewat link root -> 404 identik
+      await http().get(`/public/s/${tokenWithChildren}/files/${fSibling}`).expect(404);
+
+      // 6. Buat Share Link dengan includeChildren = false
+      const tokenNoChildren = 'tok-rf52-no-children';
+      app.db.shareLinks.set('sh-rf52-without', {
+        id: 'sh-rf52-without',
+        token: tokenNoChildren,
+        ownerId: 'user-active',
+        targetType: ShareTarget.album,
+        targetId: rootId,
+        allowDownload: true,
+        showLocation: false,
+        includeChildren: false,
+        viewCount: 0,
+        expiresAt: null,
+        passwordHash: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      // GET root dengan includeChildren=false -> subAlbums kosong
+      const resNoChildren = await http().get(`/public/s/${tokenNoChildren}`).expect(200);
+      expect(resNoChildren.body.subAlbums).toHaveLength(0);
+
+      // Mencoba akses sub-album saat includeChildren=false -> 404 identik
+      await http().get(`/public/s/${tokenNoChildren}?a=${childId}`).expect(404);
+
+      // Mencoba akses file sub-album saat includeChildren=false -> 404 identik
+      await http().get(`/public/s/${tokenNoChildren}/files/${fChild}`).expect(404);
+
+      // 7. Unduh ZIP publik berstruktur folder
+      const resZip = await http().get(`/public/s/${tokenWithChildren}/zip`).expect(200);
+      expect(resZip.header['content-type']).toBe('application/zip');
+      expect(resZip.header['content-disposition']).toContain('Induk.zip');
     });
   });
 });
