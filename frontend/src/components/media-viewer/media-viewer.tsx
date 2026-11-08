@@ -820,6 +820,12 @@ export function MediaViewer({
           controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          showControlsTemporarily();
+        }}
+        onTouchMove={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
         onMouseEnter={handleControlsMouseEnter}
         onMouseLeave={handleControlsMouseLeave}
       >
@@ -828,12 +834,12 @@ export function MediaViewer({
             type="button"
             onClick={onClose}
             aria-label="Tutup viewer"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/20 transition-colors"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/20 transition-colors touch-manipulation cursor-pointer"
           >
-            <X size={24} strokeWidth={1.5} />
+            <X size={24} strokeWidth={1.5} className="pointer-events-none" />
           </button>
           <span
-            className="text-caption font-medium tracking-wider text-white/80 font-mono"
+            className="text-caption font-medium tracking-wider text-white/80 font-mono select-none"
             aria-live="polite"
           >
             {currentIndex + 1} / {total}
@@ -858,7 +864,7 @@ export function MediaViewer({
               onPointerUp={endHoldToPlay}
               onPointerLeave={endHoldToPlay}
               aria-label={isLivePlaying ? "Hentikan gerak Live Photo" : "Putar gerak Live Photo"}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold backdrop-blur-xs transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold backdrop-blur-xs transition-colors touch-manipulation cursor-pointer ${
                 isLivePlaying
                   ? "bg-amber-500 text-black shadow-md ring-1 ring-amber-300"
                   : "bg-white/15 text-white hover:bg-white/25"
@@ -868,9 +874,9 @@ export function MediaViewer({
               <CircleDot
                 size={14}
                 strokeWidth={2.5}
-                className={`shrink-0 ${isLivePlaying ? "animate-pulse text-black" : "text-amber-300"}`}
+                className={`shrink-0 pointer-events-none ${isLivePlaying ? "animate-pulse text-black" : "text-amber-300"}`}
               />
-              <span>LIVE</span>
+              <span className="pointer-events-none">LIVE</span>
             </button>
           )}
         </div>
@@ -884,7 +890,7 @@ export function MediaViewer({
             <span>{dateInfo.displayDate} · {dateInfo.formattedTime}</span>
             {currentFile.place && (
               <span className="inline-flex items-center gap-1 text-white/90">
-                <MapPin size={12} className="text-amber-400 shrink-0" />
+                <MapPin size={12} className="text-amber-400 shrink-0 pointer-events-none" />
                 <span className="truncate max-w-[160px] md:max-w-[240px]">{currentFile.place}</span>
               </span>
             )}
@@ -904,13 +910,13 @@ export function MediaViewer({
                 }
               }}
               aria-label={isLiveMuted ? "Aktifkan suara Live Photo" : "Bisukan suara Live Photo"}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors touch-manipulation cursor-pointer"
               title={isLiveMuted ? "Aktifkan suara" : "Bisukan suara"}
             >
               {isLiveMuted ? (
-                <VolumeX size={20} strokeWidth={1.5} />
+                <VolumeX size={20} strokeWidth={1.5} className="pointer-events-none" />
               ) : (
-                <Volume2 size={20} strokeWidth={1.5} className="text-amber-400" />
+                <Volume2 size={20} strokeWidth={1.5} className="text-amber-400 pointer-events-none" />
               )}
             </button>
           )}
@@ -924,7 +930,7 @@ export function MediaViewer({
                   ? `Hapus ${currentFile.originalName} dari favorit`
                   : `Jadikan ${currentFile.originalName} favorit`
               }
-              className={`flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors active:bg-white/15 ${
+              className={`flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors active:bg-white/15 touch-manipulation cursor-pointer ${
                 isFavorite ? "text-amber-400" : "text-white hover:text-amber-300"
               }`}
               title={isFavorite ? "Hapus dari favorit" : "Jadikan favorit"}
@@ -932,7 +938,7 @@ export function MediaViewer({
               <Star
                 size={20}
                 strokeWidth={1.5}
-                className={isFavorite ? "fill-amber-400" : ""}
+                className={`pointer-events-none ${isFavorite ? "fill-amber-400" : ""}`}
               />
             </button>
           )}
@@ -945,10 +951,10 @@ export function MediaViewer({
               if (onOpenInfo) onOpenInfo(currentFile);
             }}
             aria-label="Lihat info"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors touch-manipulation cursor-pointer"
             title="Lihat info"
           >
-            <Info size={20} strokeWidth={1.5} />
+            <Info size={20} strokeWidth={1.5} className="pointer-events-none" />
           </button>
 
           {/* Tombol Bagikan */}
@@ -956,10 +962,10 @@ export function MediaViewer({
             type="button"
             onClick={handleShare}
             aria-label={`Bagikan ${currentFile.originalName}`}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors touch-manipulation cursor-pointer"
             title="Bagikan"
           >
-            <Share2 size={20} strokeWidth={1.5} />
+            <Share2 size={20} strokeWidth={1.5} className="pointer-events-none" />
           </button>
 
           {/* Tombol Unduh / Simpan ke Galeri (RF-23) */}
@@ -970,13 +976,13 @@ export function MediaViewer({
                 onClick={() => handleSaveToGallery(false)}
                 disabled={isSavingToGallery}
                 aria-label={`Simpan ke Galeri ${currentFile.originalName}`}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 disabled:opacity-50 transition-colors"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 disabled:opacity-50 transition-colors touch-manipulation cursor-pointer"
                 title="Simpan ke Galeri"
               >
                 {isSavingToGallery ? (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent pointer-events-none" />
                 ) : (
-                  <Download size={20} strokeWidth={1.5} />
+                  <Download size={20} strokeWidth={1.5} className="pointer-events-none" />
                 )}
               </button>
             ) : (
@@ -984,10 +990,10 @@ export function MediaViewer({
                 href={downloadUrl}
                 download={currentFile.originalName}
                 aria-label={`Unduh ${currentFile.originalName}`}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors touch-manipulation cursor-pointer"
                 title="Unduh"
               >
-                <Download size={20} strokeWidth={1.5} />
+                <Download size={20} strokeWidth={1.5} className="pointer-events-none" />
               </a>
             ))}
 
@@ -997,10 +1003,10 @@ export function MediaViewer({
               type="button"
               onClick={() => setShowConfirmDelete(true)}
               aria-label={`Hapus ${currentFile.originalName}`}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-danger active:bg-white/15 transition-colors"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-danger active:bg-white/15 transition-colors touch-manipulation cursor-pointer"
               title="Hapus"
             >
-              <Trash2 size={20} strokeWidth={1.5} />
+              <Trash2 size={20} strokeWidth={1.5} className="pointer-events-none" />
             </button>
           )}
         </div>
@@ -1096,12 +1102,14 @@ export function MediaViewer({
               e.stopPropagation();
               goToPrev();
             }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
             aria-label="File sebelumnya"
-            className={`absolute left-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 shadow-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 ${
+            className={`absolute left-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 shadow-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 touch-manipulation cursor-pointer ${
               controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
-            <ChevronLeft size={28} strokeWidth={2} />
+            <ChevronLeft size={28} strokeWidth={2} className="pointer-events-none" />
           </button>
         )}
 
@@ -1112,12 +1120,14 @@ export function MediaViewer({
               e.stopPropagation();
               goToNext();
             }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
             aria-label="File berikutnya"
-            className={`absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 shadow-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 ${
+            className={`absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 shadow-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 touch-manipulation cursor-pointer ${
               controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
-            <ChevronRight size={28} strokeWidth={2} />
+            <ChevronRight size={28} strokeWidth={2} className="pointer-events-none" />
           </button>
         )}
       </div>
@@ -1128,6 +1138,12 @@ export function MediaViewer({
           controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          showControlsTemporarily();
+        }}
+        onTouchMove={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
         onMouseEnter={handleControlsMouseEnter}
         onMouseLeave={handleControlsMouseLeave}
       >
@@ -1140,7 +1156,7 @@ export function MediaViewer({
             <span>{dateInfo.displayDate} · {dateInfo.formattedTime}</span>
             {currentFile.place && (
               <span className="inline-flex items-center gap-0.5 text-amber-400">
-                <MapPin size={11} className="shrink-0" />
+                <MapPin size={11} className="shrink-0 pointer-events-none" />
                 <span className="truncate max-w-[130px]">{currentFile.place}</span>
               </span>
             )}
@@ -1158,7 +1174,7 @@ export function MediaViewer({
                 )
               }
               aria-label={showOriginal ? "Gunakan pratinjau cepat" : "Lihat ukuran asli"}
-              className="text-xs px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/35 text-white transition-colors border border-white/10"
+              className="text-xs px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/35 text-white transition-colors border border-white/10 touch-manipulation cursor-pointer"
             >
               {showOriginal ? "Pratinjau cepat" : "Lihat ukuran asli"}
             </button>
@@ -1169,8 +1185,11 @@ export function MediaViewer({
         {total > 1 && (
           <div
             ref={filmstripContainerRef}
-            className="w-full max-w-4xl mx-auto flex items-center justify-start sm:justify-center gap-2 overflow-x-auto py-1 px-2 no-scrollbar"
+            className="w-full max-w-4xl mx-auto flex items-center justify-start sm:justify-center gap-2 overflow-x-auto py-1 px-2 no-scrollbar touch-pan-x"
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
           >
             {files.map((file, idx) => {
               const isActive = idx === currentIndex;
@@ -1193,7 +1212,7 @@ export function MediaViewer({
                     showControlsTemporarily();
                   }}
                   aria-label={`Buka ${file.originalName} (${idx + 1} dari ${total})`}
-                  className={`relative h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-md overflow-hidden transition-all duration-150 ${
+                  className={`relative h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-md overflow-hidden transition-all duration-150 touch-manipulation cursor-pointer ${
                     isActive
                       ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-black scale-105 opacity-100 shadow-md"
                       : "opacity-50 hover:opacity-90 hover:scale-100 border border-white/10"
@@ -1208,7 +1227,7 @@ export function MediaViewer({
                     loading="lazy"
                   />
                   {file.kind === "video" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
                       <span className="h-0 w-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-white" />
                     </div>
                   )}
@@ -1229,6 +1248,9 @@ export function MediaViewer({
           aria-describedby="dialog-hapus-pesan"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
             <h3 id="dialog-hapus-judul" className="text-h3 font-serif">
@@ -1267,6 +1289,9 @@ export function MediaViewer({
           aria-describedby="large-file-dialog-desc"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 text-ink shadow-float">
             <h3 id="large-file-dialog-title" className="text-h3 font-serif">
