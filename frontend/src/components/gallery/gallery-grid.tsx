@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import type { FileItem } from "@galeriku/contracts";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { FileItem, TimelineBucket } from "@galeriku/contracts";
 import {
+  Calendar,
   Check,
   CheckSquare,
   Download,
@@ -17,6 +18,7 @@ import {
 import {
   batchDeleteFiles,
   fetchFiles,
+  fetchTimeline,
   getFileContentUrl,
   getThumbnailUrl,
 } from "@/lib/api";
@@ -40,6 +42,28 @@ interface GalleryGridProps {
   initialSort?: "taken" | "uploaded";
 }
 
+const NAMA_BULAN = [
+  "",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
+function formatAnchorDisplay(anchorStr: string): string {
+  const [y, m] = anchorStr.split("-");
+  const monthIdx = parseInt(m, 10);
+  return `${NAMA_BULAN[monthIdx] || m} ${y}`;
+}
+
 export function GalleryGrid({
   onTriggerUpload,
   kind,
@@ -54,6 +78,32 @@ export function GalleryGrid({
 
   // Urutan galeri: "taken" (Tanggal foto) atau "uploaded" (Baru ditambahkan) (RF-23)
   const [sortBy, setSortBy] = useState<"taken" | "uploaded">(initialSort);
+
+  // Loncat Waktu Anchor YYYY-MM (RF-41)
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [showTimelineSheet, setShowTimelineSheet] = useState(false);
+
+  // Ambil timeline bucket { year, month, count }
+  const { data: timelineData } = useQuery({
+    queryKey: ["timeline", { kind, favoriteOnly }],
+    queryFn: () => fetchTimeline({ kind, favorite: favoriteOnly }),
+    staleTime: 60_000,
+  });
+
+  const timelineByYear = useMemo(() => {
+    if (!timelineData?.buckets) return [];
+    const map = new Map<number, TimelineBucket[]>();
+    for (const b of timelineData.buckets) {
+      const arr = map.get(b.year) ?? [];
+      arr.push(b);
+      map.set(b.year, arr);
+    }
+    return Array.from(map.entries()).map(([year, buckets]) => ({
+      year,
+      totalCount: buckets.reduce((acc, b) => acc + b.count, 0),
+      buckets: buckets.sort((a, b) => b.month - a.month),
+    }));
+  }, [timelineData]);
 
   // Selection mode
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -71,10 +121,11 @@ export function GalleryGrid({
     fetchNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ["files", { kind, favoriteOnly, sortBy }],
+    queryKey: ["files", { kind, favoriteOnly, sortBy, anchor }],
     queryFn: ({ pageParam }) =>
       fetchFiles({
         cursor: pageParam,
+        anchor: anchor ?? undefined,
         limit: 24,
         kind,
         favorite: favoriteOnly,
@@ -300,12 +351,38 @@ export function GalleryGrid({
           <span className="text-caption text-ink-muted">
             Tekan lama foto untuk memilih
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Tombol Lompat Waktu (RF-41) */}
+            <button
+              type="button"
+              onClick={() => setShowTimelineSheet(true)}
+              className="flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-medium text-ink transition-colors hover:border-ink-muted focus:border-accent"
+              aria-label="Lompat ke waktu"
+              title="Lompat ke tahun atau bulan tertentu"
+            >
+              <Calendar size={15} className="text-accent shrink-0" />
+              <span>{anchor ? formatAnchorDisplay(anchor) : "Lompat waktu"}</span>
+            </button>
+
+            {/* Indikator Filter Anchor Aktif */}
+            {anchor && (
+              <button
+                type="button"
+                onClick={() => setAnchor(null)}
+                className="flex min-h-11 items-center gap-1 rounded-lg bg-accent-soft px-2.5 text-caption font-medium text-accent hover:bg-accent-soft/80"
+                title="Hapus filter waktu dan kembali ke foto terbaru"
+                aria-label="Hapus filter waktu"
+              >
+                <span>Terbaru</span>
+                <X size={14} />
+              </button>
+            )}
+
             <select
               aria-label="Urutan galeri"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "taken" | "uploaded")}
-              className="h-9 cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1 text-caption font-medium text-ink outline-none transition-colors hover:border-ink-muted focus:border-accent"
+              className="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1 text-caption font-medium text-ink outline-none transition-colors hover:border-ink-muted focus:border-accent"
             >
               <option value="taken">Tanggal foto</option>
               <option value="uploaded">Baru ditambahkan</option>
@@ -314,7 +391,7 @@ export function GalleryGrid({
               type="button"
               variant="ghost"
               onClick={() => setIsSelectionMode(true)}
-              className="flex items-center gap-1 text-label text-ink-muted"
+              className="flex min-h-11 items-center gap-1 text-label text-ink-muted"
             >
               <CheckSquare size={16} />
               Pilih
@@ -411,6 +488,132 @@ export function GalleryGrid({
           </div>
         </div>
       ) : null}
+
+      {/* Scrubber Vertikal Layar Lebar (Desktop RF-41) */}
+      {timelineByYear.length > 0 && !isSelectionMode && (
+        <aside
+          aria-label="Scrubber garis waktu tahun"
+          className="fixed right-3 top-1/2 -translate-y-1/2 z-20 hidden md:flex flex-col gap-1 rounded-full border border-line/60 bg-surface/80 p-1.5 shadow-float backdrop-blur-md"
+        >
+          {timelineByYear.map(({ year, buckets }) => {
+            const isYearActive = anchor?.startsWith(String(year));
+            return (
+              <button
+                key={year}
+                type="button"
+                onClick={() => {
+                  const latestMonth = buckets[0]?.month;
+                  if (latestMonth) {
+                    setAnchor(`${year}-${String(latestMonth).padStart(2, "0")}`);
+                  }
+                }}
+                className={`flex h-9 w-11 items-center justify-center rounded-full text-[11px] font-mono font-semibold transition-colors ${
+                  isYearActive
+                    ? "bg-accent text-on-accent shadow-xs"
+                    : "text-ink-muted hover:bg-sunken hover:text-ink"
+                }`}
+                title={`Lompat ke tahun ${year}`}
+              >
+                {String(year).slice(-2)}
+              </button>
+            );
+          })}
+        </aside>
+      )}
+
+      {/* Modal Bottom Sheet: Lompat ke Waktu (Mobile & Desktop RF-41) */}
+      {showTimelineSheet && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pilih waktu lompat"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-scrim p-0 sm:p-4 backdrop-blur-xs"
+          onClick={() => setShowTimelineSheet(false)}
+        >
+          <div
+            className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-line bg-surface p-5 shadow-float animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-line">
+              <div className="flex items-center gap-2">
+                <Calendar size={20} className="text-accent" />
+                <h3 className="text-h3 font-serif text-ink">Lompat ke Waktu</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTimelineSheet(false)}
+                aria-label="Tutup pemilih waktu"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink hover:bg-sunken"
+              >
+                <X size={20} strokeWidth={1.5} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 space-y-5">
+              {timelineByYear.length === 0 ? (
+                <p className="py-6 text-center text-body text-ink-muted">
+                  Belum ada linimasa foto yang tersedia.
+                </p>
+              ) : (
+                timelineByYear.map(({ year, totalCount, buckets }) => (
+                  <div key={year} className="space-y-2">
+                    <div className="flex items-baseline justify-between px-1">
+                      <h4 className="text-label font-bold text-ink">{year}</h4>
+                      <span className="text-caption text-ink-muted font-mono">
+                        {totalCount} item
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {buckets.map(({ month, count }) => {
+                        const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+                        const isCurrent = anchor === monthKey;
+                        return (
+                          <button
+                            key={monthKey}
+                            type="button"
+                            onClick={() => {
+                              setAnchor(monthKey);
+                              setShowTimelineSheet(false);
+                            }}
+                            className={`flex min-h-11 flex-col items-center justify-center rounded-lg border px-2 py-1.5 transition-all ${
+                              isCurrent
+                                ? "border-accent bg-accent-soft text-accent ring-1 ring-accent"
+                                : "border-line bg-sunken/40 text-ink hover:border-ink-muted hover:bg-sunken"
+                            }`}
+                          >
+                            <span className="text-caption font-semibold">
+                              {NAMA_BULAN[month]}
+                            </span>
+                            <span className="text-[10px] text-ink-muted font-mono">
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {anchor && (
+              <div className="pt-3 border-t border-line flex justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setAnchor(null);
+                    setShowTimelineSheet(false);
+                  }}
+                  className="min-h-11 w-full text-label"
+                >
+                  Kembali ke Foto Terbaru
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

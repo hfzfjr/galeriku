@@ -327,4 +327,27 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Pastikan API mengembalikan 400 `VALIDATION_ERROR` (strictness Zod).
    - Uji cursor dengan opsi sort berbeda: pastikan ditolak 400 `INVALID_CURSOR`.
 
+---
+
+### RF-41: Timeline dan Loncat Waktu
+
+1. **Tombol "Lompat waktu" di Galeri (Mobile & Desktop):**
+   - Buka halaman Galeri (`/galeri`).
+   - Klik tombol "Lompat waktu" di bilah atas galeri:
+     - Modal / bottom sheet "Lompat ke Waktu" muncul.
+     - Linimasa foto dikelompokkan rapi per tahun dan bulan beserta jumlah fotonya.
+   - Pilih salah satu bulan (misal Mei 2026):
+     - Sheet tertutup, galeri melompat langsung memuat foto mulai dari bulan tersebut.
+     - Tampil indikator filter aktif (misal "Mei 2026") beserta tombol "Terbaru" untuk me-reset.
+     - Gulir ke bawah (infinite scroll): pastikan foto bulan-bulan sebelumnya terus dimuat secara mulus tanpa duplikasi header tanggal.
+
+2. **Scrubber Vertikal Desktop:**
+   - Pada layar desktop lebar (`>= 768px`), periksa bilah scrubber melayang di sisi kanan layar.
+   - Klik salah satu tahun di scrubber: galeri otomatis melompat ke foto pada tahun tersebut.
+
+3. **Kembali ke Foto Terbaru:**
+   - Klik tombol "Terbaru" pada pil filter atau pilih "Kembali ke Foto Terbaru" di dalam sheet.
+   - Pastikan galeri kembali menampilkan foto-foto paling baru.
+
+
 

@@ -445,6 +445,97 @@ describe('FilesController (e2e) — US-20', () => {
       expect(resRange.body.items).toHaveLength(1);
       expect(resRange.body.items[0].id).toBe('f-target');
     });
+
+    it('GET /files?anchor=YYYY-MM melompat ke bulan yang ditentukan (RF-41)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      // Buat file di berbagai bulan (Maret, April, Mei 2026)
+      const dates = [
+        { id: 'f-mar', date: '2026-03-10T12:00:00Z' },
+        { id: 'f-apr', date: '2026-04-15T12:00:00Z' },
+        { id: 'f-may', date: '2026-05-20T12:00:00Z' },
+      ];
+      for (const item of dates) {
+        db.files.set(item.id, {
+          id: item.id,
+          ownerId: user.id,
+          originalName: `${item.id}.jpg`,
+          storageKey: `k-${item.id}`,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1000n,
+          kind: FileKind.image,
+          status: FileStatus.ready,
+          capturedAt: new Date(item.date),
+          createdAt: new Date(item.date),
+          deletedAt: null,
+        });
+      }
+
+      // Loncat ke anchor April 2026
+      const res = await http()
+        .get('/files?anchor=2026-04')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(2);
+      // Urutan desc: April lalu Maret (Mei diabaikan karena lebih baru dari anchor)
+      expect(res.body.items[0].id).toBe('f-apr');
+      expect(res.body.items[1].id).toBe('f-mar');
+    });
+
+    it('GET /files/timeline mengembalikan bucket tahun, bulan, dan jumlah (RF-41)', async () => {
+      const user = await seedUser(db);
+      const otherUser = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      // 2 file di Mei 2026, 1 di Maret 2026 untuk user
+      const userFiles = [
+        { id: 'f1', date: '2026-05-01T10:00:00Z' },
+        { id: 'f2', date: '2026-05-15T10:00:00Z' },
+        { id: 'f3', date: '2026-03-20T10:00:00Z' },
+      ];
+      for (const it of userFiles) {
+        db.files.set(it.id, {
+          id: it.id,
+          ownerId: user.id,
+          originalName: `${it.id}.jpg`,
+          storageKey: `k-${it.id}`,
+          mimeType: 'image/jpeg',
+          sizeBytes: 1000n,
+          kind: FileKind.image,
+          status: FileStatus.ready,
+          capturedAt: new Date(it.date),
+          createdAt: new Date(it.date),
+          deletedAt: null,
+        });
+      }
+
+      // File milik otherUser (tidak boleh ikut dihitung)
+      db.files.set('f-other-user', {
+        id: 'f-other-user',
+        ownerId: otherUser.id,
+        originalName: 'other.jpg',
+        storageKey: 'k-other-usr',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000n,
+        kind: FileKind.image,
+        status: FileStatus.ready,
+        capturedAt: new Date('2026-05-10T10:00:00Z'),
+        createdAt: new Date('2026-05-10T10:00:00Z'),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/timeline')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.buckets).toEqual([
+        { year: 2026, month: 5, count: 2 },
+        { year: 2026, month: 3, count: 1 },
+      ]);
+    });
   });
 
   describe('GET /files/:id/thumb', () => {

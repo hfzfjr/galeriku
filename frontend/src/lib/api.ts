@@ -11,6 +11,7 @@ import type {
   FileDetail,
   FileItem,
   FilesResponse,
+  FilesTimelineResponse,
   ForgotPasswordRequest,
   LoginRequest,
   MeResponse,
@@ -244,32 +245,69 @@ export function deleteUser(id: string): Promise<void> {
   });
 }
 
-// Galeri & Files (US-20). Sesi login + pemilik.
+// Galeri & Files (US-20, RF-40, RF-41). Sesi login + pemilik.
 export function fetchFiles(params?: {
   limit?: number;
   cursor?: string;
+  anchor?: string;
+  sort?: "taken" | "uploaded" | "name" | "size";
+  order?: "desc" | "asc";
   kind?: "image" | "video";
+  live?: boolean;
+  hasLocation?: boolean;
   favorite?: boolean;
-  sort?: "taken" | "uploaded";
+  unalbumed?: boolean;
+  place?: string;
+  duplicates?: boolean;
+  q?: string;
+  from?: string;
+  to?: string;
 }): Promise<FilesResponse> {
   const search = new URLSearchParams();
-  if (params?.limit !== undefined) {
-    search.set("limit", String(params.limit));
-  }
-  if (params?.cursor) {
-    search.set("cursor", params.cursor);
-  }
-  if (params?.kind) {
-    search.set("kind", params.kind);
-  }
-  if (params?.favorite) {
-    search.set("favorite", "true");
-  }
-  if (params?.sort) {
-    search.set("sort", params.sort);
-  }
+  if (params?.limit !== undefined) search.set("limit", String(params.limit));
+  if (params?.cursor) search.set("cursor", params.cursor);
+  if (params?.anchor) search.set("anchor", params.anchor);
+  if (params?.sort) search.set("sort", params.sort);
+  if (params?.order) search.set("order", params.order);
+  if (params?.kind) search.set("kind", params.kind);
+  if (params?.live !== undefined) search.set("live", String(params.live));
+  if (params?.hasLocation !== undefined) search.set("hasLocation", String(params.hasLocation));
+  if (params?.favorite !== undefined) search.set("favorite", String(params.favorite));
+  if (params?.unalbumed !== undefined) search.set("unalbumed", String(params.unalbumed));
+  if (params?.place) search.set("place", params.place);
+  if (params?.duplicates !== undefined) search.set("duplicates", String(params.duplicates));
+  if (params?.q) search.set("q", params.q);
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
   const suffix = search.size > 0 ? `?${search.toString()}` : "";
   return request<FilesResponse>(`/files${suffix}`);
+}
+
+export function fetchTimeline(params?: {
+  kind?: "image" | "video";
+  live?: boolean;
+  hasLocation?: boolean;
+  favorite?: boolean;
+  unalbumed?: boolean;
+  place?: string;
+  duplicates?: boolean;
+  q?: string;
+  from?: string;
+  to?: string;
+}): Promise<FilesTimelineResponse> {
+  const search = new URLSearchParams();
+  if (params?.kind) search.set("kind", params.kind);
+  if (params?.live !== undefined) search.set("live", String(params.live));
+  if (params?.hasLocation !== undefined) search.set("hasLocation", String(params.hasLocation));
+  if (params?.favorite !== undefined) search.set("favorite", String(params.favorite));
+  if (params?.unalbumed !== undefined) search.set("unalbumed", String(params.unalbumed));
+  if (params?.place) search.set("place", params.place);
+  if (params?.duplicates !== undefined) search.set("duplicates", String(params.duplicates));
+  if (params?.q) search.set("q", params.q);
+  if (params?.from) search.set("from", params.from);
+  if (params?.to) search.set("to", params.to);
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return request<FilesTimelineResponse>(`/files/timeline${suffix}`);
 }
 
 export function toggleFavoriteFile(

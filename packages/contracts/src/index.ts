@@ -289,6 +289,10 @@ export const filesQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(100).default(24),
     cursor: z.string().min(1).max(500).optional(),
+    anchor: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/, 'Format anchor harus YYYY-MM.')
+      .optional(),
     sort: z.enum(['taken', 'uploaded', 'name', 'size']).default('taken'),
     order: z.enum(['desc', 'asc']).default('desc'),
     from: queryDate.optional(),
@@ -305,6 +309,37 @@ export const filesQuerySchema = z
   .strict();
 
 export type FilesQuery = z.output<typeof filesQuerySchema>;
+
+export const filesTimelineQuerySchema = z
+  .object({
+    kind: z.enum(['image', 'video']).optional(),
+    live: queryBoolean.optional(),
+    hasLocation: queryBoolean.optional(),
+    favorite: queryBoolean.optional(),
+    unalbumed: queryBoolean.optional(),
+    place: z.string().trim().max(100).optional(),
+    duplicates: queryBoolean.optional(),
+    q: z.string().trim().max(200).optional(),
+    from: queryDate.optional(),
+    to: queryDate.optional(),
+  })
+  .strict();
+
+export type FilesTimelineQuery = z.output<typeof filesTimelineQuerySchema>;
+
+export const timelineBucketSchema = z.object({
+  year: z.number().int(),
+  month: z.number().int().min(1).max(12),
+  count: z.number().int().min(0),
+});
+
+export type TimelineBucket = z.output<typeof timelineBucketSchema>;
+
+export const filesTimelineResponseSchema = z.object({
+  buckets: z.array(timelineBucketSchema),
+});
+
+export type FilesTimelineResponse = z.output<typeof filesTimelineResponseSchema>;
 
 export const filesResponseSchema = z.object({
   items: z.array(fileItemSchema),

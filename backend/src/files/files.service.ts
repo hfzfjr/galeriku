@@ -7,8 +7,14 @@ import type {
   FileItem,
   FilesQuery,
   FilesResponse,
+  FilesTimelineQuery,
+  FilesTimelineResponse,
 } from '@galeriku/contracts';
-import { filesQuerySchema, updateCapturedAtSchema } from '@galeriku/contracts';
+import {
+  filesQuerySchema,
+  filesTimelineQuerySchema,
+  updateCapturedAtSchema,
+} from '@galeriku/contracts';
 import { FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiError } from '../common/errors/api-error';
@@ -394,6 +400,21 @@ export class FilesService {
           ],
         });
       }
+    } else if (query.anchor !== undefined && (sort === 'taken' || !query.sort)) {
+      // Anchor loncat waktu YYYY-MM (RF-41)
+      const [yStr, mStr] = query.anchor.split('-');
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10);
+
+      if (order === 'desc') {
+        // Mulai dari akhir bulan anchor menuju tanggal lebih lama
+        const anchorDate = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
+        andConditions.push({ capturedAt: { lt: anchorDate } });
+      } else {
+        // Mulai dari awal bulan anchor menuju tanggal lebih baru
+        const anchorDate = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
+        andConditions.push({ capturedAt: { gte: anchorDate } });
+      }
     }
 
     if (andConditions.length > 0) {
@@ -438,6 +459,122 @@ export class FilesService {
     return {
       items: halaman.map(toFileItem),
       nextCursor,
+    };
+  }
+
+  async getTimeline(
+    userId: string,
+    rawQuery: unknown,
+  ): Promise<FilesTimelineResponse> {
+    const parsed = filesTimelineQuerySchema.safeParse(rawQuery ?? {});
+    if (!parsed.success) {
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'Parameter query timeline tidak valid.',
+        {
+          fields: parsed.error.issues.map((i) => ({
+            field: i.path.join('.') || '(query)',
+            message: i.message,
+          })),
+        },
+      );
+    }
+
+    const query: FilesTimelineQuery = parsed.data;
+    const where: Record<string, unknown> = {
+      ownerId: userId,
+      status: FileStatus.ready,
+      deletedAt: null,
+    };
+
+    const andConditions: any[] = [];
+
+    if (query.kind) {
+      where.kind = query.kind;
+    }
+
+    if (query.favorite !== undefined) {
+      where.isFavorite = query.favorite;
+    }
+
+    if (query.live !== undefined) {
+      where.liveKind = query.live ? { not: 'none' } : 'none';
+    }
+
+    if (query.hasLocation !== undefined) {
+      where.gpsLat = query.hasLocation ? { not: null } : null;
+    }
+
+    if (query.unalbumed !== undefined) {
+      where.albumFiles = query.unalbumed ? { none: {} } : { some: {} };
+    }
+
+    if (query.duplicates !== undefined) {
+      where.duplicateOfId = query.duplicates ? { not: null } : null;
+    }
+
+    if (query.from || query.to) {
+      const dateFilter: Record<string, Date> = {};
+      if (query.from) {
+        dateFilter.gte = new Date(query.from);
+      }
+      if (query.to) {
+        dateFilter.lte =
+          query.to.length === 10
+            ? new Date(`${query.to}T23:59:59.999Z`)
+            : new Date(query.to);
+      }
+      where.capturedAt = dateFilter;
+    }
+
+    if (query.place) {
+      andConditions.push({
+        OR: [
+          { placeCity: { contains: query.place, mode: 'insensitive' } },
+          { placeAdmin1: { contains: query.place, mode: 'insensitive' } },
+          { placeCountry: { contains: query.place, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (query.q) {
+      andConditions.push({
+        OR: [
+          { originalName: { contains: query.q, mode: 'insensitive' } },
+          { placeCity: { contains: query.q, mode: 'insensitive' } },
+          { placeAdmin1: { contains: query.q, mode: 'insensitive' } },
+          { placeCountry: { contains: query.q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const rows = await this.prisma.file.findMany({
+      where,
+      select: { capturedAt: true },
+      orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
+    });
+
+    const bucketMap = new Map<string, { year: number; month: number; count: number }>();
+    for (const row of rows) {
+      const d = row.capturedAt ?? new Date();
+      const year = d.getUTCFullYear();
+      const month = d.getUTCMonth() + 1;
+      const key = `${year}-${month}`;
+      const existing = bucketMap.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        bucketMap.set(key, { year, month, count: 1 });
+      }
+    }
+
+    return {
+      buckets: Array.from(bucketMap.values()),
     };
   }
 

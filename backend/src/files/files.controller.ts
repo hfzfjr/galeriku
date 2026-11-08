@@ -19,6 +19,7 @@ import type {
   FileDetail,
   FileItem,
   FilesResponse,
+  FilesTimelineResponse,
   SetFileFavoriteRequest,
   TrashFilesResponse,
 } from '@galeriku/contracts';
@@ -76,6 +77,14 @@ export class FilesController {
     @Query() query: Record<string, unknown>,
   ): Promise<FilesResponse> {
     return this.filesService.listFiles(user.id, query);
+  }
+
+  @Get('timeline')
+  async getTimeline(
+    @CurrentUser() user: SessionUser,
+    @Query() query: Record<string, unknown>,
+  ): Promise<FilesTimelineResponse> {
+    return this.filesService.getTimeline(user.id, query);
   }
 
   @Get('trash')

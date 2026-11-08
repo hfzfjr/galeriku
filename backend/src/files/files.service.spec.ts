@@ -276,6 +276,47 @@ describe('FilesService helpers', () => {
       expect(args.orderBy).toEqual([{ sizeBytes: 'asc' }, { id: 'asc' }]);
       expect(args.take).toBe(11);
     });
+
+    it('mendukung loncat waktu anchor YYYY-MM (RF-41)', async () => {
+      await service.listFiles('u-1', {
+        anchor: '2026-05',
+        order: 'desc',
+      });
+
+      expect(findManyCalls.length).toBe(1);
+      const args = findManyCalls[0];
+      expect(args.where.AND).toEqual([
+        { capturedAt: { lt: new Date(Date.UTC(2026, 5, 1, 0, 0, 0, 0)) } },
+      ]);
+    });
+
+    it('getTimeline mengelompokkan bucket tahun & bulan serta menolak query tak dikenal (RF-41)', async () => {
+      const mockRows = [
+        { capturedAt: new Date('2026-05-10T10:00:00Z') },
+        { capturedAt: new Date('2026-05-15T12:00:00Z') },
+        { capturedAt: new Date('2026-04-01T08:00:00Z') },
+      ];
+      const customPrisma: any = {
+        file: {
+          findMany: async () => mockRows,
+        },
+      };
+      const customService = new FilesService(customPrisma as PrismaService);
+
+      const timeline = await customService.getTimeline('u-1', { kind: 'image' });
+      expect(timeline.buckets).toEqual([
+        { year: 2026, month: 5, count: 2 },
+        { year: 2026, month: 4, count: 1 },
+      ]);
+
+      // Menolak parameter asing di timeline
+      await expect(
+        customService.getTimeline('u-1', { limit: 10 }),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    });
   });
 });
 
