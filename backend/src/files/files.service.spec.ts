@@ -100,6 +100,8 @@ describe('FilesService helpers', () => {
         fNumber: null,
         exposureS: null,
         focalLengthMm: null,
+        duplicateOfId: null,
+        isDuplicate: false,
         createdAt: '2026-10-31T12:00:00.000Z',
         deletedAt: null,
       });

@@ -13,7 +13,7 @@ import { MetadataService } from '../uploads/metadata.service';
 import { PlaceService } from '../uploads/place.service';
 import { ThumbnailService } from '../uploads/thumbnail.service';
 import { VideoProcessingService } from '../uploads/video-processing.service';
-import { resolveMediaDir } from '../uploads/uploads.utils';
+import { computeFileSha256, resolveMediaDir } from '../uploads/uploads.utils';
 
 export const CURRENT_META_VERSION = 1;
 
@@ -173,6 +173,29 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
 
           const place = this.placeService.resolve(meta.gpsLat, meta.gpsLng);
 
+          // Hitung SHA-256 & deteksi duplikat jika belum ada (RF-45)
+          let contentHash = (file as { contentHash?: string | null }).contentHash ?? null;
+          let duplicateOfId = (file as { duplicateOfId?: string | null }).duplicateOfId ?? null;
+          if (!contentHash) {
+            try {
+              contentHash = await computeFileSha256(filePath);
+              const existingDuplicate = await this.prisma.file.findFirst({
+                where: {
+                  ownerId: file.ownerId,
+                  contentHash,
+                  deletedAt: null,
+                  status: FileStatus.ready,
+                  id: { not: file.id },
+                },
+                orderBy: { createdAt: 'asc' },
+                select: { id: true },
+              });
+              duplicateOfId = existingDuplicate?.id ?? null;
+            } catch {
+              // Lewati kalkulasi hash jika gagal
+            }
+          }
+
           // 3. Simpan pembaruan metadata ke basis data secara idempoten
           await this.prisma.file.update({
             where: { id: file.id },
@@ -199,6 +222,8 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
               focalLengthMm: meta.focalLengthMm,
               thumbKey,
               previewKey,
+              contentHash,
+              duplicateOfId,
               metaVersion: CURRENT_META_VERSION,
             },
           });

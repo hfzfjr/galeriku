@@ -184,6 +184,8 @@ type FileRow = {
   liveKind?: string | null;
   liveOffset?: bigint | null;
   liveLength?: bigint | null;
+  duplicateOfId?: string | null;
+  contentHash?: string | null;
   createdAt: Date;
   deletedAt?: Date | null;
 };
@@ -228,6 +230,8 @@ export function toFileItem(file: FileRow): FileItem {
     fNumber: file.fNumber ?? null,
     exposureS: file.exposureS ?? null,
     focalLengthMm: file.focalLengthMm ?? null,
+    duplicateOfId: file.duplicateOfId ?? null,
+    isDuplicate: Boolean(file.duplicateOfId),
     createdAt: file.createdAt.toISOString(),
     deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
   };

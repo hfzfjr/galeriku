@@ -868,5 +868,45 @@ describe('Upload tus (US-16 spike)', () => {
         throw new Error('berkas ditolak tapi tidak dibersihkan dari disk');
       }
     });
+
+    it('RF-45: unggah 2 berkas dengan konten identik mendeteksi duplicateOfId dan tetap menghitung kuota', async () => {
+      const user = await seedUser(db, 'duplikat@contoh.id');
+      const cookie = craftSession(db, user.id as string);
+      const isi = SAMPLE_JPEG;
+
+      // Upload pertama
+      const u1 = await buatUpload(cookie, isi.length, 'asli.jpg');
+      await request(server().getHttpAdapter().getInstance().server)
+        .patch(`/uploads/${u1.id}`)
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Content-Type', 'application/offset+octet-stream')
+        .set('Upload-Offset', '0')
+        .send(isi)
+        .expect(204);
+
+      // Upload kedua (konten identik)
+      const u2 = await buatUpload(cookie, isi.length, 'salinan.jpg');
+      await request(server().getHttpAdapter().getInstance().server)
+        .patch(`/uploads/${u2.id}`)
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .set('Origin', ORIGIN)
+        .set('Tus-Resumable', TUS)
+        .set('Content-Type', 'application/offset+octet-stream')
+        .set('Upload-Offset', '0')
+        .send(isi)
+        .expect(204);
+
+      const files = [...db.files.values()].filter((f) => f.ownerId === user.id);
+      expect(files).toHaveLength(2);
+      const file1 = files.find((f) => f.originalName === 'asli.jpg');
+      const file2 = files.find((f) => f.originalName === 'salinan.jpg');
+
+      expect(file1?.contentHash).toBeTruthy();
+      expect(file2?.contentHash).toBe(file1?.contentHash);
+      expect(file1?.duplicateOfId).toBeNull();
+      expect(file2?.duplicateOfId).toBe(file1?.id);
+    });
   });
 });

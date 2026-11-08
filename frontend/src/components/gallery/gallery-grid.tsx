@@ -14,6 +14,7 @@ import {
   RefreshCw,
   RotateCcw,
   Share2,
+  Sparkles,
   Star,
   Trash2,
   Upload,
@@ -30,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { MediaThumb } from "@/components/ui/media-thumb";
 import { getPhotoDateGroup } from "@/lib/date-group";
 import { AddToAlbumSheet } from "./add-to-album-sheet";
+import { CleanDuplicatesModal } from "./clean-duplicates-modal";
 import { FilterBar, type FilterState, type SortOption } from "./filter-bar";
 import { FullViewer } from "./full-viewer";
 import { QuickShareModal } from "./quick-share-modal";
@@ -313,6 +315,7 @@ export function GalleryGrid({
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [showAddToAlbumSheet, setShowAddToAlbumSheet] = useState(false);
   const [showQuickShareModal, setShowQuickShareModal] = useState(false);
+  const [showCleanDuplicatesModal, setShowCleanDuplicatesModal] = useState(false);
 
   const {
     data,
@@ -698,6 +701,34 @@ export function GalleryGrid({
         </div>
       )}
 
+      {/* Banner Bersihkan Duplikat (RF-45) */}
+      {activeDuplicates && allFiles.length > 0 && !isSelectionMode && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent-soft p-3.5 text-ink">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-white shrink-0">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <p className="text-label font-medium text-ink">
+                {allFiles.length} file duplikat terdeteksi
+              </p>
+              <p className="text-caption text-ink-muted">
+                Kamu bisa menghemat ruang penyimpanan dengan membersihkan file duplikat ke Sampah. File asli tetap aman.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => setShowCleanDuplicatesModal(true)}
+            className="min-h-11 px-4 text-caption font-medium flex items-center gap-1.5"
+          >
+            <Trash2 size={15} />
+            <span>Bersihkan Duplikat</span>
+          </Button>
+        </div>
+      )}
+
       {groups.map((group) => {
         const isGroupAllSelected =
           group.items.length > 0 &&
@@ -974,6 +1005,18 @@ export function GalleryGrid({
         fileIds={Array.from(selectedIds)}
         onSuccess={() => {
           cancelSelection();
+        }}
+      />
+
+      {/* Modal Bersihkan Duplikat (RF-45) */}
+      <CleanDuplicatesModal
+        isOpen={showCleanDuplicatesModal}
+        onClose={() => setShowCleanDuplicatesModal(false)}
+        duplicateFiles={allFiles}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["files"] });
+          queryClient.invalidateQueries({ queryKey: ["timeline"] });
+          queryClient.invalidateQueries({ queryKey: ["user-storage"] });
         }}
       />
     </div>

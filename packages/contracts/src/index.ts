@@ -250,6 +250,8 @@ export const fileItemSchema = z.object({
   fNumber: z.number().nullable().optional(),
   exposureS: z.number().nullable().optional(),
   focalLengthMm: z.number().nullable().optional(),
+  duplicateOfId: z.string().nullable().optional(),
+  isDuplicate: z.boolean().default(false),
   createdAt: z.string(),
   deletedAt: z.string().nullable().optional(),
 });

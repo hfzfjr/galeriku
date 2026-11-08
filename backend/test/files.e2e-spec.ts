@@ -1515,6 +1515,54 @@ describe('FilesController (e2e) — US-20', () => {
         ],
       });
     });
+
+    it('RF-45: filter duplicates=true hanya mengembalikan berkas duplikat', async () => {
+      const user = await seedUser(db);
+      const cookie = craftSession(db, user.id as string);
+
+      const f1Id = `f-asli-${Date.now()}`;
+      const f2Id = `f-duplikat-${Date.now()}`;
+
+      db.files.set(f1Id, {
+        id: f1Id,
+        ownerId: user.id,
+        originalName: 'asli.jpg',
+        storageKey: `k-${f1Id}`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 1024n,
+        kind: FileKind.image,
+        status: FileStatus.ready,
+        contentHash: 'hash-abc-123',
+        duplicateOfId: null,
+        createdAt: new Date('2026-05-01T10:00:00Z'),
+        deletedAt: null,
+      });
+
+      db.files.set(f2Id, {
+        id: f2Id,
+        ownerId: user.id,
+        originalName: 'salinan.jpg',
+        storageKey: `k-${f2Id}`,
+        mimeType: 'image/jpeg',
+        sizeBytes: 1024n,
+        kind: FileKind.image,
+        status: FileStatus.ready,
+        contentHash: 'hash-abc-123',
+        duplicateOfId: f1Id,
+        createdAt: new Date('2026-05-02T10:00:00Z'),
+        deletedAt: null,
+      });
+
+      const res = await request(app.getHttpAdapter().getInstance().server)
+        .get('/files?duplicates=true')
+        .set('Cookie', `galeriku_session=${cookie}`)
+        .expect(200);
+
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].id).toBe(f2Id);
+      expect(res.body.items[0].duplicateOfId).toBe(f1Id);
+      expect(res.body.items[0].isDuplicate).toBe(true);
+    });
   });
 });
 

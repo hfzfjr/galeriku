@@ -1,4 +1,5 @@
-import { statfsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createReadStream, statfsSync } from 'node:fs';
 import { open, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileTypeFromFile } from 'file-type';
@@ -327,4 +328,17 @@ export function resolveMediaDir(): string {
 
 export function tusDirOf(mediaDir: string): string {
   return join(mediaDir, '_tus');
+}
+
+/**
+ * Menghitung SHA-256 berkas secara streaming dari disk (RF-45).
+ */
+export async function computeFileSha256(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', (err) => reject(err));
+  });
 }

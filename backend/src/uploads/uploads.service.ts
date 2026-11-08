@@ -25,6 +25,7 @@ import { mapTus404ToStandard } from './uploads.errors';
 import {
   checkDiskGuard,
   checkUserQuotaAndStatus,
+  computeFileSha256,
   resolveMediaDir,
   sanitizeOriginalName,
   sniffAndValidateFile,
@@ -414,6 +415,26 @@ export class UploadsService implements OnModuleInit {
       }
     }
 
+    // Hitung SHA-256 dan deteksi duplikat (RF-45)
+    let contentHash: string | null = null;
+    let duplicateOfId: string | null = null;
+    try {
+      contentHash = await computeFileSha256(tujuan);
+      const existingDuplicate = await this.prisma.file.findFirst({
+        where: {
+          ownerId: user.id,
+          contentHash,
+          deletedAt: null,
+          status: FileStatus.ready,
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      duplicateOfId = existingDuplicate?.id ?? null;
+    } catch (e) {
+      this.logger.warn(`Gagal menghitung content_hash untuk ${storageKey}: ${e}`);
+    }
+
     let createdFile: { id: string } | undefined;
     try {
       createdFile = await this.prisma.file.create({
@@ -446,6 +467,8 @@ export class UploadsService implements OnModuleInit {
           exposureS: meta.exposureS,
           focalLengthMm: meta.focalLengthMm,
           orientation: meta.orientation,
+          contentHash,
+          duplicateOfId,
           liveKind: liveKind as any,
           liveGroupId,
           liveVideoKey,

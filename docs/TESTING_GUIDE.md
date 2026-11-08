@@ -440,8 +440,27 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
 3. **Keamanan Kepemilikan (Pola A-vs-B):**
    - Permintaan unduh ZIP atas file atau album milik pengguna lain merespons status `404 Not Found` identik tanpa membocorkan eksistensi file.
 
+---
 
+### RF-45: Deteksi Duplikat SHA-256
 
+1. **Deteksi Duplikat Saat Unggah:**
+   - Unggah satu file gambar (misal `bunga.jpg`).
+   - Unggah kembali file gambar yang sama persis dengan nama berbeda (misal `salinan-bunga.jpg`).
+   - Buka DevTools Network atau periksa database: file kedua ditandai memiliki `content_hash` yang sama dan `duplicate_of_id` merujuk ke file pertama.
+   - Periksa widget Penyimpanan: kuota tetap mencatat kedua file (file duplikat tidak dihapus otomatis saat unggah).
 
+2. **Filter & Banner Pembersihan Duplikat di Galeri:**
+   - Di halaman `/galeri`, aktifkan filter **"Duplikat"** pada Filter Bar.
+   - Grid galeri menyaring dan hanya menampilkan file yang merupakan duplikat.
+   - Banner khusus muncul di atas grid bertuliskan `N file duplikat terdeteksi` beserta tombol **"Bersihkan Duplikat"**.
+
+3. **Modal "Bersihkan Duplikat":**
+   - Ketuk tombol **"Bersihkan Duplikat"** pada banner.
+   - Modal muncul menampilkan rincian total ruang penyimpanan yang akan dihemat (misal `15.4 MB dari 3 file duplikat`).
+   - Terdapat penjelasan bahwa file asli tetap aman dan file duplikat dipindahkan ke Sampah (dapat dipulihkan dalam 30 hari).
+   - Ketuk tombol merah **"Pindahkan ke Sampah (N)"**:
+     - Seluruh file duplikat dipindahkan ke Sampah.
+     - Galeri dan widget penyimpanan otomatis disegarkan (*cache invalidated*).
 
 

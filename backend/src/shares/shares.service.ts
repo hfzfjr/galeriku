@@ -46,6 +46,7 @@ function toFileItem(file: {
   gpsLat?: number | null;
   gpsLng?: number | null;
   liveKind?: string | null;
+  duplicateOfId?: string | null;
   createdAt: Date;
   deletedAt?: Date | null;
 }, showLocation = true): FileItem {
@@ -89,6 +90,8 @@ function toFileItem(file: {
     fNumber: (file as any).fNumber ?? null,
     exposureS: (file as any).exposureS ?? null,
     focalLengthMm: (file as any).focalLengthMm ?? null,
+    duplicateOfId: (file as any).duplicateOfId ?? null,
+    isDuplicate: Boolean((file as any).duplicateOfId),
     createdAt: file.createdAt.toISOString(),
     deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
   };

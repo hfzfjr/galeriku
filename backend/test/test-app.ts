@@ -84,6 +84,9 @@ function matchField(actual: unknown, filter: unknown): boolean {
     }
     return ok;
   }
+  if (filter === null) {
+    return actual === null || actual === undefined;
+  }
   return actual === filter;
 }
 
