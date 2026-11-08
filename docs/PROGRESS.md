@@ -113,7 +113,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 
 ### Fase 5 — Album Bersarang
 - [x] RF-50 Skema dan API album bersarang
-- [ ] RF-51 UI album bersarang
+- [x] RF-51 UI album bersarang
 - [ ] RF-52 Berbagi subtree, halaman publik, dan ZIP berstruktur
 
 ## Fase 2 — Pemrosesan Video Lanjutan (Backlog v2.0)

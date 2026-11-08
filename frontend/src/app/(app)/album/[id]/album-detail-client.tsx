@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Check,
   CheckSquare,
   Download,
   Edit2,
   FolderMinus,
+  FolderPlus,
+  FolderTree,
   Images,
   Plus,
   Share2,
@@ -23,11 +24,16 @@ import { MediaThumb } from "@/components/ui/media-thumb";
 import { FullViewer } from "@/components/gallery/full-viewer";
 import { ShareModal } from "@/components/shares/share-modal";
 import { AlbumAddPhotosSheet } from "@/components/gallery/album-add-photos-sheet";
+import { AlbumBreadcrumb } from "@/components/albums/album-breadcrumb";
+import { DeleteAlbumModal } from "@/components/albums/delete-album-modal";
+import { MoveAlbumModal } from "@/components/albums/move-album-modal";
 import {
+  createAlbum,
   deleteAlbum,
   fetchAlbumDetail,
   getAlbumZipUrl,
   getThumbnailUrl,
+  moveAlbum,
   removeFileFromAlbum,
   updateAlbum,
 } from "@/lib/api";
@@ -42,6 +48,9 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addFilesModalOpen, setAddFilesModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [createSubAlbumModalOpen, setCreateSubAlbumModalOpen] = useState(false);
+  const [subAlbumTitle, setSubAlbumTitle] = useState("");
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -70,12 +79,16 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     onError: (err) => setErrorMsg(toIndonesianMessage(err)),
   });
 
-  // Mutasi Hapus Album
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteAlbum(albumId),
+  // Mutasi Buat Sub-album (RF-51)
+  const createSubAlbumMutation = useMutation({
+    mutationFn: (newTitle: string) =>
+      createAlbum({ title: newTitle, parentId: albumId }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["album", albumId] });
       queryClient.invalidateQueries({ queryKey: ["albums"] });
-      router.push("/album");
+      setCreateSubAlbumModalOpen(false);
+      setSubAlbumTitle("");
+      setErrorMsg(null);
     },
     onError: (err) => setErrorMsg(toIndonesianMessage(err)),
   });
@@ -196,13 +209,10 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
       ) : (
         /* Navigasi & Aksi Atas Normal */
         <div className="flex flex-col gap-3">
-          <Link
-            href="/album"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink transition"
-          >
-            <ArrowLeft size={16} />
-            <span>Semua Album</span>
-          </Link>
+          <AlbumBreadcrumb
+            items={album.breadcrumb ?? []}
+            currentTitle={album.title}
+          />
 
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -223,7 +233,10 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
                 </button>
               </div>
               <p className="text-caption text-ink-muted">
-                {album.files.length} {album.files.length === 1 ? "item" : "item"}
+                {album.files.length} item
+                {album.subAlbums && album.subAlbums.length > 0
+                  ? ` · ${album.subAlbums.length} sub-album`
+                  : ""}
               </p>
             </div>
 
@@ -258,6 +271,15 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
               </Button>
               <Button
                 variant="secondary"
+                onClick={() => setMoveModalOpen(true)}
+                className="min-h-11 gap-1.5 text-caption"
+                title="Pindahkan album ke folder lain"
+              >
+                <FolderTree size={16} />
+                <span className="hidden sm:inline">Pindahkan</span>
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => setAddFilesModalOpen(true)}
                 className="min-h-11 gap-1.5 text-caption"
               >
@@ -276,6 +298,73 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
           </div>
         </div>
       )}
+
+      {/* Bagian Sub-album (RF-51) */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-h3 font-serif text-ink">Sub-album</h2>
+            <span className="rounded-full bg-sunken px-2 py-0.5 text-caption font-medium text-ink-muted">
+              {album.subAlbums?.length ?? 0}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {(album.breadcrumb?.length ?? 1) >= 4 ? (
+              <span className="text-caption text-ink-muted italic">
+                Maksimal 4 tingkat kedalaman tercapai
+              </span>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setErrorMsg(null);
+                  setSubAlbumTitle("");
+                  setCreateSubAlbumModalOpen(true);
+                }}
+                className="min-h-11 gap-1.5 text-caption"
+              >
+                <FolderPlus size={16} />
+                <span>Album baru di sini</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {album.subAlbums && album.subAlbums.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 pt-1">
+            {album.subAlbums.map((sub) => (
+              <Link
+                key={sub.id}
+                href={`/album/${encodeURIComponent(sub.id)}`}
+                className="group flex flex-col gap-2 rounded-xl border border-line bg-surface p-2.5 transition hover:border-accent hover:shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-sunken">
+                  <MediaThumb
+                    src={sub.coverFileId ? getThumbnailUrl(sub.coverFileId) : null}
+                    alt={sub.title}
+                    showDuration={false}
+                    showVideoBadge={false}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="truncate text-body font-medium text-ink group-hover:text-accent">
+                    {sub.title}
+                  </h4>
+                  <p className="text-caption text-ink-muted">
+                    {sub.fileCount} item
+                    {sub.childCount > 0 ? ` · ${sub.childCount} sub-album` : ""}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="py-1 text-caption text-ink-muted">
+            Belum ada sub-album di dalam album ini.
+          </p>
+        )}
+      </div>
 
       {/* Grid Foto Album */}
       {album.files.length === 0 ? (
@@ -418,39 +507,101 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
         </div>
       )}
 
-      {/* Modal Konfirmasi Hapus Album */}
-      {deleteConfirmOpen && (
+      {/* Modal Konfirmasi Hapus Album (RF-51: Pilihan only vs subtree) */}
+      <DeleteAlbumModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        albumTitle={album.title}
+        hasChildren={(album.subAlbums?.length ?? 0) > 0}
+        childCount={album.subAlbums?.length ?? 0}
+        onConfirm={async (mode) => {
+          await deleteAlbum(albumId, mode);
+          queryClient.invalidateQueries({ queryKey: ["albums"] });
+          router.push(
+            album.parentId
+              ? `/album/${encodeURIComponent(album.parentId)}`
+              : "/album",
+          );
+        }}
+      />
+
+      {/* Modal Pindahkan Album (RF-51) */}
+      <MoveAlbumModal
+        isOpen={moveModalOpen}
+        onClose={() => setMoveModalOpen(false)}
+        albumId={albumId}
+        albumTitle={album.title}
+        currentParentId={album.parentId ?? null}
+        onConfirm={async (targetParentId) => {
+          await moveAlbum(albumId, targetParentId);
+          queryClient.invalidateQueries({ queryKey: ["album", albumId] });
+          queryClient.invalidateQueries({ queryKey: ["albums"] });
+        }}
+      />
+
+      {/* Modal Buat Sub-album (RF-51) */}
+      {createSubAlbumModalOpen && (
         <div
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
         >
           <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl">
-            <h3 className="text-h3 font-serif text-ink">Hapus Album?</h3>
-            <p className="mt-2 text-body text-ink-muted">
-              Album <strong>{album.title}</strong> akan dihapus. Foto dan video
-              di dalamnya tidak akan dihapus dari galerimu.
-            </p>
-            {errorMsg && (
-              <p className="mt-2 text-sm font-medium text-danger">{errorMsg}</p>
-            )}
-            <div className="mt-6 flex justify-end gap-2">
-              <Button
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 className="text-h3 font-serif text-ink">Album Baru di Sini</h3>
+              <button
                 type="button"
-                variant="ghost"
-                onClick={() => setDeleteConfirmOpen(false)}
+                onClick={() => setCreateSubAlbumModalOpen(false)}
+                className="rounded-full p-1 text-ink-muted hover:bg-sunken hover:text-ink"
+                aria-label="Tutup"
               >
-                Batal
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                loading={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-              >
-                Hapus Album
-              </Button>
+                <X size={20} />
+              </button>
             </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const trimmed = subAlbumTitle.trim();
+                if (!trimmed) {
+                  setErrorMsg("Nama album tidak boleh kosong.");
+                  return;
+                }
+                createSubAlbumMutation.mutate(trimmed);
+              }}
+              className="mt-4 space-y-4"
+            >
+              <Input
+                id="sub-album-title"
+                label="Nama Sub-album"
+                placeholder="Misal: Pantai Kuta"
+                value={subAlbumTitle}
+                onChange={(e) => setSubAlbumTitle(e.target.value)}
+                autoFocus
+                required
+              />
+
+              {errorMsg && (
+                <p className="text-sm font-medium text-danger">{errorMsg}</p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setCreateSubAlbumModalOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={createSubAlbumMutation.isPending}
+                >
+                  Buat Sub-album
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

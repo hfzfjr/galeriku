@@ -488,5 +488,39 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Hapus album dengan mode `mode=only`: sub-album anak dinaikkan ke level induk, dan file tetap aman.
    - Hapus album dengan mode `mode=subtree`: seluruh album dan keturunannya dihapus, tautan berbagi dicabut, dan foto-foto di galeri tetap aman utuh.
 
+---
+
+### RF-51: UI Album Bersarang
+
+1. **Breadcrumb Navigasi:**
+   - Masuk ke detail album bersarang (misal `/album/[id]`).
+   - Periksa breadcrumb di bagian atas: menampilkan jalur dari `Semua Album / Induk / Anak`.
+   - Ketuk salah satu induk di breadcrumb: navigasi berpindah seketika ke album yang diketuk (target sentuh >= 44 px).
+   - Pada viewport HP (360x800) dengan kedalaman 4 tingkat: jalur panjang dipotong rapi dengan elipsis `...` di tengah tanpa merusak tata letak atau menyebabkan horizontal overflow.
+
+2. **Bagian Sub-album & Pembuatan Sub-album Baru:**
+   - Di halaman detail album, di atas grid foto terdapat bagian **"Sub-album"** yang menampilkan kartu-kartu sub-album foto cetak.
+   - Ketuk tombol **"Album baru di sini"**:
+     - Modal terbuka, masukkan nama sub-album (misal `Hari Kedua`), simpan: sub-album baru dibuat di bawah album saat ini dan langsung muncul di daftar sub-album.
+   - Pada album tingkat ke-4 (kedalaman maksimal):
+     - Tombol "Album baru di sini" dinonaktifkan dengan keterangan: *"Maksimal 4 tingkat kedalaman tercapai"*.
+
+3. **Pindahkan Album (Move Sheet):**
+   - Di halaman detail album, ketuk tombol **"Pindahkan"** pada bilah aksi atas.
+   - Modal bottom sheet menampilkan daftar lokasi tujuan:
+     - "Tingkat Teratas (Root)".
+     - Album-album lain milik pengguna.
+   - Periksa bahwa album saat ini dan keturunannya dinonaktifkan (abu-abu, tidak dapat dipilih) dengan label penjelasan *(Album ini)* atau *(Keturunan album ini)*.
+   - Pilih salah satu album tujuan, ketuk **"Pindahkan ke Sini"**: album berpindah lokasi dan breadcrumb diperbarui seketika.
+
+4. **Dialog Hapus Dua Mode (Only vs Subtree):**
+   - Pada album yang memiliki sub-album, ketuk tombol merah **"Hapus Album"**.
+   - Modal konfirmasi menampilkan dua opsi radio:
+     1. *"Hapus album ini saja"* (sub-album dinaikkan ke tingkat atasnya).
+     2. *"Hapus album beserta isinya"* (seluruh sub-album ikut terhapus).
+   - Terdapat catatan penegasan bahwa foto di galeri tetap aman.
+   - Pilih salah satu mode lalu konfirmasi: album terhapus dan pengguna diarahkan ke halaman yang sesuai.
+
+
 
 
