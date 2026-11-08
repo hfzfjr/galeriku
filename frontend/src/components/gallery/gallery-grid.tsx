@@ -492,6 +492,7 @@ function GalleryItem({
         alt={file.originalName}
         kind={file.kind}
         durationS={file.durationS}
+        liveKind={file.liveKind}
       />
 
       {/* Indikator Favorit */}

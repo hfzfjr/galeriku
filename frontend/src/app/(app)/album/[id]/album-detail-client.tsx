@@ -252,6 +252,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
                   alt={file.originalName}
                   kind={file.kind}
                   durationS={file.durationS}
+                  liveKind={file.liveKind}
                 />
               </button>
 

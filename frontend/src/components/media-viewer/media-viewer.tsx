@@ -13,18 +13,23 @@ import type { FileItem } from "@galeriku/contracts";
 import {
   ChevronLeft,
   ChevronRight,
+  CircleDot,
   Download,
   Info,
   Share2,
   Star,
   Trash2,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import {
   deleteFile,
   getFileContentUrl,
+  getFileMotionUrl,
   getFilePreviewUrl,
   getPublicFileContentUrl,
+  getPublicFileMotionUrl,
   getPublicFilePreviewUrl,
   toggleFavoriteFile,
 } from "@/lib/api";
@@ -146,6 +151,70 @@ export function MediaViewer({
   );
   const [showLargeFileWarning, setShowLargeFileWarning] = useState(false);
   const [isSavingToGallery, setIsSavingToGallery] = useState(false);
+
+  // State untuk Live Photo / Motion Photo (RF-33)
+  const isVideo = currentFile?.kind === "video";
+  const isLive =
+    !isVideo &&
+    Boolean(currentFile?.liveKind) &&
+    currentFile.liveKind !== "none";
+
+  const [isLiveActive, setIsLiveActive] = useState(false);
+  const [isLivePlaying, setIsLivePlaying] = useState(false);
+  const [isLiveMuted, setIsLiveMuted] = useState(true);
+  const liveVideoRef = useRef<HTMLVideoElement>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const isHoldingRef = useRef(false);
+
+  // Auto-play sekali saat Live Photo dibuka (kecuali prefers-reduced-motion atau saveData)
+  useEffect(() => {
+    setIsLivePlaying(false);
+    isHoldingRef.current = false;
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+
+    if (!isLive) {
+      setIsLiveActive(false);
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isSaveData =
+      typeof navigator !== "undefined" &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (navigator as any).connection?.saveData === true;
+
+    if (!prefersReducedMotion && !isSaveData) {
+      setIsLiveActive(true);
+      setIsLivePlaying(true);
+    }
+  }, [currentIndex, isLive]);
+
+  const startHoldToPlay = useCallback(() => {
+    if (!isLive) return;
+    setIsLiveActive(true);
+    setIsLivePlaying(true);
+    isHoldingRef.current = true;
+    if (liveVideoRef.current) {
+      liveVideoRef.current.currentTime = 0;
+      liveVideoRef.current.play().catch(() => {});
+    }
+  }, [isLive]);
+
+  const endHoldToPlay = useCallback(() => {
+    if (!isLive) return;
+    if (isHoldingRef.current) {
+      isHoldingRef.current = false;
+      setIsLivePlaying(false);
+      if (liveVideoRef.current) {
+        liveVideoRef.current.pause();
+      }
+    }
+  }, [isLive]);
 
   // Preload adjacent items
   useEffect(() => {
@@ -452,6 +521,14 @@ export function MediaViewer({
         mode: scale > 1 ? "pan" : "idle",
       };
       setIsGesturing(true);
+
+      // Mulai deteksi tekan-tahan untuk memutar Live Photo (RF-33)
+      if (isLive && scale === 1) {
+        if (holdTimerRef.current) {
+          window.clearTimeout(holdTimerRef.current);
+        }
+        holdTimerRef.current = window.setTimeout(startHoldToPlay, 200);
+      }
     }
   };
 
@@ -459,6 +536,12 @@ export function MediaViewer({
     const state = touchStateRef.current;
 
     if (e.touches.length === 2 && state.mode === "pinch") {
+      if (holdTimerRef.current) {
+        window.clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      endHoldToPlay();
+
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
@@ -476,6 +559,13 @@ export function MediaViewer({
       const touch = e.touches[0];
       const dx = touch.clientX - state.startX;
       const dy = touch.clientY - state.startY;
+
+      // Jika jari bergeser > 10px, batalkan tekan-tahan Live Photo
+      if (holdTimerRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        window.clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+        endHoldToPlay();
+      }
 
       if (scale > 1) {
         // Pan zoomed image
@@ -506,6 +596,12 @@ export function MediaViewer({
   };
 
   const handleTouchEnd = () => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    endHoldToPlay();
+
     const state = touchStateRef.current;
     setIsGesturing(false);
 
@@ -563,7 +659,6 @@ export function MediaViewer({
 
   if (!currentFile) return null;
 
-  const isVideo = currentFile.kind === "video";
   const showOriginal = viewOriginalId === currentFile.id;
 
   const contentUrl =
@@ -629,9 +724,66 @@ export function MediaViewer({
           >
             {currentIndex + 1} / {total}
           </span>
+          {isLive && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsLiveActive(true);
+                if (isLivePlaying) {
+                  setIsLivePlaying(false);
+                  liveVideoRef.current?.pause();
+                } else {
+                  setIsLivePlaying(true);
+                  if (liveVideoRef.current) {
+                    liveVideoRef.current.currentTime = 0;
+                    liveVideoRef.current.play().catch(() => {});
+                  }
+                }
+              }}
+              onPointerDown={startHoldToPlay}
+              onPointerUp={endHoldToPlay}
+              onPointerLeave={endHoldToPlay}
+              aria-label={isLivePlaying ? "Hentikan gerak Live Photo" : "Putar gerak Live Photo"}
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold backdrop-blur-xs transition-colors ${
+                isLivePlaying
+                  ? "bg-amber-500/80 text-black shadow-md ring-1 ring-amber-300"
+                  : "bg-scrim text-on-accent hover:bg-white/20"
+              }`}
+              title="Tekan dan tahan untuk memutar"
+            >
+              <CircleDot
+                size={14}
+                strokeWidth={2.5}
+                className={`shrink-0 ${isLivePlaying ? "animate-pulse text-black" : "text-amber-300"}`}
+              />
+              <span>LIVE</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Tombol Audio Mute/Unmute untuk Live Photo (RF-33) */}
+          {isLive && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = !isLiveMuted;
+                setIsLiveMuted(next);
+                if (liveVideoRef.current) {
+                  liveVideoRef.current.muted = next;
+                }
+              }}
+              aria-label={isLiveMuted ? "Aktifkan suara Live Photo" : "Bisukan suara Live Photo"}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
+              title={isLiveMuted ? "Aktifkan suara" : "Bisukan suara"}
+            >
+              {isLiveMuted ? (
+                <VolumeX size={20} strokeWidth={1.5} />
+              ) : (
+                <Volume2 size={20} strokeWidth={1.5} className="text-amber-400" />
+              )}
+            </button>
+          )}
           {/* Owner: Tombol Favorit */}
           {adapter.mode === "owner" && (
             <button
@@ -746,15 +898,57 @@ export function MediaViewer({
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            /* eslint-disable-next-line @next/next/no-img-element -- Stream langsung dari API host (AD-3) */
-            <img
-              key={`${currentFile.id}-${showOriginal ? "orig" : "prev"}`}
-              src={imageSrc}
-              crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
-              alt={currentFile.originalName}
-              className="max-h-[calc(100dvh-130px)] max-w-full object-contain pointer-events-none select-none"
-              draggable={false}
-            />
+            <div
+              className="relative flex items-center justify-center max-h-[calc(100dvh-130px)] max-w-full"
+              onPointerDown={() => {
+                if (isLive && scale === 1) {
+                  holdTimerRef.current = window.setTimeout(startHoldToPlay, 180);
+                }
+              }}
+              onPointerUp={() => {
+                if (holdTimerRef.current) {
+                  window.clearTimeout(holdTimerRef.current);
+                  holdTimerRef.current = null;
+                }
+                endHoldToPlay();
+              }}
+              onPointerCancel={() => {
+                if (holdTimerRef.current) {
+                  window.clearTimeout(holdTimerRef.current);
+                  holdTimerRef.current = null;
+                }
+                endHoldToPlay();
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- Stream langsung dari API host (AD-3) */}
+              <img
+                key={`${currentFile.id}-${showOriginal ? "orig" : "prev"}`}
+                src={imageSrc}
+                crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
+                alt={currentFile.originalName}
+                className="max-h-[calc(100dvh-130px)] max-w-full object-contain pointer-events-none select-none"
+                draggable={false}
+              />
+              {isLive && isLiveActive && (
+                <video
+                  ref={liveVideoRef}
+                  key={`motion-${currentFile.id}`}
+                  src={
+                    adapter.mode === "owner"
+                      ? getFileMotionUrl(currentFile.id)
+                      : getPublicFileMotionUrl(adapter.token, currentFile.id)
+                  }
+                  muted={isLiveMuted}
+                  playsInline
+                  autoPlay={isLivePlaying}
+                  crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
+                  onEnded={() => setIsLivePlaying(false)}
+                  className={`absolute inset-0 max-h-[calc(100dvh-130px)] max-w-full m-auto object-contain transition-opacity duration-150 ${
+                    isLivePlaying ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
+                  }`}
+                />
+              )}
+            </div>
           )}
         </div>
 

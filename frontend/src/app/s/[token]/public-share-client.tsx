@@ -355,6 +355,7 @@ export function PublicShareClient({ token }: { token: string }) {
                             alt={file.originalName}
                             kind={file.kind}
                             durationS={file.durationS}
+                            liveKind={file.liveKind}
                             crossOrigin="anonymous"
                           />
                         </button>

@@ -478,6 +478,15 @@ export function getPublicAlbumZipUrl(token: string): string {
   return `${getApiBase()}/public/s/${encodeURIComponent(token)}/zip`;
 }
 
+export function getFileMotionUrl(fileId: string): string {
+  return `${getApiBase()}/files/${encodeURIComponent(fileId)}/motion`;
+}
+
+export function getPublicFileMotionUrl(token: string, fileId: string): string {
+  return `${getApiBase()}/public/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/motion`;
+}
+
+
 
 
 

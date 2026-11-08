@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { FileImage, Film, Play } from "lucide-react";
+import { CircleDot, FileImage, Film, Play } from "lucide-react";
 
 export interface MediaThumbProps {
   src?: string | null;
   alt: string;
   kind?: "image" | "video";
   durationS?: number | null;
+  liveKind?: "none" | "ios_pair" | "motion" | string | null;
   className?: string;
   crossOrigin?: "use-credentials" | "anonymous";
   showDuration?: boolean;
@@ -32,6 +33,7 @@ export function MediaThumb({
   alt,
   kind = "image",
   durationS,
+  liveKind,
   className = "",
   crossOrigin = "use-credentials",
   showDuration = true,
@@ -43,6 +45,7 @@ export function MediaThumb({
   const isVideo = kind === "video";
   const durationText = showDuration ? formatDuration(durationS) : "";
   const canShowImage = Boolean(src) && !hasError;
+  const isLive = !isVideo && Boolean(liveKind) && liveKind !== "none";
 
   return (
     <div
@@ -98,6 +101,17 @@ export function MediaThumb({
             </div>
           ) : null}
         </>
+      )}
+
+      {/* Badge LIVE kecil di grid (RF-33): pil scrim, caption on-accent, ikon konsentris Lucide */}
+      {isLive && (
+        <div
+          className="pointer-events-none absolute top-1.5 left-1.5 z-10 flex items-center gap-1 rounded-full bg-scrim px-1.5 py-0.5 text-[10px] font-semibold text-on-accent backdrop-blur-xs shadow-sm"
+          aria-label="Foto bergerak (Live)"
+        >
+          <CircleDot size={10} strokeWidth={2.5} className="shrink-0 text-amber-300" />
+          <span>LIVE</span>
+        </div>
       )}
     </div>
   );

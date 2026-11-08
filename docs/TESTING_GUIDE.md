@@ -271,3 +271,28 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
 3. **Verifikasi Penghapusan:**
    - Pindahkan foto Live Photo ke Sampah: pastikan foto dipindahkan ke Sampah sebagai satu unit.
    - Hapus permanen dari Sampah: pastikan kedua berkas fisik di server (`.heic` dan `.mov`) terhapus dari disk.
+
+---
+
+### RF-33: Tampilan Live (Badge Grid, MediaViewer, Tekan-Tahan, Suara)
+
+1. **Badge LIVE di Grid (Galeri, Album, Publik, Favorit):**
+   - Periksa grid foto: item dengan `liveKind` (`ios_pair` atau `motion`) harus menampilkan badge pil `LIVE` kecil dengan ikon konsentris di pojok kiri atas.
+   - Item foto biasa atau video tidak boleh menampilkan badge LIVE.
+
+2. **Pemutaran di MediaViewer:**
+   - Klik/ketuk foto Live Photo: viewer membuka foto dan memuat klip video terkait di background.
+   - Pastikan klip video otomatis berputar sekali saat dibuka (kecuali browser disetel `prefers-reduced-motion` atau Data Saver).
+   - Pastikan tombol status `LIVE` di header menunjukkan indikator aktif saat video berputar.
+   - Klik tombol `LIVE` di header untuk memutar ulang klip.
+
+3. **Interaksi Tekan-Tahan (Hold-to-play) di Layar Sentuh & Mouse:**
+   - Pada perangkat sentuh atau mouse: tekan dan tahan foto (hold) untuk memutar klip gerak terus-menerus.
+   - Lepaskan sentuhan/klik untuk menghentikan pemutaran dan kembali ke foto diam.
+   - Geser jari saat pinch-zoom atau swipe untuk memastikan gesture tidak memicu pemutaran yang tidak disengaja.
+
+4. **Kontrol Suara (Mute / Unmute):**
+   - Secara default video dimainkan dalam kondisi senyap (muted).
+   - Klik tombol speaker / suara di header viewer untuk menyalakan suara klip Live Photo.
+   - Pastikan suara terdengar pada klip yang memiliki audio stream.
+
