@@ -52,8 +52,9 @@ RUN rm -rf src test \
 # Prisma membutuhkan libssl yang terdeteksi + CA agar tidak warning
 # "failed to detect the libssl/openssl version".
 # libheif-examples dan libheif-plugin-libde265 untuk decode HEIC/HEIF (RF-11).
+# ffmpeg untuk ekstraksi metadata dan poster video (RF-34).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates libheif-examples libheif-plugin-libde265 \
+  && apt-get install -y --no-install-recommends openssl ca-certificates libheif-examples libheif-plugin-libde265 ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 USER node

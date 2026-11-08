@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MetadataService } from './metadata.service';
 import { PlaceService } from './place.service';
 import { ThumbnailService } from './thumbnail.service';
+import { VideoProcessingService } from './video-processing.service';
 import {
   TUS_AUTH_USER_KEY,
   TUS_OWNER_METADATA_KEY,
@@ -68,6 +69,7 @@ export class UploadsService implements OnModuleInit {
     private readonly thumbnail: ThumbnailService,
     private readonly metadataService: MetadataService,
     private readonly placeService: PlaceService,
+    private readonly videoProcessing: VideoProcessingService,
   ) {}
 
   onModuleInit(): void {
@@ -343,8 +345,9 @@ export class UploadsService implements OnModuleInit {
     const finalHeight = meta.height ?? height;
     const place = this.placeService.resolve(meta.gpsLat, meta.gpsLng);
 
+    let createdFile: { id: string } | undefined;
     try {
-      await this.prisma.file.create({
+      createdFile = await this.prisma.file.create({
         data: {
           ownerId: user.id,
           originalName,
@@ -356,6 +359,7 @@ export class UploadsService implements OnModuleInit {
           previewKey,
           width: finalWidth,
           height: finalHeight,
+          durationS: meta.durationS ?? null,
           capturedAt: meta.capturedAt,
           capturedTzOffsetMin: meta.capturedTzOffsetMin,
           capturedAtSource: meta.capturedAtSource as any,
@@ -376,6 +380,7 @@ export class UploadsService implements OnModuleInit {
           metaVersion: 1,
           status: FileStatus.ready,
         },
+        select: { id: true },
       });
     } catch (error) {
       await rm(tujuan, { force: true });
@@ -393,10 +398,21 @@ export class UploadsService implements OnModuleInit {
         body: JSON.stringify({
           statusCode: 500,
           code: 'UPLOAD_FINISH_FAILED',
-          message: 'Upload selesai tapi gagal disimpan. Coba unggah ulang.',
+          message: 'Upload selesai tapi gagal dicatat. Coba unggah ulang.',
         }),
       };
     }
+
+    // Antrian pembuatan poster video di background konkurensi 1 (RF-34)
+    if (sniffed.kind === 'video' && createdFile) {
+      this.videoProcessing.enqueuePosterGeneration(
+        createdFile.id,
+        storageKey,
+        tujuan,
+        meta.durationS,
+      );
+    }
+
     return {};
   }
 }

@@ -1,6 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import exifr from 'exifr';
 import sharp from 'sharp';
+import {
+  VideoProcessingService,
+  type VideoProbeResult,
+} from './video-processing.service';
 
 export interface ExtractedMetadata {
   capturedAt: Date;
@@ -8,6 +12,7 @@ export interface ExtractedMetadata {
   capturedAtSource: 'exif' | 'video' | 'filename' | 'client_modified' | 'upload' | 'manual';
   width: number | null;
   height: number | null;
+  durationS: number | null;
   orientation: number | null;
   gpsLat: number | null;
   gpsLng: number | null;
@@ -33,6 +38,11 @@ export interface ExtractMetadataOptions {
 @Injectable()
 export class MetadataService {
   private readonly logger = new Logger(MetadataService.name);
+
+  constructor(
+    @Optional()
+    private readonly videoProcessing?: VideoProcessingService,
+  ) {}
 
   /**
    * Mengurai tanggal dari pola nama berkas kamera/ponsel populer.
@@ -173,6 +183,7 @@ export class MetadataService {
 
     let parsedExif: Record<string, unknown> | null = null;
     let gpsData: { latitude?: number; longitude?: number } | null = null;
+    let videoProbe: VideoProbeResult | null = null;
 
     if (mimeType.startsWith('image/')) {
       try {
@@ -190,10 +201,12 @@ export class MetadataService {
           `Gagal membaca EXIF dari ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
+    } else if (mimeType.startsWith('video/') && this.videoProcessing) {
+      videoProbe = await this.videoProcessing.extractMetadata(filePath);
     }
 
     // 1. Rantai tanggal:
-    // EXIF DateTimeOriginal -> CreateDate -> filename -> clientLastModified -> waktu upload
+    // EXIF DateTimeOriginal -> CreateDate -> video creation_time (RF-34) -> filename -> clientLastModified -> waktu upload
     let capturedAt: Date | null = null;
     let capturedTzOffsetMin: number | null = null;
     let capturedAtSource: ExtractedMetadata['capturedAtSource'] = 'upload';
@@ -213,6 +226,12 @@ export class MetadataService {
         capturedTzOffsetMin = this.parseOffsetMinutes(
           (parsedExif?.['OffsetTimeDigitized'] ?? parsedExif?.['OffsetTime']) as string,
         );
+      } else if (
+        videoProbe?.creationTime instanceof Date &&
+        !isNaN(videoProbe.creationTime.getTime())
+      ) {
+        capturedAt = videoProbe.creationTime;
+        capturedAtSource = 'video';
       }
     }
 
@@ -244,8 +263,8 @@ export class MetadataService {
         : null;
 
     // 3. Dimensi (lebar x tinggi)
-    let rawWidth = options.fallbackWidth ?? null;
-    let rawHeight = options.fallbackHeight ?? null;
+    let rawWidth = options.fallbackWidth ?? videoProbe?.width ?? null;
+    let rawHeight = options.fallbackHeight ?? videoProbe?.height ?? null;
 
     if (!rawWidth || !rawHeight) {
       const exifW = Number(
@@ -284,30 +303,30 @@ export class MetadataService {
         ? gpsData.latitude
         : typeof parsedExif?.['latitude'] === 'number'
           ? (parsedExif['latitude'] as number)
-          : null;
+          : (videoProbe?.gpsLat ?? null);
 
     const gpsLng =
       typeof gpsData?.longitude === 'number'
         ? gpsData.longitude
         : typeof parsedExif?.['longitude'] === 'number'
           ? (parsedExif['longitude'] as number)
-          : null;
+          : (videoProbe?.gpsLng ?? null);
 
     const gpsAltM =
       typeof parsedExif?.['GPSAltitude'] === 'number'
         ? (parsedExif['GPSAltitude'] as number)
-        : null;
+        : (videoProbe?.gpsAltM ?? null);
 
     // 5. Kamera dan lensa
     const cameraMake =
       typeof parsedExif?.['Make'] === 'string'
         ? (parsedExif['Make'] as string).trim()
-        : null;
+        : (videoProbe?.cameraMake ?? null);
 
     const cameraModel =
       typeof parsedExif?.['Model'] === 'string'
         ? (parsedExif['Model'] as string).trim()
-        : null;
+        : (videoProbe?.cameraModel ?? null);
 
     const lensModel =
       typeof parsedExif?.['LensModel'] === 'string'
@@ -341,6 +360,7 @@ export class MetadataService {
       capturedAtSource,
       width,
       height,
+      durationS: videoProbe?.durationS ?? null,
       orientation,
       gpsLat,
       gpsLng,

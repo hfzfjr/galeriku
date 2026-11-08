@@ -194,3 +194,28 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Ubah pilihan dari **Tanggal foto** menjadi **Baru ditambahkan**.
    - Pastikan grid seketika memuat ulang dan mengurutkan item berdasarkan waktu unggah (`createdAt` terbaru lebih dulu).
    - Pastikan header grup tanggal menampilkan tanggal foto diunggah ke server.
+
+---
+
+### RF-34: Metadata dan Poster Video
+
+1. **Unggah Berkas Video dan Ekstraksi Metadata:**
+   - Unggah video (MP4/MOV/WebM) dari HP atau komputer.
+   - Perhatikan bahwa respons upload selesai instan tanpa tertahan konversi video.
+   - Buka video di Galeri:
+     - Pastikan pil durasi (badge) tampil di pojok kiri bawah thumbnail dengan format `m:ss` (contoh `0:42`, `2:15`).
+     - Pastikan ikon Play tampil di pojok kanan atas thumbnail.
+   - Buka viewer (`MediaViewer`) lalu buka panel Info (`Info`):
+     - Pastikan durasi, resolusi (lebar x tinggi dengan rotasi yang benar), tanggal perekaman (`creation_time`), model kamera (jika ada di metadata MP4), dan lokasi GPS (jika ada) terbaca dengan tepat.
+
+2. **Pembuatan Poster WebP Otomatis di Background:**
+   - Setelah upload selesai, antrian background dengan konkurensi 1 memproses satu frame video di ~10% durasi menjadi poster WebP 400px (`<storageKey>.thumb.webp`).
+   - Refresh atau tunggu beberapa saat: pastikan placeholder film berganti menjadi thumbnail frame gambar asli video tersebut.
+
+3. **Link Publik Berbagi Video Tanpa Lokasi (`show_location = false`):**
+   - Buat tautan berbagi untuk video yang memiliki koordinat GPS, matikan toggle "Tampilkan Lokasi".
+   - Buka tautan publik tersebut dalam mode penyamaran (incognito).
+   - Pastikan video dapat diputar secara lancar melalui HTTP Range streaming.
+   - Unduh video melalui tombol unduh:
+     - Periksa metadata video yang diunduh: pastikan tag lokasi ISO 6709 telah dibersihkan secara lossless (`ffmpeg -map_metadata -1 -c copy`).
+   - Unduh album berisi video sebagai file ZIP: pastikan berkas video di dalam ZIP juga telah dibersihkan dari metadata lokasi.

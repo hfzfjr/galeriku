@@ -1,10 +1,11 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import sharp from 'sharp';
 import { FileKind, FileStatus, ShareTarget, UserStatus } from '../generated/prisma/client';
 import { stripJpegExif } from '../common/utils/strip-exif';
+import { VideoProcessingService } from '../uploads/video-processing.service';
 import type {
   CreateShareLinkRequest,
   FileItem,
@@ -94,6 +95,8 @@ export class SharesService {
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    @Optional()
+    private readonly videoProcessing?: VideoProcessingService,
   ) {}
 
   calculateExpiresAt(
@@ -856,8 +859,21 @@ export class SharesService {
       throw new ApiError(404, 'NOT_FOUND', 'Berkas fisik tidak ditemukan.');
     }
 
-    // 3. Jika unduhan dan showLocation = false, bersihkan koordinat GPS (B3 / RF-21)
+    // 3. Jika showLocation = false dan berkas memiliki koordinat GPS (B3 / RF-21 / RF-34)
     const hasGps = file.gpsLat !== null || file.gpsLng !== null;
+    let finalPath = filePath;
+    if (
+      !share.showLocation &&
+      hasGps &&
+      file.kind === FileKind.video &&
+      this.videoProcessing
+    ) {
+      finalPath = await this.videoProcessing.getOrCreateNoGpsVideo(
+        file.storageKey,
+        filePath,
+      );
+    }
+
     if (download && !share.showLocation && hasGps) {
       const isJpeg = file.mimeType === 'image/jpeg' || /\.jpe?g$/i.test(file.originalName);
       if (isJpeg) {
@@ -888,10 +904,10 @@ export class SharesService {
       }
     }
 
-    const stat = statSync(filePath);
+    const stat = statSync(finalPath);
 
     return {
-      filePath,
+      filePath: finalPath,
       originalName: file.originalName,
       mimeType: file.mimeType,
       sizeBytes: stat.size,
@@ -975,9 +991,21 @@ export class SharesService {
       if (f.deletedAt === null && f.status === FileStatus.ready) {
         const fullPath = join(mediaDir, f.storageKey);
         if (existsSync(fullPath)) {
+          let zipFilePath = fullPath;
+          if (
+            !share.showLocation &&
+            (f.gpsLat !== null || f.gpsLng !== null) &&
+            f.kind === FileKind.video &&
+            this.videoProcessing
+          ) {
+            zipFilePath = await this.videoProcessing.getOrCreateNoGpsVideo(
+              f.storageKey,
+              fullPath,
+            );
+          }
           readyFiles.push({
             originalName: f.originalName,
-            filePath: fullPath,
+            filePath: zipFilePath,
             mimeType: f.mimeType,
             kind: f.kind,
             hasGps: f.gpsLat !== null || f.gpsLng !== null,

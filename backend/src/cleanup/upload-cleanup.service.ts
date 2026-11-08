@@ -1,3 +1,5 @@
+import { readdir, stat, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   Injectable,
   Logger,
@@ -5,8 +7,10 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { UploadsService } from '../uploads/uploads.service';
+import { resolveMediaDir } from '../uploads/uploads.utils';
 
 const HOUR_MS = 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Pembersihan upload yatim (US-17): upload tus yang tak selesai >24 jam
 // dihapus lewat ekstensi expiration FileStore (deleteExpired hanya
@@ -66,6 +70,25 @@ export class UploadCleanupService implements OnModuleInit, OnModuleDestroy {
       if (uploads > 0) {
         this.logger.log(`Pembersihan upload: ${uploads} upload yatim dihapus.`);
       }
+
+      // Bersihkan cache video tanpa GPS (.nogps.) lebih lama dari 7 hari (RF-34 Bagian B)
+      const mediaDir = resolveMediaDir();
+      const now = Date.now();
+      try {
+        const entries = await readdir(mediaDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile() && entry.name.includes('.nogps.')) {
+            const fullPath = join(mediaDir, entry.name);
+            const fileStat = await stat(fullPath).catch(() => null);
+            if (fileStat && now - fileStat.mtimeMs > SEVEN_DAYS_MS) {
+              await rm(fullPath, { force: true }).catch(() => {});
+            }
+          }
+        }
+      } catch {
+        // Abaikan
+      }
+
       return { uploads };
     } finally {
       this.running = false;

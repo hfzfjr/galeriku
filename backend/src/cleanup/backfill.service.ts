@@ -5,12 +5,14 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { FileKind, FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetadataService } from '../uploads/metadata.service';
 import { PlaceService } from '../uploads/place.service';
 import { ThumbnailService } from '../uploads/thumbnail.service';
+import { VideoProcessingService } from '../uploads/video-processing.service';
 import { resolveMediaDir } from '../uploads/uploads.utils';
 
 export const CURRENT_META_VERSION = 1;
@@ -37,6 +39,8 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
     private readonly metadataService: MetadataService,
     private readonly thumbnailService: ThumbnailService,
     private readonly placeService: PlaceService,
+    @Optional()
+    private readonly videoProcessing?: VideoProcessingService,
   ) {}
 
   onModuleInit(): void {
@@ -146,6 +150,25 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
                 }`,
               );
             }
+          } else if (file.kind === FileKind.video && this.videoProcessing) {
+            try {
+              const thumbFilename = `${file.storageKey}.thumb.webp`;
+              const thumbPath = join(mediaDir, thumbFilename);
+              const ok = await this.videoProcessing.generatePoster(
+                filePath,
+                thumbPath,
+                meta.durationS,
+              );
+              if (ok) {
+                thumbKey = thumbFilename;
+              }
+            } catch (videoErr) {
+              this.logger.warn(
+                `Gagal membuat poster video backfill untuk id=${file.id}: ${
+                  videoErr instanceof Error ? videoErr.message : 'unknown'
+                }`,
+              );
+            }
           }
 
           const place = this.placeService.resolve(meta.gpsLat, meta.gpsLng);
@@ -159,6 +182,7 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
               capturedAtSource: meta.capturedAtSource,
               width: finalWidth,
               height: finalHeight,
+              durationS: meta.durationS ?? file.durationS,
               orientation: meta.orientation,
               gpsLat: meta.gpsLat,
               gpsLng: meta.gpsLng,
