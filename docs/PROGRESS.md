@@ -108,7 +108,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 - [x] RF-41 Timeline dan loncat waktu
 - [x] RF-42 Filter bar dan sheet urutan
 - [x] RF-43 Seleksi, aksi massal, picker album
-- [ ] RF-44 ZIP milik pemilik
+- [x] RF-44 ZIP milik pemilik
 - [ ] RF-45 Deteksi duplikat
 
 ### Fase 5 — Album Bersarang

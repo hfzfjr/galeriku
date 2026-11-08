@@ -118,6 +118,7 @@ describe('Albums (US-23)', () => {
           method: 'delete',
           url: `/albums/${id}/files/file-dummy`,
         },
+        { method: 'get', url: `/albums/${id}/zip` },
         { method: 'delete', url: `/albums/${id}` },
       ],
     });
@@ -287,6 +288,28 @@ describe('Albums (US-23)', () => {
     expect(resPatch.body.title).toBe('Album Berganti Judul');
     expect(resPatch.body.coverFileId).toBe('f-patch-1');
     expect(resPatch.body.fileCount).toBe(2);
+  });
+
+  it('mengunduh album sebagai ZIP (RF-44 / B15)', async () => {
+    const http = () =>
+      request(app.app.getHttpAdapter().getInstance().server);
+
+    const albumId = 'alb-zip-test';
+    app.db.albums.set(albumId, {
+      id: albumId,
+      ownerId: 'user-a',
+      title: 'Liburan Pantai',
+      coverFileId: null,
+      createdAt: new Date(),
+    });
+
+    const res = await http()
+      .get(`/albums/${albumId}/zip`)
+      .set('Cookie', `galeriku_session=${cookieA}`);
+
+    expect(res.status).toBe(200);
+    expect(res.header['content-type']).toBe('application/zip');
+    expect(res.header['content-disposition']).toContain('Liburan Pantai.zip');
   });
 });
 

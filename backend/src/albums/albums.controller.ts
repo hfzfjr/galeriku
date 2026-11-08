@@ -7,8 +7,10 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UsePipes,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import type {
   AddAlbumFilesRequest,
   AlbumDetail,
@@ -24,6 +26,8 @@ import {
 } from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { contentDisposition } from '../common/utils/content-disposition';
+import { createZipStream } from '../shares/zip-stream';
 import { AlbumsService } from './albums.service';
 
 @Controller('albums')
@@ -50,6 +54,26 @@ export class AlbumsController {
     @Param('id') albumId: string,
   ): Promise<AlbumDetail> {
     return this.albumsService.getAlbumDetail(user.id, albumId);
+  }
+
+  @Get(':id/zip')
+  async downloadAlbumZip(
+    @CurrentUser() user: SessionUser,
+    @Param('id') albumId: string,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const { filename, entries } = await this.albumsService.getAlbumZipEntries(
+      user.id,
+      albumId,
+    );
+
+    reply.header('Content-Type', 'application/zip');
+    reply.header('Content-Disposition', contentDisposition(filename));
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Robots-Tag', 'noindex, nofollow');
+
+    const zipStream = createZipStream(entries);
+    reply.send(zipStream);
   }
 
   @Patch(':id')

@@ -355,6 +355,39 @@ export function getFileContentUrl(fileId: string, download = false): string {
   return download ? `${base}?download=1` : base;
 }
 
+export function getFilesZipUrl(ids?: string[]): string {
+  const base = `${getApiBase()}/files/zip`;
+  if (ids && ids.length > 0) {
+    return `${base}?ids=${encodeURIComponent(ids.join(","))}`;
+  }
+  return base;
+}
+
+export function getAlbumZipUrl(albumId: string): string {
+  return `${getApiBase()}/albums/${encodeURIComponent(albumId)}/zip`;
+}
+
+export async function downloadFilesZip(ids: string[]): Promise<void> {
+  const res = await fetch(`${getApiBase()}/files/zip`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    throw new Error("Gagal mengunduh berkas ZIP");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "galeriku-pilihan.zip";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function deleteFile(id: string): Promise<void> {
   return request<void>(`/files/${encodeURIComponent(id)}`, {
     method: "DELETE",

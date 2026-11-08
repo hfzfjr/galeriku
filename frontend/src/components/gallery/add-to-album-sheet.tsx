@@ -39,7 +39,7 @@ export function AddToAlbumSheet({
     enabled: isOpen,
   });
 
-  const albums = data?.items ?? [];
+  const albums = useMemo(() => data?.items ?? [], [data?.items]);
 
   const filteredAlbums = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

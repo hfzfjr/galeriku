@@ -418,6 +418,29 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Pilih beberapa foto, lalu ketuk tombol merah **"Keluarkan (N)"** pada bilah aksi atas:
      - Foto-foto terpilih langsung dikeluarkan dari album secara massal tanpa terhapus dari galeri utama.
 
+---
+
+### RF-44: Unduhan ZIP Milik Pemilik (B15)
+
+1. **Unduh ZIP Pilihan di Galeri (`POST /files/zip`):**
+   - Di halaman `/galeri`, aktifkan mode pilih dan pilih beberapa file (misal 3-5 foto dan video).
+   - Ketuk tombol **"Unduh ZIP"** pada bilah aksi pilihan melayang.
+   - Periksa bahwa browser mengunduh **satu berkas ZIP tunggal** bernama `galeriku-pilihan.zip` (bukan membuka banyak jendela popup atau memicu loop unduhan ganda).
+   - Buka berkas ZIP hasil unduhan di komputer atau HP:
+     - Seluruh file berada di dalam ZIP dengan nama aslinya (nama duplikat otomatis diberi imbuhan `(1)`, `(2)`).
+     - Tanggal modifikasi berkas (`mtime`) di dalam ZIP mencerminkan tanggal pengambilan foto (`captured_at`).
+     - EXIF dan resolusi asli terjaga utuh.
+
+2. **Unduh Seluruh Album sebagai ZIP (`GET /albums/:id/zip`):**
+   - Buka halaman detail album (`/album/[id]`).
+   - Periksa tombol **"Unduh ZIP"** di bilah aksi atas.
+   - Ketuk tombol tersebut: berkas ZIP dengan nama album (misal `Liburan Pantai.zip`) langsung terunduh secara streaming.
+   - Isi ZIP terformat rapi sesuai urutan album (`{NamaAlbum} - 001.jpg`, `{NamaAlbum} - 002.jpg`, dst.).
+
+3. **Keamanan Kepemilikan (Pola A-vs-B):**
+   - Permintaan unduh ZIP atas file atau album milik pengguna lain merespons status `404 Not Found` identik tanpa membocorkan eksistensi file.
+
+
 
 
 

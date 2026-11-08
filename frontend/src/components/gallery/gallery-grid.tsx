@@ -21,9 +21,9 @@ import {
 } from "lucide-react";
 import {
   batchDeleteFiles,
+  downloadFilesZip,
   fetchFiles,
   fetchTimeline,
-  getFileContentUrl,
   getThumbnailUrl,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -310,6 +310,7 @@ export function GalleryGrid({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [showAddToAlbumSheet, setShowAddToAlbumSheet] = useState(false);
   const [showQuickShareModal, setShowQuickShareModal] = useState(false);
 
@@ -444,16 +445,15 @@ export function GalleryGrid({
     }
   };
 
-  const handleBatchDownload = () => {
-    for (const id of selectedIds) {
-      const file = allFiles.find((f) => f.id === id);
-      if (!file) continue;
-      const link = document.createElement("a");
-      link.href = getFileContentUrl(id, true);
-      link.download = file.originalName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const handleBatchDownload = async () => {
+    if (selectedIds.size === 0 || isDownloadingZip) return;
+    setIsDownloadingZip(true);
+    try {
+      await downloadFilesZip(Array.from(selectedIds));
+    } catch {
+      // Abaikan jika batal
+    } finally {
+      setIsDownloadingZip(false);
     }
   };
 
@@ -631,13 +631,14 @@ export function GalleryGrid({
             <Button
               type="button"
               variant="ghost"
-              disabled={selectedIds.size === 0}
+              disabled={selectedIds.size === 0 || isDownloadingZip}
+              loading={isDownloadingZip}
               onClick={handleBatchDownload}
               className="flex min-h-11 items-center gap-1.5 text-caption font-medium"
-              aria-label="Unduh file terpilih"
+              aria-label="Unduh file terpilih sebagai ZIP"
             >
               <Download size={16} />
-              <span className="hidden sm:inline">Unduh</span>
+              <span className="hidden sm:inline">Unduh ZIP</span>
             </Button>
             <Button
               type="button"

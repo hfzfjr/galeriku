@@ -1,3 +1,5 @@
+import { createReadStream } from 'node:fs';
+import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { FileKind, FileStatus, ShareTarget } from '../generated/prisma/client';
 import type {
@@ -11,6 +13,8 @@ import type {
 } from '@galeriku/contracts';
 import { ApiError } from '../common/errors/api-error';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolveMediaDir } from '../uploads/uploads.utils';
+import { formatZipEntryName, type ZipEntry } from '../shares/zip-stream';
 
 function toFileItem(file: {
   id: string;
@@ -375,6 +379,54 @@ export class AlbumsService {
     }
 
     return this.getAlbumDetail(userId, albumId);
+  }
+
+  async getAlbumZipEntries(
+    userId: string,
+    albumId: string,
+  ): Promise<{ filename: string; entries: ZipEntry[] }> {
+    const album = await this.prisma.album.findUnique({
+      where: { id: albumId },
+      include: {
+        albumFiles: {
+          orderBy: { position: 'asc' },
+          include: {
+            file: true,
+          },
+        },
+      },
+    });
+
+    if (!album || album.ownerId !== userId) {
+      throw new ApiError(404, 'NOT_FOUND', 'Album tidak ditemukan.');
+    }
+
+    const files = album.albumFiles
+      .map((af) => af.file)
+      .filter((f) => f.deletedAt === null && f.status === FileStatus.ready);
+
+    const safeTitle =
+      album.title.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';
+    const filename = `${safeTitle}.zip`;
+    const total = files.length;
+    const mediaDir = resolveMediaDir();
+
+    const entries: ZipEntry[] = files.map((f, index) => {
+      const entryName = formatZipEntryName(
+        safeTitle,
+        index + 1,
+        total,
+        f.originalName,
+      );
+      const filePath = join(mediaDir, f.storageKey);
+      return {
+        filename: entryName,
+        getStream: () => createReadStream(filePath),
+        mtime: f.capturedAt ?? f.createdAt,
+      };
+    });
+
+    return { filename, entries };
   }
 }
 

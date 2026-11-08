@@ -529,6 +529,13 @@ export const publicShareResponseSchema = z.object({
 
 export type PublicShareResponse = z.output<typeof publicShareResponseSchema>;
 
+// Files ZIP (RF-44)
+export const createFilesZipSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(500),
+});
+export type CreateFilesZipRequest = z.output<typeof createFilesZipSchema>;
+
+
 
 
 

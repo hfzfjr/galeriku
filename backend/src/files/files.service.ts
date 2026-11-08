@@ -1,4 +1,4 @@
-import { existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
@@ -19,6 +19,7 @@ import { FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiError } from '../common/errors/api-error';
 import { resolveMediaDir } from '../uploads/uploads.utils';
+import type { ZipEntry } from '../shares/zip-stream';
 
 export type KeysetCursor = {
   sort: 'taken' | 'uploaded' | 'name' | 'size';
@@ -683,6 +684,44 @@ export class FilesService {
       originalName: file.originalName,
       mimeType: file.mimeType,
       sizeBytes: stat.size,
+    };
+  }
+
+  async getFilesZipEntries(
+    userId: string,
+    ids: string[],
+  ): Promise<{ filename: string; entries: ZipEntry[] }> {
+    if (!ids || ids.length === 0) {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'Daftar file tidak boleh kosong.');
+    }
+
+    const files = await this.prisma.file.findMany({
+      where: {
+        id: { in: ids },
+        ownerId: userId,
+        deletedAt: null,
+        status: FileStatus.ready,
+      },
+    });
+
+    // Rule 12: Ownership answers 404, not 403. Accessing another user's file responds exactly like a nonexistent id
+    if (files.length !== ids.length) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    const mediaDir = resolveMediaDir();
+    const entries: ZipEntry[] = files.map((file) => {
+      const filePath = join(mediaDir, file.storageKey);
+      return {
+        filename: file.originalName,
+        getStream: () => createReadStream(filePath),
+        mtime: file.capturedAt ?? file.createdAt,
+      };
+    });
+
+    return {
+      filename: 'galeriku-pilihan.zip',
+      entries,
     };
   }
 

@@ -1435,5 +1435,86 @@ describe('FilesController (e2e) — US-20', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe('POST /files/zip & GET /albums/:id/zip — RF-44 ZIP Pemilik (B15)', () => {
+    it('mengunduh pilihan file sebagai ZIP dengan mtime dan nama file aman', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+      const storageKey = 'zip-file-test.jpg';
+      writeFileSync(join(mediaDir, storageKey), Buffer.from('isi file zip'));
+
+      const fileId = 'f-zip-test-1';
+      db.files.set(fileId, {
+        id: fileId,
+        ownerId: user.id,
+        originalName: 'Foto Pilihan.jpg',
+        storageKey,
+        mimeType: 'image/jpeg',
+        sizeBytes: 12n,
+        kind: FileKind.image,
+        width: 100,
+        height: 100,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .post('/files/zip')
+        .set('Cookie', `galeriku_session=${token}`)
+        .set('Origin', ORIGIN)
+        .send({ ids: [fileId] });
+
+      expect(res.status).toBe(200);
+      expect(res.header['content-type']).toBe('application/zip');
+      expect(res.header['content-disposition']).toContain('galeriku-pilihan.zip');
+    });
+
+    it('menegakkan kepemilikan pola A-vs-B (404 identik) via helper ownership untuk POST /files/zip', async () => {
+      const userA = await seedUser(db);
+      const userB = await seedUser(db);
+      const tokenA = craftSession(db, userA.id as string);
+      const tokenB = craftSession(db, userB.id as string);
+
+      await expectOwnerOnly(app, {
+        cookieA: tokenA,
+        cookieB: tokenB,
+        origin: ORIGIN,
+        createResource: async () => {
+          const fid = `file-zip-idor-${Date.now()}`;
+          const storageKey = `key-${fid}`;
+          writeFileSync(join(mediaDir, storageKey), Buffer.from('data'));
+          db.files.set(fid, {
+            id: fid,
+            ownerId: userA.id,
+            originalName: 'rahasia.jpg',
+            storageKey,
+            mimeType: 'image/jpeg',
+            sizeBytes: 4n,
+            kind: FileKind.image,
+            width: null,
+            height: null,
+            durationS: null,
+            thumbKey: null,
+            status: FileStatus.ready,
+            isFavorite: false,
+            createdAt: new Date(),
+            deletedAt: null,
+          });
+          return fid;
+        },
+        buildRequests: (id: string) => [
+          {
+            method: 'post',
+            url: '/files/zip',
+            body: { ids: [id] },
+          },
+        ],
+      });
+    });
+  });
 });
 

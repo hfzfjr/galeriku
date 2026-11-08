@@ -16,6 +16,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   BatchDeleteFilesRequest,
+  CreateFilesZipRequest,
   FileDetail,
   FileItem,
   FilesResponse,
@@ -25,11 +26,13 @@ import type {
 } from '@galeriku/contracts';
 import {
   batchDeleteFilesSchema,
+  createFilesZipSchema,
   setFileFavoriteSchema,
 } from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { contentDisposition } from '../common/utils/content-disposition';
+import { createZipStream } from '../shares/zip-stream';
 import { FilesService } from './files.service';
 
 export function parseRange(
@@ -231,6 +234,51 @@ export class FilesController {
       end: info.videoOffset + info.videoLength - 1,
     });
     reply.send(stream);
+  }
+
+  @Post('zip')
+  @HttpCode(200)
+  @UsePipes(new ZodValidationPipe(createFilesZipSchema))
+  async downloadFilesZip(
+    @Body() body: CreateFilesZipRequest,
+    @CurrentUser() user: SessionUser,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const { filename, entries } = await this.filesService.getFilesZipEntries(
+      user.id,
+      body.ids,
+    );
+
+    reply.header('Content-Type', 'application/zip');
+    reply.header('Content-Disposition', contentDisposition(filename));
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Robots-Tag', 'noindex, nofollow');
+
+    const zipStream = createZipStream(entries);
+    reply.send(zipStream);
+  }
+
+  @Get('zip')
+  async downloadFilesZipQuery(
+    @Query('ids') idsParam: string | string[],
+    @CurrentUser() user: SessionUser,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const ids = Array.isArray(idsParam)
+      ? idsParam
+      : (idsParam || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const { filename, entries } = await this.filesService.getFilesZipEntries(
+      user.id,
+      ids,
+    );
+
+    reply.header('Content-Type', 'application/zip');
+    reply.header('Content-Disposition', contentDisposition(filename));
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Robots-Tag', 'noindex, nofollow');
+
+    const zipStream = createZipStream(entries);
+    reply.send(zipStream);
   }
 
   @Get(':id')

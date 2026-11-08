@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Check,
   CheckSquare,
+  Download,
   Edit2,
   FolderMinus,
   Images,
@@ -25,6 +26,7 @@ import { AlbumAddPhotosSheet } from "@/components/gallery/album-add-photos-sheet
 import {
   deleteAlbum,
   fetchAlbumDetail,
+  getAlbumZipUrl,
   getThumbnailUrl,
   removeFileFromAlbum,
   updateAlbum,
@@ -234,6 +236,18 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
                 <CheckSquare size={16} />
                 <span>Pilih</span>
               </Button>
+              {album.files.length > 0 && (
+                <a
+                  href={getAlbumZipUrl(albumId)}
+                  download
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-medium text-ink transition hover:border-ink-muted active:bg-sunken"
+                  title="Unduh seluruh album sebagai ZIP"
+                  aria-label="Unduh seluruh album sebagai ZIP"
+                >
+                  <Download size={16} />
+                  <span className="hidden sm:inline">Unduh ZIP</span>
+                </a>
+              )}
               <Button
                 variant="secondary"
                 onClick={() => setShareModalOpen(true)}
