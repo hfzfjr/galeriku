@@ -7,10 +7,12 @@ describe('AlbumsService', () => {
     const now = new Date();
     const fakePrisma: any = {
       album: {
+        findMany: async () => [],
         create: async ({ data }: any) => ({
           id: 'alb-1',
           ownerId: data.ownerId,
           title: data.title,
+          parentId: data.parentId ?? null,
           coverFileId: null,
           createdAt: now,
         }),
@@ -22,10 +24,44 @@ describe('AlbumsService', () => {
     expect(res).toEqual({
       id: 'alb-1',
       title: 'Liburan Bali',
+      parentId: null,
       coverFileId: null,
       fileCount: 0,
+      childCount: 0,
       createdAt: now.toISOString(),
     });
+  });
+
+  it('menolak pembuatan album dengan judul sama di induk yang sama (case-insensitive 409)', async () => {
+    const fakePrisma: any = {
+      album: {
+        findMany: async () => [{ id: 'alb-lama', title: 'Liburan Bali' }],
+      },
+    };
+
+    const service = new AlbumsService(fakePrisma);
+    await expect(
+      service.createAlbum('u-1', { title: 'liburan bali' }),
+    ).rejects.toThrow(ApiError);
+  });
+
+  it('menolak kedalaman album melebihi 4 tingkat (400 MAX_DEPTH_EXCEEDED)', async () => {
+    const fakePrisma: any = {
+      album: {
+        findUnique: async ({ where }: any) => {
+          if (where.id === 'lvl-4') return { id: 'lvl-4', ownerId: 'u-1', parentId: 'lvl-3' };
+          if (where.id === 'lvl-3') return { id: 'lvl-3', ownerId: 'u-1', parentId: 'lvl-2' };
+          if (where.id === 'lvl-2') return { id: 'lvl-2', ownerId: 'u-1', parentId: 'lvl-1' };
+          if (where.id === 'lvl-1') return { id: 'lvl-1', ownerId: 'u-1', parentId: null };
+          return null;
+        },
+      },
+    };
+
+    const service = new AlbumsService(fakePrisma);
+    await expect(
+      service.createAlbum('u-1', { title: 'Lembah 5', parentId: 'lvl-4' }),
+    ).rejects.toThrow(ApiError);
   });
 
   it('mengembalikan 404 jika album bukan milik pengguna', async () => {

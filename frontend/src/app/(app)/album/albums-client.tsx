@@ -19,7 +19,7 @@ export function AlbumsClient() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["albums"],
-    queryFn: fetchAlbums,
+    queryFn: () => fetchAlbums(),
   });
 
   const createMutation = useMutation({

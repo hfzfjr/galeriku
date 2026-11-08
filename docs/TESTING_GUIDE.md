@@ -463,4 +463,30 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
      - Seluruh file duplikat dipindahkan ke Sampah.
      - Galeri dan widget penyimpanan otomatis disegarkan (*cache invalidated*).
 
+---
+
+### RF-50: Skema & API Album Bersarang
+
+1. **Pembuatan Sub-Album & Validasi Kedalaman (Maks 4 Tingkat):**
+   - Buat album di akar (`parentId: null`), misal `Liburan 2026`.
+   - Buat sub-album di bawahnya (`parentId = Liburan 2026.id`), misal `Pantai Kuta`.
+   - Buat cucu-album di bawah `Pantai Kuta`, misal `Hari 1`.
+   - Buat cicit-album di bawah `Hari 1`, misal `Sunset`. Ini adalah tingkat ke-4.
+   - Coba buat album tingkat ke-5 di bawah `Sunset`: request ditolak dengan status 400 (`MAX_DEPTH_EXCEEDED: "Kedalaman album maksimal 4 tingkat."`).
+
+2. **Keunikan Judul per Induk (Case-Insensitive):**
+   - Buat album `Bali` di dalam `Liburan 2026`.
+   - Coba buat album dengan nama `bali` atau `BALI` di dalam `Liburan 2026`: ditolak dengan status 409 (`ALBUM_TITLE_EXISTS`).
+   - Buat album `Bali` di dalam folder lain (atau di root): berhasil dibuat (judul sama diperbolehkan jika berada di induk yang berbeda).
+
+3. **Pindahkan Album (Move) & Pencegahan Siklus:**
+   - Pindahkan sub-album ke album induk lain melalui `POST /albums/:id/move`.
+   - Uji pemindahan ke diri sendiri atau ke dalam keturunannya sendiri: ditolak dengan status 400 (`CYCLE_DETECTED: "Album tidak dapat dipindahkan ke dalam keturunannya sendiri."`).
+   - Uji pemindahan yang akan membuat kedalaman melebihi 4 tingkat: ditolak dengan status 400 (`MAX_DEPTH_EXCEEDED`).
+
+4. **Hapus Album (Mode Only vs Subtree):**
+   - Hapus album dengan mode `mode=only`: sub-album anak dinaikkan ke level induk, dan file tetap aman.
+   - Hapus album dengan mode `mode=subtree`: seluruh album dan keturunannya dihapus, tautan berbagi dicabut, dan foto-foto di galeri tetap aman utuh.
+
+
 

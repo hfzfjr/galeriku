@@ -190,12 +190,16 @@ model Album {
   ownerId     String      @map("owner_id")
   owner       User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   title       String
+  parentId    String?     @map("parent_id")
+  parent      Album?      @relation("AlbumHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Album[]     @relation("AlbumHierarchy")
   coverFileId String?     @map("cover_file_id")
   coverFile   File?       @relation("AlbumCover", fields: [coverFileId], references: [id], onDelete: Restrict)
   createdAt   DateTime    @default(now()) @map("created_at")
 
   albumFiles AlbumFile[]
 
+  @@index([ownerId, parentId])
   @@map("albums")
 }
 

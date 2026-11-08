@@ -540,6 +540,19 @@ export function createFakePrisma(db: FakeDb) {
             });
           row.albumFiles = afs;
         }
+        if (include.children) {
+          const children = [...db.albums.values()]
+            .filter((a) => a.parentId === row.id)
+            .sort((a, b) => compareValues(b.createdAt, a.createdAt))
+            .map((a) => {
+              const childInc = typeof include.children === 'object' ? (include.children as Record<string, unknown>).include : undefined;
+              return attachAlbumIncludes({ ...a }, childInc as Record<string, unknown>);
+            });
+          row.children = children;
+        }
+        if (include.parent) {
+          row.parent = row.parentId ? (db.albums.get(row.parentId as string) ?? null) : null;
+        }
         return row;
       }
 

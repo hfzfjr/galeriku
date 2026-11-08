@@ -118,6 +118,11 @@ describe('Albums (US-23)', () => {
           method: 'delete',
           url: `/albums/${id}/files/file-dummy`,
         },
+        {
+          method: 'post',
+          url: `/albums/${id}/move`,
+          body: { parentId: null },
+        },
         { method: 'get', url: `/albums/${id}/zip` },
         { method: 'delete', url: `/albums/${id}` },
       ],
@@ -310,6 +315,202 @@ describe('Albums (US-23)', () => {
     expect(res.status).toBe(200);
     expect(res.header['content-type']).toBe('application/zip');
     expect(res.header['content-disposition']).toContain('Liburan Pantai.zip');
+  });
+
+  describe('Album Bersarang (RF-50)', () => {
+    it('membuat struktur bersarang 4 tingkat, menolak tingkat ke-5, dan menolak nama kembar di induk sama', async () => {
+      app.db.albums.clear();
+      const http = () => request(app.app.getHttpAdapter().getInstance().server);
+
+      // Level 1: Root
+      const r1 = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Tingkat 1' })
+        .expect(201);
+      expect(r1.body.parentId).toBeNull();
+
+      // Nama kembar di root ditolak (case-insensitive)
+      await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'tingkat 1' })
+        .expect(409);
+
+      // Level 2
+      const r2 = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Tingkat 2', parentId: r1.body.id })
+        .expect(201);
+      expect(r2.body.parentId).toBe(r1.body.id);
+
+      // Level 3
+      const r3 = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Tingkat 3', parentId: r2.body.id })
+        .expect(201);
+
+      // Level 4
+      const r4 = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Tingkat 4', parentId: r3.body.id })
+        .expect(201);
+
+      // Level 5 (melebihi batas 4) ditolak 400 MAX_DEPTH_EXCEEDED
+      const r5 = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Tingkat 5', parentId: r4.body.id })
+        .expect(400);
+      expect(r5.body.code).toBe('MAX_DEPTH_EXCEEDED');
+
+      // GET /albums hanya mengembalikan akar
+      const resAkar = await http()
+        .get('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .expect(200);
+      expect(resAkar.body.items).toHaveLength(1);
+      expect(resAkar.body.items[0].id).toBe(r1.body.id);
+      expect(resAkar.body.items[0].childCount).toBe(1);
+
+      // GET /albums?parentId=r1.id mengembalikan anak tingkat 2
+      const resAnak = await http()
+        .get(`/albums?parentId=${r1.body.id}`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .expect(200);
+      expect(resAnak.body.items).toHaveLength(1);
+      expect(resAnak.body.items[0].id).toBe(r2.body.id);
+
+      // Detail r4 mengembalikan breadcrumb lengkap
+      const resDetailR4 = await http()
+        .get(`/albums/${r4.body.id}`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .expect(200);
+      expect(resDetailR4.body.breadcrumb).toHaveLength(4);
+      expect(resDetailR4.body.breadcrumb.map((b: any) => b.title)).toEqual([
+        'Tingkat 1',
+        'Tingkat 2',
+        'Tingkat 3',
+        'Tingkat 4',
+      ]);
+    });
+
+    it('memindahkan album (move), mencegah siklus dan membatasi kedalaman', async () => {
+      app.db.albums.clear();
+      const http = () => request(app.app.getHttpAdapter().getInstance().server);
+
+      const rA = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Induk A' })
+        .expect(201);
+
+      const rB = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Induk B' })
+        .expect(201);
+
+      const rSub = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Anak A', parentId: rA.body.id })
+        .expect(201);
+
+      // Pindah ke dirinya sendiri -> 400 INVALID_MOVE
+      await http()
+        .post(`/albums/${rSub.body.id}/move`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ parentId: rSub.body.id })
+        .expect(400);
+
+      // Pindahkan Induk A ke dalam Anak A (siklus) -> 400 CYCLE_DETECTED
+      await http()
+        .post(`/albums/${rA.body.id}/move`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ parentId: rSub.body.id })
+        .expect(400);
+
+      // Pindahkan Anak A ke Induk B -> 200 OK
+      const resMove = await http()
+        .post(`/albums/${rSub.body.id}/move`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ parentId: rB.body.id })
+        .expect(200);
+      expect(resMove.body.parentId).toBe(rB.body.id);
+    });
+
+    it('menghapus album mode=only mempromosikan anak dan mode=subtree menghapus seluruh keturunan', async () => {
+      app.db.albums.clear();
+      const http = () => request(app.app.getHttpAdapter().getInstance().server);
+
+      // Buat Induk -> Anak -> Cucu
+      const rInduk = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Induk Pohon' })
+        .expect(201);
+
+      const rAnak = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Anak Pohon', parentId: rInduk.body.id })
+        .expect(201);
+
+      const rCucu = await http()
+        .post('/albums')
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .send({ title: 'Cucu Pohon', parentId: rAnak.body.id })
+        .expect(201);
+
+      // Hapus rAnak mode=only: rCucu harus naik menjadi anak rInduk
+      await http()
+        .delete(`/albums/${rAnak.body.id}?mode=only`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .expect(204);
+
+      const resCucu = await http()
+        .get(`/albums/${rCucu.body.id}`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .expect(200);
+      expect(resCucu.body.parentId).toBe(rInduk.body.id);
+
+      // Hapus rInduk mode=subtree: rInduk dan rCucu keduanya terhapus
+      await http()
+        .delete(`/albums/${rInduk.body.id}?mode=subtree`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .set('Origin', ORIGIN)
+        .expect(204);
+
+      await http()
+        .get(`/albums/${rInduk.body.id}`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .expect(404);
+
+      await http()
+        .get(`/albums/${rCucu.body.id}`)
+        .set('Cookie', `galeriku_session=${cookieA}`)
+        .expect(404);
+    });
   });
 });
 

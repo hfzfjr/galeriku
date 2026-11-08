@@ -426,9 +426,10 @@ export function setPassword(password: string): Promise<MeResponse> {
   });
 }
 
-// Album (US-23)
-export function fetchAlbums(): Promise<AlbumsResponse> {
-  return request<AlbumsResponse>("/albums");
+// Album (US-23 & RF-50)
+export function fetchAlbums(parentId?: string | null): Promise<AlbumsResponse> {
+  const query = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
+  return request<AlbumsResponse>(`/albums${query}`);
 }
 
 export function createAlbum(body: CreateAlbumRequest): Promise<AlbumItem> {
@@ -452,8 +453,21 @@ export function updateAlbum(
   });
 }
 
-export function deleteAlbum(id: string): Promise<void> {
-  return request<void>(`/albums/${encodeURIComponent(id)}`, {
+export function moveAlbum(
+  id: string,
+  parentId: string | null,
+): Promise<AlbumItem> {
+  return request<AlbumItem>(`/albums/${encodeURIComponent(id)}/move`, {
+    method: "POST",
+    body: { parentId },
+  });
+}
+
+export function deleteAlbum(
+  id: string,
+  mode: "only" | "subtree" = "only",
+): Promise<void> {
+  return request<void>(`/albums/${encodeURIComponent(id)}?mode=${mode}`, {
     method: "DELETE",
   });
 }

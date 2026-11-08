@@ -377,16 +377,23 @@ export const batchDeleteFilesSchema = z.object({
 
 export type BatchDeleteFilesRequest = z.output<typeof batchDeleteFilesSchema>;
 
-// Albums (US-23: Album)
+// Albums (US-23: Album & RF-50: Album Bersarang)
 export const createAlbumSchema = z.object({
   title: z
     .string()
     .trim()
     .min(1, 'Judul album tidak boleh kosong.')
     .max(100, 'Judul album maksimal 100 karakter.'),
+  parentId: z.string().nullable().optional(),
 });
 
 export type CreateAlbumRequest = z.output<typeof createAlbumSchema>;
+
+export const moveAlbumSchema = z.object({
+  parentId: z.string().nullable(),
+});
+
+export type MoveAlbumRequest = z.output<typeof moveAlbumSchema>;
 
 export const updateAlbumSchema = z.object({
   title: z
@@ -404,16 +411,37 @@ export const addAlbumFilesSchema = z.object({
 
 export type AddAlbumFilesRequest = z.output<typeof addAlbumFilesSchema>;
 
+export const albumBreadcrumbItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+});
+
+export type AlbumBreadcrumbItem = z.output<typeof albumBreadcrumbItemSchema>;
+
 export const albumItemSchema = z.object({
   id: z.string(),
   title: z.string(),
+  parentId: z.string().nullable().optional(),
   coverFileId: z.string().nullable(),
   coverThumbKey: z.string().nullable().optional(),
   fileCount: z.number().int().nonnegative(),
+  childCount: z.number().int().nonnegative().default(0),
   createdAt: z.string(),
 });
 
 export type AlbumItem = z.output<typeof albumItemSchema>;
+
+export const albumsQuerySchema = z.object({
+  parentId: z.string().nullable().optional(),
+});
+
+export type AlbumsQuery = z.output<typeof albumsQuerySchema>;
+
+export const deleteAlbumQuerySchema = z.object({
+  mode: z.enum(['only', 'subtree']).default('only'),
+});
+
+export type DeleteAlbumQuery = z.output<typeof deleteAlbumQuerySchema>;
 
 export const albumsResponseSchema = z.object({
   items: z.array(albumItemSchema),
@@ -424,9 +452,13 @@ export type AlbumsResponse = z.output<typeof albumsResponseSchema>;
 export const albumDetailSchema = z.object({
   id: z.string(),
   title: z.string(),
+  parentId: z.string().nullable().optional(),
   coverFileId: z.string().nullable(),
   fileCount: z.number().int().nonnegative(),
+  childCount: z.number().int().nonnegative().default(0),
   createdAt: z.string(),
+  breadcrumb: z.array(albumBreadcrumbItemSchema).default([]),
+  subAlbums: z.array(albumItemSchema).default([]),
   files: z.array(fileItemSchema),
 });
 

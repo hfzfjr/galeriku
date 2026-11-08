@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UsePipes,
 } from '@nestjs/common';
@@ -17,11 +18,13 @@ import type {
   AlbumItem,
   AlbumsResponse,
   CreateAlbumRequest,
+  MoveAlbumRequest,
   UpdateAlbumRequest,
 } from '@galeriku/contracts';
 import {
   addAlbumFilesSchema,
   createAlbumSchema,
+  moveAlbumSchema,
   updateAlbumSchema,
 } from '@galeriku/contracts';
 import { CurrentUser, type SessionUser } from '../auth/guards/auth.guard';
@@ -44,8 +47,11 @@ export class AlbumsController {
   }
 
   @Get()
-  async getAlbums(@CurrentUser() user: SessionUser): Promise<AlbumsResponse> {
-    return this.albumsService.getAlbums(user.id);
+  async getAlbums(
+    @CurrentUser() user: SessionUser,
+    @Query('parentId') parentId?: string,
+  ): Promise<AlbumsResponse> {
+    return this.albumsService.getAlbums(user.id, { parentId });
   }
 
   @Get(':id')
@@ -86,13 +92,25 @@ export class AlbumsController {
     return this.albumsService.updateAlbum(user.id, albumId, body);
   }
 
+  @Post(':id/move')
+  @HttpCode(200)
+  @UsePipes(new ZodValidationPipe(moveAlbumSchema))
+  async moveAlbum(
+    @CurrentUser() user: SessionUser,
+    @Param('id') albumId: string,
+    @Body() body: MoveAlbumRequest,
+  ): Promise<AlbumItem> {
+    return this.albumsService.moveAlbum(user.id, albumId, body);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   async deleteAlbum(
     @CurrentUser() user: SessionUser,
     @Param('id') albumId: string,
+    @Query('mode') mode?: 'only' | 'subtree',
   ): Promise<void> {
-    await this.albumsService.deleteAlbum(user.id, albumId);
+    await this.albumsService.deleteAlbum(user.id, albumId, mode ?? 'only');
   }
 
   @Post(':id/files')

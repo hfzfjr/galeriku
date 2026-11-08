@@ -112,7 +112,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 - [x] RF-45 Deteksi duplikat
 
 ### Fase 5 — Album Bersarang
-- [ ] RF-50 Skema dan API album bersarang
+- [x] RF-50 Skema dan API album bersarang
 - [ ] RF-51 UI album bersarang
 - [ ] RF-52 Berbagi subtree, halaman publik, dan ZIP berstruktur
 

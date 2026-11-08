@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AlbumItem } from "@galeriku/contracts";
 import { FolderPlus, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +36,11 @@ export function AddToAlbumSheet({
 
   const { data, isLoading } = useQuery({
     queryKey: ["albums"],
-    queryFn: fetchAlbums,
+    queryFn: () => fetchAlbums(),
     enabled: isOpen,
   });
 
-  const albums = useMemo(() => data?.items ?? [], [data?.items]);
+  const albums: AlbumItem[] = useMemo(() => data?.items ?? [], [data?.items]);
 
   const filteredAlbums = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
