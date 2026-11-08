@@ -6,6 +6,7 @@ import { FileKind, FileStatus, ShareTarget, UserStatus } from '../generated/pris
 import type {
   CreateShareLinkRequest,
   FileItem,
+  PublicShareMetaResponse,
   PublicShareResponse,
   ShareExpiryOption,
   ShareLinkItem,
@@ -402,7 +403,7 @@ export class SharesService {
       where: { token },
       include: {
         owner: {
-          select: { status: true },
+          select: { status: true, name: true },
         },
       },
     });
@@ -424,6 +425,116 @@ export class SharesService {
     }
 
     return share;
+  }
+
+  async getPublicShareMeta(token: string): Promise<PublicShareMetaResponse> {
+    const share = await this.prisma.shareLink.findUnique({
+      where: { token },
+      include: {
+        owner: {
+          select: { status: true, name: true },
+        },
+      },
+    });
+
+    if (!share) {
+      throw new ApiError(404, 'NOT_FOUND', 'Tautan tidak valid atau telah dihapus.');
+    }
+
+    if (share.owner.status !== UserStatus.ACTIVE) {
+      throw new ApiError(404, 'NOT_FOUND', 'Tautan tidak dapat diakses.');
+    }
+
+    if (share.revokedAt !== null) {
+      return {
+        token: share.token,
+        status: 'REVOKED',
+        title: 'Tautan Berbagi',
+        ownerName: null,
+        fileCount: 0,
+        hasCover: false,
+        hasPassword: false,
+        expiresAt: null,
+      };
+    }
+
+    if (share.expiresAt && share.expiresAt.getTime() <= Date.now()) {
+      return {
+        token: share.token,
+        status: 'EXPIRED',
+        title: 'Tautan Berbagi',
+        ownerName: null,
+        fileCount: 0,
+        hasCover: false,
+        hasPassword: false,
+        expiresAt: share.expiresAt.toISOString(),
+      };
+    }
+
+    const hasPassword = share.passwordHash !== null;
+    const expiresAt = share.expiresAt ? share.expiresAt.toISOString() : null;
+
+    if (hasPassword) {
+      return {
+        token: share.token,
+        status: 'PASSWORD_PROTECTED',
+        title: 'Tautan Berbagi',
+        ownerName: null,
+        fileCount: 0,
+        hasCover: false,
+        hasPassword: true,
+        expiresAt,
+      };
+    }
+
+    let title = 'Tautan Berbagi';
+    let fileCount = 0;
+    let hasCover = false;
+
+    if (share.targetType === ShareTarget.file) {
+      const file = await this.prisma.file.findUnique({
+        where: { id: share.targetId },
+        select: { originalName: true, status: true, deletedAt: true },
+      });
+      if (!file || file.deletedAt !== null || file.status !== FileStatus.ready) {
+        throw new ApiError(404, 'NOT_FOUND', 'File dalam tautan ini sudah tidak tersedia.');
+      }
+      title = file.originalName;
+      fileCount = 1;
+      hasCover = true;
+    } else {
+      const album = await this.prisma.album.findUnique({
+        where: { id: share.targetId },
+        include: {
+          albumFiles: {
+            where: {
+              file: {
+                deletedAt: null,
+                status: FileStatus.ready,
+              },
+            },
+            select: { id: true },
+          },
+        },
+      });
+      if (!album) {
+        throw new ApiError(404, 'NOT_FOUND', 'Album dalam tautan ini sudah tidak tersedia.');
+      }
+      title = album.title;
+      fileCount = album.albumFiles.length;
+      hasCover = Boolean(album.coverFileId || album.albumFiles.length > 0);
+    }
+
+    return {
+      token: share.token,
+      status: 'ACTIVE',
+      title,
+      ownerName: share.owner.name ?? null,
+      fileCount,
+      hasCover,
+      hasPassword: false,
+      expiresAt,
+    };
   }
 
   async unlockShare(
@@ -540,6 +651,8 @@ export class SharesService {
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword: true,
         isUnlocked: false,
+        ownerName: null,
+        expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
         files: [],
       };
     }
@@ -565,6 +678,8 @@ export class SharesService {
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword,
         isUnlocked: true,
+        ownerName: share.owner.name ?? null,
+        expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
         files: [toFileItem(file)],
       };
     } else {
@@ -596,6 +711,8 @@ export class SharesService {
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword,
         isUnlocked: true,
+        ownerName: share.owner.name ?? null,
+        expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
         files: album.albumFiles.map((af) => toFileItem(af.file)),
       };
     }

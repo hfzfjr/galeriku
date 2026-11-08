@@ -394,5 +394,66 @@ describe('Public Shares (US-25)', () => {
       .expect(200);
     expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);
   });
+
+  describe('RF-20: GET /public/s/:token/meta (SSR & Open Graph preview)', () => {
+    const http = () => request(app.app.getHttpAdapter().getInstance().server);
+    const passwords = new PasswordService();
+
+    it('mengembalikan metadata publik tanpa efek samping atau viewCount', async () => {
+      const token = 'token-meta-active';
+      app.db.shareLinks.set('sh-meta-active', {
+        id: 'sh-meta-active',
+        token,
+        ownerId: 'user-active',
+        targetType: ShareTarget.file,
+        targetId: 'f-pub-1',
+        allowDownload: true,
+        viewCount: 0,
+        expiresAt: new Date(Date.now() + 86400_000),
+        passwordHash: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      const res = await http().get(`/public/s/${token}/meta`).expect(200);
+
+      expect(res.body.status).toBe('ACTIVE');
+      expect(res.body.title).toBe('pemandangan.jpg');
+      expect(res.body.ownerName).toBe('user-active');
+      expect(res.body.fileCount).toBe(1);
+      expect(res.body.hasCover).toBe(true);
+      expect(res.body.hasPassword).toBe(false);
+
+      // viewCount tidak boleh bertambah
+      expect(app.db.shareLinks.get('sh-meta-active')?.viewCount).toBe(0);
+    });
+
+    it('link berpassword tidak membocorkan judul, sampul, atau nama pemilik', async () => {
+      const token = 'token-meta-pwd';
+      const hash = await passwords.hashPassword('rahasia');
+      app.db.shareLinks.set('sh-meta-pwd', {
+        id: 'sh-meta-pwd',
+        token,
+        ownerId: 'user-active',
+        targetType: ShareTarget.file,
+        targetId: 'f-pub-1',
+        allowDownload: true,
+        viewCount: 0,
+        expiresAt: null,
+        passwordHash: hash,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      const res = await http().get(`/public/s/${token}/meta`).expect(200);
+
+      expect(res.body.status).toBe('PASSWORD_PROTECTED');
+      expect(res.body.hasPassword).toBe(true);
+      expect(res.body.title).not.toBe('pemandangan.jpg');
+      expect(res.body.hasCover).toBe(false);
+      expect(res.body.fileCount).toBe(0);
+      expect(app.db.shareLinks.get('sh-meta-pwd')?.viewCount).toBe(0);
+    });
+  });
 });
 

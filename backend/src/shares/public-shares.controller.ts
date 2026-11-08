@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
+  PublicShareMetaResponse,
   PublicShareResponse,
   UnlockShareRequest,
 } from '@galeriku/contracts';
@@ -65,6 +66,18 @@ function getUnlockTokenFromReq(
 @Controller('public/s')
 export class PublicSharesController {
   constructor(private readonly sharesService: SharesService) {}
+
+  @Public()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 60, windowMs: 60_000, keyPrefix: 'share:meta' })
+  @Get(':token/meta')
+  async getPublicShareMeta(
+    @Param('token') token: string,
+    @Res({ passthrough: true }) res: FastifyReply,
+  ): Promise<PublicShareMetaResponse> {
+    res.header('X-Robots-Tag', 'noindex, nofollow');
+    return this.sharesService.getPublicShareMeta(token);
+  }
 
   @Public()
   @UseGuards(RateLimitGuard)

@@ -91,7 +91,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 - [x] RF-16 Nama tempat offline
 
 ### Fase 2 — Berbagi yang Matang
-- [ ] RF-20 Halaman publik SSR dan preview OG
+- [x] RF-20 Halaman publik SSR dan preview OG
 - [ ] RF-21 allowDownload yang nyata, toggle lokasi, pembersihan GPS
 - [ ] RF-22 Default kedaluwarsa album tanpa batas
 - [ ] RF-23 Unduhan ramah HP dan "Baru ditambahkan"

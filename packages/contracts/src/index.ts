@@ -425,7 +425,28 @@ export const shareLinksResponseSchema = z.object({
 
 export type ShareLinksResponse = z.output<typeof shareLinksResponseSchema>;
 
-// Public Share View (US-25, US-26)
+// Public Share View (US-25, US-26, RF-20)
+export const publicShareStatusSchema = z.enum([
+  'ACTIVE',
+  'EXPIRED',
+  'REVOKED',
+  'PASSWORD_PROTECTED',
+]);
+export type PublicShareStatus = z.output<typeof publicShareStatusSchema>;
+
+export const publicShareMetaResponseSchema = z.object({
+  token: z.string(),
+  status: publicShareStatusSchema,
+  title: z.string(),
+  ownerName: z.string().nullable(),
+  fileCount: z.number().int().nonnegative(),
+  hasCover: z.boolean(),
+  hasPassword: z.boolean(),
+  expiresAt: z.string().nullable().optional(),
+});
+
+export type PublicShareMetaResponse = z.output<typeof publicShareMetaResponseSchema>;
+
 export const publicShareResponseSchema = z.object({
   token: z.string(),
   targetType: shareTargetSchema,
@@ -434,6 +455,8 @@ export const publicShareResponseSchema = z.object({
   createdAt: z.string(),
   hasPassword: z.boolean(),
   isUnlocked: z.boolean(),
+  ownerName: z.string().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
   files: z.array(fileItemSchema),
 });
 

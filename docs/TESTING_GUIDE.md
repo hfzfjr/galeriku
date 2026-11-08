@@ -118,3 +118,22 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Putuskan koneksi internet server (atau amati network tab / firewall): resolusi nama tempat tetap berjalan lancar dan instan (< 1 ms) tanpa ada request HTTP ke layanan peta luar.
 3. **Verifikasi Koordinat di Laut / Tanpa GPS:**
    - Unggah foto tanpa GPS atau foto dengan koordinat di tengah laut lepas: pastikan baris Lokasi menampilkan `"Tanpa lokasi"` tanpa menimbulkan kesalahan pada aplikasi.
+
+---
+
+## RF-20: Halaman Publik SSR & Preview Open Graph (OG)
+1. **Verifikasi Open Graph & SSR Metadata:**
+   - Salin tautan publik (`/s/:token`) dari album atau file aktif.
+   - Periksa metadata halaman menggunakan curl / view-source browser atau simulator WhatsApp / Telegram / OpenGraph checker:
+     - Tag `<title>` memuat nama album/file (`"{Judul} — Galeriku"`).
+     - Tag `<meta property="og:title">` dan `<meta property="og:description">` memuat nama pemilik dan jumlah item (`"Dibagikan oleh {nama} · {N} item"`).
+     - Tag `<meta property="og:image">` mengarah ke `${API_URL}/public/s/${token}/cover` (bila memiliki sampul dan tidak berpassword).
+     - Tag robots memuat `noindex, nofollow`.
+2. **Verifikasi Keamanan Link Berpassword:**
+   - Buka tautan publik berpassword:
+     - Pastikan metadata tidak membocorkan judul, nama pemilik, atau gambar sampul (judul tampil sebagai `"Tautan Dilindungi Sandi — Galeriku"`).
+     - Pastikan endpoint `GET /public/s/:token/meta` menjawab status `PASSWORD_PROTECTED` tanpa menaikkan view count.
+3. **Verifikasi Header & Pengelompokan Tanggal Publik:**
+   - Buka tautan album publik di browser:
+     - Di bagian atas, pastikan teks subtitle menampilkan `"Dibagikan oleh {nama}"` serta `"Berlaku sampai {tanggal}"` jika memiliki batas kedaluwarsa.
+     - Di grid foto album, pastikan foto-foto terkelompok rapi berdasarkan header tanggal pengambilan foto asli (`captured_at` / D1), bukan tercampur aduk.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -14,6 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { MediaThumb } from "@/components/ui/media-thumb";
+import { getPhotoDateGroup } from "@/lib/date-group";
 import { PublicViewer } from "@/components/public/public-viewer";
 import {
   fetchPublicShare,
@@ -146,6 +147,41 @@ export function PublicShareClient({ token }: { token: string }) {
     );
   }
 
+  const groupedFiles = useMemo(() => {
+    if (data?.targetType !== "ALBUM" || !data.files) return [];
+    const groups: Map<
+      string,
+      { dateKey: string; displayDate: string; items: typeof data.files }
+    > = new Map();
+
+    for (const file of data.files) {
+      const dateToUse = file.capturedAt || file.takenAt || file.createdAt;
+      const { dateKey, displayDate } = getPhotoDateGroup(
+        dateToUse,
+        file.capturedTzOffsetMin,
+      );
+
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, {
+          dateKey,
+          displayDate,
+          items: [],
+        });
+      }
+      groups.get(dateKey)!.items.push(file);
+    }
+
+    return Array.from(groups.values());
+  }, [data?.targetType, data?.files]);
+
+  const expiryFormatted = data?.expiresAt
+    ? new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(data.expiresAt))
+    : null;
+
   const reportMailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
     `Laporan Konten Galeriku — ${token}`,
   )}&body=${encodeURIComponent(
@@ -215,9 +251,12 @@ export function PublicShareClient({ token }: { token: string }) {
           <div>
             <h1 className="text-h1 font-serif text-ink">{data.title}</h1>
             <p className="text-caption text-ink-muted mt-1">
-              Dibagikan lewat tautan publik &bull;{" "}
-              {data.files.length}{" "}
-              {data.files.length === 1 ? "foto/video" : "foto/video"}
+              {data.ownerName
+                ? `Dibagikan oleh ${data.ownerName}`
+                : "Dibagikan lewat tautan publik"}
+              {expiryFormatted ? ` · Berlaku sampai ${expiryFormatted}` : ""}
+              {" · "}
+              {data.files.length} foto/video
             </p>
           </div>
 
@@ -275,30 +314,49 @@ export function PublicShareClient({ token }: { token: string }) {
             </div>
           </div>
         ) : (
-          /* Jika Album: Grid Foto/Video */
-          <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 sm:gap-2">
-            {data.files.map((file, idx) => (
-              <div
-                key={file.id}
-                className="group relative aspect-square overflow-hidden rounded bg-sunken"
-              >
-                <button
-                  type="button"
-                  onClick={() => setActiveViewerIndex(idx)}
-                  className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <MediaThumb
-                    src={
-                      file.thumbKey
-                        ? getPublicThumbnailUrl(token, file.id)
-                        : null
-                    }
-                    alt={file.originalName}
-                    kind={file.kind}
-                    durationS={file.durationS}
-                    crossOrigin="anonymous"
-                  />
-                </button>
+          /* Jika Album: Grid Foto/Video dikelompokkan per tanggal (D1) */
+          <div className="flex flex-col gap-6">
+            {groupedFiles.map((group) => (
+              <div key={group.dateKey} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-body font-semibold text-ink">
+                    {group.displayDate}
+                  </h2>
+                  <span className="text-caption text-ink-muted">
+                    {group.items.length} item
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 sm:gap-2">
+                  {group.items.map((file) => {
+                    const flatIdx = data.files.findIndex((f) => f.id === file.id);
+                    return (
+                      <div
+                        key={file.id}
+                        className="group relative aspect-square overflow-hidden rounded bg-sunken"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveViewerIndex(flatIdx >= 0 ? flatIdx : 0)
+                          }
+                          className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+                        >
+                          <MediaThumb
+                            src={
+                              file.thumbKey
+                                ? getPublicThumbnailUrl(token, file.id)
+                                : null
+                            }
+                            alt={file.originalName}
+                            kind={file.kind}
+                            durationS={file.durationS}
+                            crossOrigin="anonymous"
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
