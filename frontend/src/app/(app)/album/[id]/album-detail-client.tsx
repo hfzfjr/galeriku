@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  CheckSquare,
   Edit2,
   FolderMinus,
   Images,
@@ -20,11 +21,10 @@ import { Input } from "@/components/ui/input";
 import { MediaThumb } from "@/components/ui/media-thumb";
 import { FullViewer } from "@/components/gallery/full-viewer";
 import { ShareModal } from "@/components/shares/share-modal";
+import { AlbumAddPhotosSheet } from "@/components/gallery/album-add-photos-sheet";
 import {
-  addFilesToAlbum,
   deleteAlbum,
   fetchAlbumDetail,
-  fetchFiles,
   getThumbnailUrl,
   removeFileFromAlbum,
   updateAlbum,
@@ -40,24 +40,19 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addFilesModalOpen, setAddFilesModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(
-    null,
-  );
+  const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // State Seleksi Massal di Album (RF-43, B14)
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isRemovingBatch, setIsRemovingBatch] = useState(false);
 
   // Ambil detail album
   const { data: album, isLoading } = useQuery({
     queryKey: ["album", albumId],
     queryFn: () => fetchAlbumDetail(albumId),
-  });
-
-  // Ambil file galeri untuk opsi tambah
-  const { data: galleryFiles } = useQuery({
-    queryKey: ["files", "all-for-album"],
-    queryFn: () => fetchFiles({ limit: 100 }),
-    enabled: addFilesModalOpen,
   });
 
   // Mutasi Ubah Nama
@@ -83,28 +78,48 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     onError: (err) => setErrorMsg(toIndonesianMessage(err)),
   });
 
-  // Mutasi Tambah File
-  const addFilesMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      addFilesToAlbum(albumId, { fileIds: ids }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["album", albumId] });
-      queryClient.invalidateQueries({ queryKey: ["albums"] });
-      setAddFilesModalOpen(false);
-      setSelectedFileIds([]);
-      setErrorMsg(null);
-    },
-    onError: (err) => setErrorMsg(toIndonesianMessage(err)),
-  });
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  // Mutasi Keluarkan File
-  const removeFileMutation = useMutation({
-    mutationFn: (fileId: string) => removeFileFromAlbum(albumId, fileId),
-    onSuccess: () => {
+  const handleSelectAll = () => {
+    if (!album) return;
+    if (selectedIds.size === album.files.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(album.files.map((f) => f.id)));
+    }
+  };
+
+  const cancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  // Keluarkan massal (RF-43, B14)
+  const handleBatchRemove = async () => {
+    if (selectedIds.size === 0 || isRemovingBatch) return;
+    setIsRemovingBatch(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((fileId) =>
+          removeFileFromAlbum(albumId, fileId)
+        )
+      );
       queryClient.invalidateQueries({ queryKey: ["album", albumId] });
       queryClient.invalidateQueries({ queryKey: ["albums"] });
-    },
-  });
+      cancelSelection();
+    } catch (err) {
+      setErrorMsg(toIndonesianMessage(err));
+    } finally {
+      setIsRemovingBatch(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -134,83 +149,119 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     );
   }
 
-  const existingFileIdSet = new Set(album.files.map((f) => f.id));
-  const availableToAdd =
-    galleryFiles?.items.filter((f) => !existingFileIdSet.has(f.id)) ?? [];
-
-  const toggleSelectForAdd = (id: string) => {
-    setSelectedFileIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
-  };
-
   return (
     <div className="flex flex-col gap-6 pb-24">
-      {/* Navigasi & Aksi Atas */}
-      <div className="flex flex-col gap-3">
-        <Link
-          href="/album"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink transition"
-        >
-          <ArrowLeft size={16} />
-          <span>Semua Album</span>
-        </Link>
-
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-h1 font-serif text-ink">{album.title}</h1>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditTitle(album.title);
-                  setErrorMsg(null);
-                  setEditModalOpen(true);
-                }}
-                className="rounded-full p-1.5 text-ink-muted hover:bg-sunken hover:text-ink transition"
-                title="Ubah nama album"
-                aria-label="Ubah nama album"
-              >
-                <Edit2 size={16} />
-              </button>
-            </div>
-            <p className="text-caption text-ink-muted">
-              {album.files.length} {album.files.length === 1 ? "item" : "item"}
-            </p>
+      {/* Bilah Aksi Pemilihan Massal (RF-43, B14) */}
+      {isSelectionMode ? (
+        <div className="sticky top-0 z-30 flex min-h-12 items-center justify-between rounded-lg border border-line bg-surface px-3 py-2 shadow-float">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cancelSelection}
+              aria-label="Batalkan pemilihan"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink active:bg-sunken"
+            >
+              <X size={20} strokeWidth={1.5} />
+            </button>
+            <span className="text-label font-medium text-ink">
+              {selectedIds.size} dipilih
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleSelectAll}
+              className="min-h-11 px-2.5 text-caption text-ink-muted hover:text-ink"
+            >
+              {selectedIds.size === album.files.length ? "Batal Semua" : "Pilih Semua"}
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
-              onClick={() => setShareModalOpen(true)}
-              className="gap-1.5"
-            >
-              <Share2 size={16} />
-              <span>Bagikan</span>
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSelectedFileIds([]);
-                setErrorMsg(null);
-                setAddFilesModalOpen(true);
-              }}
-              className="gap-1.5"
-            >
-              <Plus size={18} strokeWidth={2} />
-              <span>Tambah Foto</span>
-            </Button>
-            <Button
+              type="button"
               variant="danger"
-              onClick={() => setDeleteConfirmOpen(true)}
-              className="gap-1.5"
+              disabled={selectedIds.size === 0 || isRemovingBatch}
+              loading={isRemovingBatch}
+              onClick={handleBatchRemove}
+              className="flex min-h-11 items-center gap-1.5 text-caption font-medium"
+              aria-label="Keluarkan file terpilih dari album"
             >
-              <Trash2 size={16} />
-              <span className="hidden sm:inline">Hapus Album</span>
+              <FolderMinus size={16} />
+              <span>Keluarkan ({selectedIds.size})</span>
             </Button>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Navigasi & Aksi Atas Normal */
+        <div className="flex flex-col gap-3">
+          <Link
+            href="/album"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink transition"
+          >
+            <ArrowLeft size={16} />
+            <span>Semua Album</span>
+          </Link>
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-h1 font-serif text-ink">{album.title}</h1>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditTitle(album.title);
+                    setErrorMsg(null);
+                    setEditModalOpen(true);
+                  }}
+                  className="rounded-full p-1.5 text-ink-muted hover:bg-sunken hover:text-ink transition"
+                  title="Ubah nama album"
+                  aria-label="Ubah nama album"
+                >
+                  <Edit2 size={16} />
+                </button>
+              </div>
+              <p className="text-caption text-ink-muted">
+                {album.files.length} {album.files.length === 1 ? "item" : "item"}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setIsSelectionMode(true)}
+                className="flex min-h-11 items-center gap-1.5 text-caption font-medium text-ink"
+              >
+                <CheckSquare size={16} />
+                <span>Pilih</span>
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setShareModalOpen(true)}
+                className="min-h-11 gap-1.5 text-caption"
+              >
+                <Share2 size={16} />
+                <span>Bagikan</span>
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setAddFilesModalOpen(true)}
+                className="min-h-11 gap-1.5 text-caption"
+              >
+                <Plus size={18} strokeWidth={2} />
+                <span>Tambah Foto</span>
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="min-h-11 gap-1.5 text-caption"
+              >
+                <Trash2 size={16} />
+                <span className="hidden sm:inline">Hapus Album</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grid Foto Album */}
       {album.files.length === 0 ? (
@@ -225,49 +276,72 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
           </p>
           <Button
             variant="secondary"
-            className="mt-5"
-            onClick={() => {
-              setSelectedFileIds([]);
-              setErrorMsg(null);
-              setAddFilesModalOpen(true);
-            }}
+            className="mt-5 min-h-11"
+            onClick={() => setAddFilesModalOpen(true)}
           >
             Pilih Foto untuk Ditambahkan
           </Button>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 sm:gap-2">
-          {album.files.map((file, idx) => (
-            <div
-              key={file.id}
-              className="group relative aspect-square overflow-hidden rounded bg-sunken"
-            >
-              <button
-                type="button"
-                onClick={() => setActiveViewerIndex(idx)}
-                className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+          {album.files.map((file, idx) => {
+            const isSelected = selectedIds.has(file.id);
+            return (
+              <div
+                key={file.id}
+                className={`relative aspect-square overflow-hidden rounded bg-sunken transition ${
+                  isSelected ? "ring-2 ring-accent" : ""
+                }`}
               >
-                <MediaThumb
-                  src={file.thumbKey ? getThumbnailUrl(file.id) : null}
-                  alt={file.originalName}
-                  kind={file.kind}
-                  durationS={file.durationS}
-                  liveKind={file.liveKind}
-                />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleSelect(file.id);
+                    } else {
+                      setActiveViewerIndex(idx);
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (!isSelectionMode) {
+                      setIsSelectionMode(true);
+                      setSelectedIds(new Set([file.id]));
+                    }
+                  }}
+                  className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <MediaThumb
+                    src={file.thumbKey ? getThumbnailUrl(file.id) : null}
+                    alt={file.originalName}
+                    kind={file.kind}
+                    durationS={file.durationS}
+                    liveKind={file.liveKind}
+                  />
+                </button>
 
-              {/* Tombol Keluarkan File dari Album */}
-              <button
-                type="button"
-                onClick={() => removeFileMutation.mutate(file.id)}
-                className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white opacity-0 transition hover:bg-black/90 group-hover:opacity-100 focus:opacity-100"
-                title="Keluarkan dari album"
-                aria-label={`Keluarkan ${file.originalName} dari album`}
-              >
-                <FolderMinus size={14} />
-              </button>
-            </div>
-          ))}
+                {/* Mode Pilih: Indikator Centang Selalu Terlihat (B14, BUKAN hover-only!) */}
+                {isSelectionMode && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSelect(file.id)}
+                    className="absolute top-1.5 right-1.5 flex min-h-11 min-w-11 items-center justify-center rounded-full"
+                    aria-label={isSelected ? `Batal pilih ${file.originalName}` : `Pilih ${file.originalName}`}
+                  >
+                    <div
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition shadow ${
+                        isSelected
+                          ? "border-accent bg-accent text-white"
+                          : "border-white/80 bg-black/40 text-transparent"
+                      }`}
+                    >
+                      <Check size={14} strokeWidth={2.5} />
+                    </div>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -367,95 +441,14 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
         </div>
       )}
 
-      {/* Modal Tambah Foto dari Galeri */}
-      {addFilesModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
-        >
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-line bg-surface p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <div>
-                <h3 className="text-h3 font-serif text-ink">Tambah ke Album</h3>
-                <p className="text-caption text-ink-muted">
-                  Pilih foto dan video dari galerimu.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAddFilesModalOpen(false)}
-                className="rounded-full p-1 text-ink-muted hover:bg-sunken hover:text-ink"
-                aria-label="Tutup"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {/* Sheet Tambah Foto dari Galeri (RF-43, B13) */}
+      <AlbumAddPhotosSheet
+        isOpen={addFilesModalOpen}
+        onClose={() => setAddFilesModalOpen(false)}
+        albumId={albumId}
+        existingFileIds={album.files.map((f) => f.id)}
+      />
 
-            <div className="my-4 flex-1 overflow-y-auto">
-              {availableToAdd.length === 0 ? (
-                <div className="py-12 text-center text-ink-muted">
-                  Semua file di galerimu sudah ada di album ini.
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-                  {availableToAdd.map((file) => {
-                    const isSelected = selectedFileIds.includes(file.id);
-                    return (
-                      <button
-                        key={file.id}
-                        type="button"
-                        onClick={() => toggleSelectForAdd(file.id)}
-                        className={`relative aspect-square overflow-hidden rounded border-2 transition ${
-                          isSelected
-                            ? "border-accent ring-2 ring-accent"
-                            : "border-transparent hover:opacity-90"
-                        }`}
-                      >
-                        <MediaThumb
-                          src={file.thumbKey ? getThumbnailUrl(file.id) : null}
-                          alt={file.originalName}
-                          kind={file.kind}
-                          durationS={file.durationS}
-                        />
-                        {isSelected && (
-                          <div className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white shadow">
-                            <Check size={14} strokeWidth={2.5} />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-line pt-3">
-              <span className="text-sm font-medium text-ink">
-                {selectedFileIds.length} dipilih
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setAddFilesModalOpen(false)}
-                >
-                  Batal
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={selectedFileIds.length === 0}
-                  loading={addFilesMutation.isPending}
-                  onClick={() => addFilesMutation.mutate(selectedFileIds)}
-                >
-                  Tambahkan ke Album
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Modal Berbagi */}
       <ShareModal
         isOpen={shareModalOpen}
@@ -467,4 +460,3 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     </div>
   );
 }
-

@@ -9,9 +9,11 @@ import {
   Check,
   CheckSquare,
   Download,
+  FolderPlus,
   Image as ImageIcon,
   RefreshCw,
   RotateCcw,
+  Share2,
   Star,
   Trash2,
   Upload,
@@ -27,8 +29,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { MediaThumb } from "@/components/ui/media-thumb";
 import { getPhotoDateGroup } from "@/lib/date-group";
+import { AddToAlbumSheet } from "./add-to-album-sheet";
 import { FilterBar, type FilterState, type SortOption } from "./filter-bar";
 import { FullViewer } from "./full-viewer";
+import { QuickShareModal } from "./quick-share-modal";
 
 type GroupedFiles = {
   dateKey: string;
@@ -306,6 +310,8 @@ export function GalleryGrid({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+  const [showAddToAlbumSheet, setShowAddToAlbumSheet] = useState(false);
+  const [showQuickShareModal, setShowQuickShareModal] = useState(false);
 
   const {
     data,
@@ -423,6 +429,19 @@ export function GalleryGrid({
   const cancelSelection = () => {
     setIsSelectionMode(false);
     setSelectedIds(new Set());
+  };
+
+  const isAllLoadedSelected =
+    allFiles.length > 0 && selectedIds.size === allFiles.length;
+
+  const handleToggleSelectAllLoaded = () => {
+    if (isAllLoadedSelected) {
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+    } else {
+      setSelectedIds(new Set(allFiles.map((f) => f.id)));
+      setIsSelectionMode(true);
+    }
   };
 
   const handleBatchDownload = () => {
@@ -561,9 +580,9 @@ export function GalleryGrid({
         hideFavorite={Boolean(favoriteOnly)}
       />
 
-      {/* Bilah Aksi Pemilihan (Selection Bar) */}
+      {/* Bilah Aksi Pemilihan (Selection Bar RF-43) */}
       {isSelectionMode ? (
-        <div className="sticky top-0 z-30 flex min-h-12 items-center justify-between rounded-lg border border-line bg-surface px-3 py-2 shadow-float">
+        <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 shadow-float">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -576,18 +595,48 @@ export function GalleryGrid({
             <span className="text-label font-medium text-ink">
               {selectedIds.size} dipilih
             </span>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleToggleSelectAllLoaded}
+              className="min-h-11 px-2.5 text-caption text-ink-muted hover:text-ink"
+            >
+              {isAllLoadedSelected ? "Batal Semua" : "Pilih Semua"}
+            </Button>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={selectedIds.size === 0}
+              onClick={() => setShowQuickShareModal(true)}
+              className="flex min-h-11 items-center gap-1.5 text-caption font-medium"
+              aria-label="Bagikan cepat foto terpilih"
+            >
+              <Share2 size={16} />
+              <span className="hidden sm:inline">Bagikan</span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={selectedIds.size === 0}
+              onClick={() => setShowAddToAlbumSheet(true)}
+              className="flex min-h-11 items-center gap-1.5 text-caption font-medium"
+              aria-label="Tambah foto terpilih ke album"
+            >
+              <FolderPlus size={16} />
+              <span className="hidden sm:inline">Album</span>
+            </Button>
             <Button
               type="button"
               variant="ghost"
               disabled={selectedIds.size === 0}
               onClick={handleBatchDownload}
-              className="flex items-center gap-1.5 text-label"
+              className="flex min-h-11 items-center gap-1.5 text-caption font-medium"
               aria-label="Unduh file terpilih"
             >
-              <Download size={18} />
+              <Download size={16} />
               <span className="hidden sm:inline">Unduh</span>
             </Button>
             <Button
@@ -595,10 +644,10 @@ export function GalleryGrid({
               variant="danger"
               disabled={selectedIds.size === 0}
               onClick={() => setShowBatchDeleteModal(true)}
-              className="flex items-center gap-1.5 text-label"
+              className="flex min-h-11 items-center gap-1.5 text-caption font-medium"
               aria-label="Hapus file terpilih"
             >
-              <Trash2 size={18} />
+              <Trash2 size={16} />
               <span className="hidden sm:inline">Hapus</span>
             </Button>
           </div>
@@ -648,40 +697,84 @@ export function GalleryGrid({
         </div>
       )}
 
-      {groups.map((group) => (
-        <section key={group.dateKey} className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between px-1">
-            <h3 className="text-h3 font-serif text-ink">{group.displayDate}</h3>
-            <span className="text-caption text-ink-muted">
-              {group.items.length} {group.items.length === 1 ? "item" : "item"}
-            </span>
-          </div>
+      {groups.map((group) => {
+        const isGroupAllSelected =
+          group.items.length > 0 &&
+          group.items.every((f) => selectedIds.has(f.id));
 
-          <div className="grid grid-cols-3 gap-[2px] sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
-            {group.items.map((file) => {
-              const isSelected = selectedIds.has(file.id);
-              return (
-                <GalleryItem
-                  key={file.id}
-                  file={file}
-                  isSelectionMode={isSelectionMode}
-                  isSelected={isSelected}
-                  onToggleSelect={() => toggleSelect(file.id)}
-                  onLongPress={() => startSelectionWith(file.id)}
-                  onClick={() => {
-                    if (isSelectionMode) {
-                      toggleSelect(file.id);
-                    } else {
-                      const idx = allFiles.findIndex((f) => f.id === file.id);
-                      if (idx >= 0) setActiveViewerIndex(idx);
-                    }
-                  }}
-                />
-              );
-            })}
-          </div>
-        </section>
-      ))}
+        const handleToggleGroup = () => {
+          setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (isGroupAllSelected) {
+              for (const f of group.items) next.delete(f.id);
+              if (next.size === 0) setIsSelectionMode(false);
+            } else {
+              for (const f of group.items) next.add(f.id);
+              setIsSelectionMode(true);
+            }
+            return next;
+          });
+        };
+
+        return (
+          <section key={group.dateKey} className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-1">
+              <button
+                type="button"
+                onClick={handleToggleGroup}
+                className="group/grp flex min-h-11 items-center gap-2 text-left transition-colors hover:text-accent"
+                title={
+                  isGroupAllSelected
+                    ? "Batalkan pilihan tanggal ini"
+                    : "Pilih seluruh foto pada tanggal ini"
+                }
+              >
+                <h3 className="text-h3 font-serif text-ink group-hover/grp:text-accent">
+                  {group.displayDate}
+                </h3>
+                {isSelectionMode && (
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full border transition ${
+                      isGroupAllSelected
+                        ? "border-accent bg-accent text-white"
+                        : "border-line bg-surface text-transparent group-hover/grp:border-accent"
+                    }`}
+                  >
+                    <Check size={12} strokeWidth={2.5} />
+                  </span>
+                )}
+              </button>
+              <span className="text-caption text-ink-muted">
+                {group.items.length} item
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-[2px] sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
+              {group.items.map((file) => {
+                const isSelected = selectedIds.has(file.id);
+                return (
+                  <GalleryItem
+                    key={file.id}
+                    file={file}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={isSelected}
+                    onToggleSelect={() => toggleSelect(file.id)}
+                    onLongPress={() => startSelectionWith(file.id)}
+                    onClick={() => {
+                      if (isSelectionMode) {
+                        toggleSelect(file.id);
+                      } else {
+                        const idx = allFiles.findIndex((f) => f.id === file.id);
+                        if (idx >= 0) setActiveViewerIndex(idx);
+                      }
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
 
       {/* Sentinel observer untuk infinite scroll */}
       <div ref={observerRef} className="h-4 w-full py-2 text-center">
@@ -862,6 +955,26 @@ export function GalleryGrid({
           </div>
         </div>
       )}
+
+      {/* Sheet Tambah ke Album (RF-43) */}
+      <AddToAlbumSheet
+        isOpen={showAddToAlbumSheet}
+        onClose={() => setShowAddToAlbumSheet(false)}
+        fileIds={Array.from(selectedIds)}
+        onSuccess={() => {
+          cancelSelection();
+        }}
+      />
+
+      {/* Modal Bagikan Cepat (RF-43) */}
+      <QuickShareModal
+        isOpen={showQuickShareModal}
+        onClose={() => setShowQuickShareModal(false)}
+        fileIds={Array.from(selectedIds)}
+        onSuccess={() => {
+          cancelSelection();
+        }}
+      />
     </div>
   );
 }
@@ -919,7 +1032,7 @@ function GalleryItem({
         isSelected ? " (terpilih)" : ""
       }`}
     >
-      {/* Lingkaran Mode Pilih */}
+      {/* Lingkaran Mode Pilih (Target Sentuh >= 44 px RF-43) */}
       {isSelectionMode ? (
         <button
           type="button"
@@ -928,13 +1041,17 @@ function GalleryItem({
             e.stopPropagation();
             onToggleSelect?.();
           }}
-          className={`absolute top-1.5 left-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-            isSelected
-              ? "bg-accent text-on-accent"
-              : "border-2 border-white/80 bg-black/30 text-transparent"
-          }`}
+          className="absolute -top-1 -left-1 z-20 flex min-h-11 min-w-11 items-center justify-center p-2"
         >
-          <Check size={14} strokeWidth={2.5} />
+          <div
+            className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors shadow ${
+              isSelected
+                ? "bg-accent text-on-accent"
+                : "border-2 border-white/90 bg-black/40 text-transparent"
+            }`}
+          >
+            <Check size={14} strokeWidth={2.5} />
+          </div>
         </button>
       ) : null}
 

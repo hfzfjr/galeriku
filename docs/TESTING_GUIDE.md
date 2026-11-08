@@ -376,6 +376,49 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Pastikan muncul keadaan kosong khusus: ikon putar kembali, judul "Tidak ada foto yang cocok", deskripsi instruktif, dan tombol "Hapus filter".
    - Klik tombol "Hapus filter": pastikan semua filter terhapus dan galeri kembali menampilkan seluruh foto.
 
+---
+
+### RF-43: Seleksi, Aksi Massal, & Picker Album
+
+1. **Bilah Pilih Galeri Baru:**
+   - Masuk ke `/galeri`, tekan tombol **"Pilih"** di pojok kanan atau lakukan sentuhan lama (*long press*) 500 ms pada salah satu foto.
+   - Bilah pilih melayang muncul di bagian atas menampilkan:
+     - Jumlah dipilih (`N dipilih`).
+     - Tombol **"Pilih Semua"** (memilih seluruh foto yang sudah dimuat).
+     - Tombol **"Bagikan"** (Bagikan cepat).
+     - Tombol **"Album"** (Tambah ke album).
+     - Tombol **"Unduh"** (Unduh banyak).
+     - Tombol **"Hapus"** (Pindahkan ke Sampah).
+   - Ketuk judul grup tanggal (misal "Sabtu, 7 November 2026"): verifikasi seluruh foto pada tanggal tersebut langsung terpilih (atau batal terpilih jika semua sudah dicentang).
+
+2. **Sheet "Tambah ke Album":**
+   - Pilih 2 atau lebih foto di galeri, lalu ketuk tombol **"Album"** di bilah pilih.
+   - Bottom sheet "Tambah ke Album" terbuka dari bawah:
+     - Cari album melalui kolom pencarian.
+     - Pilih salah satu album: foto-foto terpilih langsung dimasukkan ke album tersebut dan sheet tertutup rapi.
+     - Ketuk **"Buat Album Baru"**: masukkan nama album baru, simpan: album baru dibuat seketika dan foto langsung ditambahkan ke dalamnya.
+
+3. **Bagikan Cepat (Quick Share):**
+   - Pilih beberapa foto di galeri, lalu ketuk tombol **"Bagikan"**.
+   - Modal "Bagikan Cepat" muncul dengan judul otomatis `"Bagikan {tanggal_hari_ini}"`.
+   - Ubah judul atau langsung ketuk **"Buat Tautan Berbagi"**:
+     - Sistem membuat album otomatis, memasukkan foto, dan membuat share link tanpa batas waktu (`expiry: NEVER`).
+     - Tautan langsung tampil dengan tombol **"Salin"** dan tombol **"Kirim ke Aplikasi Lain"** (Web Share API di HP).
+
+4. **Picker "Tambah Foto" Tanpa Batas di Detail Album (B13):**
+   - Buka salah satu album (`/album/[id]`), lalu ketuk tombol **"Tambah Foto"**.
+   - Sheet picker terbuka memuat seluruh galeri dengan infinite scroll (tidak dibatasi 100 file lagi).
+   - Coba ketik nama file pada kotak pencarian atau filter jenis Foto / Video.
+   - Periksa bahwa file yang sudah ada di dalam album ditandai non-aktif dengan label "Di album".
+   - Pilih beberapa foto baru lalu ketuk **"Tambahkan ke Album"**.
+
+5. **Mode Pilih & Keluarkan dari Album Ramah HP (B14):**
+   - Di halaman detail album (`/album/[id]`), ketuk tombol **"Pilih"** di bilah atas atau tekan lama salah satu foto.
+   - Lingkaran centang seleksi muncul secara jelas pada setiap foto (**bukan hover-only**, target sentuh >= 44 px).
+   - Pilih beberapa foto, lalu ketuk tombol merah **"Keluarkan (N)"** pada bilah aksi atas:
+     - Foto-foto terpilih langsung dikeluarkan dari album secara massal tanpa terhapus dari galeri utama.
+
+
 
 
 
