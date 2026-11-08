@@ -77,3 +77,23 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Gunakan tombol `ArrowLeft` / `ArrowRight` di keyboard desktop untuk berpindah foto.
    - Tekan tombol `Esc` untuk menutup viewer.
    - Tekan `Tab`: pastikan fokus tetap berputar di dalam elemen kontrol viewer (focus trap).
+
+---
+
+## RF-14: Panel Info (Bottom Sheet EXIF, Kamera, Lokasi, & Ubah Tanggal)
+1. **Verifikasi Membuka Panel Info:**
+   - Buka foto di viewer layar penuh, lalu klik tombol **Info** (ikon `Info`) di bilah atas.
+   - Pastikan bottom sheet muncul dari bawah dengan judul nama file (huruf Fraunces serif italic).
+   - Pastikan kontrol viewer tidak menghilang otomatis (timer 3 detik dijeda) saat panel Info sedang terbuka.
+2. **Verifikasi Tampilan Metadata Lengkap:**
+   - Periksa bagian **Waktu Pengambilan**: menampilkan tanggal dan jam dalam zona waktu lokal foto beserta label sumbernya (mis. "EXIF kamera", "Waktu modifikasi berkas", atau "Diubah manual").
+   - Periksa bagian **Lokasi**: jika foto memiliki metadata GPS, koordinat lintang/bujur dan tautan "Buka peta" muncul (khusus pemilik); jika tidak ada, tampil "Tanpa lokasi".
+   - Periksa bagian **Kamera**: menampilkan nama perangkat/kamera, model lensa, panjang fokus (mm), bukaan (`f/...`), kecepatan rana (`1/...s`), dan ISO.
+   - Periksa bagian **Spesifikasi Berkas**: dimensi piksel (mis. `4032 × 3024 · 12.2 MP`), ukuran berkas dalam KB/MB, dan tanggal diunggah ke server.
+3. **Verifikasi Aksi Ubah Tanggal:**
+   - Di dalam panel Info (sebagai pemilik), klik tombol **"Ubah tanggal"**.
+   - Masukkan tanggal dan waktu baru pada input datetime-local, lalu klik **"Simpan"**.
+   - Pastikan tanggal yang tampil di panel Info langsung berubah, dan saat viewer ditutup, foto telah berpindah grup tanggal yang sesuai di grid galeri.
+4. **Verifikasi Privasi pada Link Publik:**
+   - Buka foto yang sama melalui tautan publik (`/s/:token`).
+   - Buka panel Info: pastikan koordinat mentah GPS (`gpsLat`/`gpsLng`) tidak pernah ditampilkan atau dikirim dalam data response JSON.

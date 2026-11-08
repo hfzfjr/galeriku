@@ -3,6 +3,7 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import type {
+  FileDetail,
   FileItem,
   FilesQuery,
   FilesResponse,
@@ -75,6 +76,15 @@ type FileRow = {
   placeCity?: string | null;
   gpsLat?: number | null;
   gpsLng?: number | null;
+  gpsAltM?: number | null;
+  cameraMake?: string | null;
+  cameraModel?: string | null;
+  lensModel?: string | null;
+  iso?: number | null;
+  fNumber?: number | null;
+  exposureS?: number | null;
+  focalLengthMm?: number | null;
+  orientation?: number | null;
   createdAt: Date;
   deletedAt?: Date | null;
 };
@@ -108,8 +118,29 @@ export function toFileItem(file: FileRow): FileItem {
     capturedAtSource: (file.capturedAtSource as any) ?? undefined,
     place,
     hasLocation,
+    cameraMake: file.cameraMake ?? null,
+    cameraModel: file.cameraModel ?? null,
+    lensModel: file.lensModel ?? null,
+    iso: file.iso ?? null,
+    fNumber: file.fNumber ?? null,
+    exposureS: file.exposureS ?? null,
+    focalLengthMm: file.focalLengthMm ?? null,
     createdAt: file.createdAt.toISOString(),
     deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
+  };
+}
+
+export function toFileDetail(file: FileRow): FileDetail {
+  const base = toFileItem(file);
+  return {
+    ...base,
+    gpsLat: file.gpsLat ?? null,
+    gpsLng: file.gpsLng ?? null,
+    gpsAltM: file.gpsAltM ?? null,
+    orientation: file.orientation ?? null,
+    placeCountry: file.placeCountry ?? null,
+    placeAdmin1: file.placeAdmin1 ?? null,
+    placeCity: file.placeCity ?? null,
   };
 }
 
@@ -185,6 +216,23 @@ export class FilesService {
       items: halaman.map(toFileItem),
       nextCursor: lanjut,
     };
+  }
+
+  async getFileDetail(userId: string, fileId: string): Promise<FileDetail> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    return toFileDetail(file as unknown as FileRow);
   }
 
   async getThumbnailPath(userId: string, fileId: string): Promise<string> {

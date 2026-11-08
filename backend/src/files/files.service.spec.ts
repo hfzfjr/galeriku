@@ -1,6 +1,7 @@
 import {
   decodeCursor,
   encodeCursor,
+  toFileDetail,
   toFileItem,
 } from './files.service';
 import { parseRange } from './files.controller';
@@ -66,6 +67,13 @@ describe('FilesService helpers', () => {
         capturedAtSource: undefined,
         place: null,
         hasLocation: false,
+        cameraMake: null,
+        cameraModel: null,
+        lensModel: null,
+        iso: null,
+        fNumber: null,
+        exposureS: null,
+        focalLengthMm: null,
         createdAt: '2026-10-31T12:00:00.000Z',
         deletedAt: null,
       });
@@ -118,6 +126,37 @@ describe('FilesService helpers', () => {
       expect(item.capturedAt).toBe('2026-11-01T15:00:00.000Z');
       expect(item.capturedTzOffsetMin).toBe(420);
       expect(item.capturedAtSource).toBe('manual');
+    });
+
+    it('toFileDetail menyertakan koordinat GPS dan orientasi untuk pemilik (RF-14)', () => {
+      const now = new Date('2026-10-31T12:00:00.000Z');
+      const detail = toFileDetail({
+        id: 'file-detail',
+        originalName: 'pantai.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000n,
+        kind: 'image',
+        width: 1920,
+        height: 1080,
+        durationS: null,
+        thumbKey: null,
+        status: 'ready',
+        gpsLat: -8.4095,
+        gpsLng: 115.1889,
+        gpsAltM: 50.0,
+        orientation: 1,
+        cameraMake: 'Sony',
+        cameraModel: 'A7 IV',
+        createdAt: now,
+      });
+
+      expect(detail.gpsLat).toBe(-8.4095);
+      expect(detail.gpsLng).toBe(115.1889);
+      expect(detail.gpsAltM).toBe(50.0);
+      expect(detail.orientation).toBe(1);
+      expect(detail.cameraMake).toBe('Sony');
+      expect(detail.cameraModel).toBe('A7 IV');
+      expect(detail.hasLocation).toBe(true);
     });
   });
 

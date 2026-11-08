@@ -242,11 +242,30 @@ export const fileItemSchema = z.object({
   capturedAtSource: capturedAtSourceSchema.optional(),
   place: z.string().nullable().optional(),
   hasLocation: z.boolean().default(false),
+  cameraMake: z.string().nullable().optional(),
+  cameraModel: z.string().nullable().optional(),
+  lensModel: z.string().nullable().optional(),
+  iso: z.number().int().nullable().optional(),
+  fNumber: z.number().nullable().optional(),
+  exposureS: z.number().nullable().optional(),
+  focalLengthMm: z.number().nullable().optional(),
   createdAt: z.string(),
   deletedAt: z.string().nullable().optional(),
 });
 
 export type FileItem = z.output<typeof fileItemSchema>;
+
+export const fileDetailSchema = fileItemSchema.extend({
+  gpsLat: z.number().nullable().optional(),
+  gpsLng: z.number().nullable().optional(),
+  gpsAltM: z.number().nullable().optional(),
+  orientation: z.number().int().nullable().optional(),
+  placeCountry: z.string().nullable().optional(),
+  placeAdmin1: z.string().nullable().optional(),
+  placeCity: z.string().nullable().optional(),
+});
+
+export type FileDetail = z.output<typeof fileDetailSchema>;
 
 export const filesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(24),

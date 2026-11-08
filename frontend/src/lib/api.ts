@@ -8,6 +8,7 @@ import type {
   AlbumsResponse,
   CreateAlbumRequest,
   CreateShareLinkRequest,
+  FileDetail,
   FileItem,
   FilesResponse,
   ForgotPasswordRequest,
@@ -316,6 +317,10 @@ export function deleteFile(id: string): Promise<void> {
   return request<void>(`/files/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+export function getFileDetail(fileId: string): Promise<FileDetail> {
+  return request<FileDetail>(`/files/${encodeURIComponent(fileId)}`);
 }
 
 export function updateFileCapturedAt(

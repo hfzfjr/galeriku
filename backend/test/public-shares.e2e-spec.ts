@@ -120,6 +120,11 @@ describe('Public Shares (US-25)', () => {
     expect(res.body.files).toHaveLength(1);
     expect(res.body.allowDownload).toBe(true);
 
+    // RF-14: Publik tidak pernah menerima koordinat gpsLat/gpsLng
+    expect(res.body.files[0].gpsLat).toBeUndefined();
+    expect(res.body.files[0].gpsLng).toBeUndefined();
+    expect(res.body.files[0].gpsAltM).toBeUndefined();
+
     // viewCount bertambah di DB
     const updatedShare = app.db.shareLinks.get('sh-1');
     expect(updatedShare?.viewCount).toBe(1);

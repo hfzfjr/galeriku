@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ShareModal } from "@/components/shares/share-modal";
 import { getPhotoDateGroup } from "@/lib/date-group";
+import { FileInfoSheet } from "./file-info-sheet";
 
 export type MediaViewerAdapter =
   | {
@@ -70,7 +71,10 @@ export function MediaViewer({
   const [viewOriginalId, setViewOriginalId] = useState<string | null>(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [infoSheetOpen, setInfoSheetOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const effectiveInfoOpen = isInfoOpen || infoSheetOpen;
 
   // Gesture tracking states
   const [offsetY, setOffsetY] = useState(0);
@@ -143,21 +147,21 @@ export function MediaViewer({
       window.clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
-    if (!isInfoOpen && !showConfirmDelete && !shareModalOpen) {
+    if (!effectiveInfoOpen && !showConfirmDelete && !shareModalOpen) {
       hideTimerRef.current = window.setTimeout(() => {
         setControlsVisible(false);
       }, 3000);
     }
-  }, [isInfoOpen, showConfirmDelete, shareModalOpen]);
+  }, [effectiveInfoOpen, showConfirmDelete, shareModalOpen]);
 
   useEffect(() => {
-    if (!isInfoOpen && !showConfirmDelete && !shareModalOpen) {
+    if (!effectiveInfoOpen && !showConfirmDelete && !shareModalOpen) {
       const timer = window.setTimeout(() => {
         setControlsVisible(false);
       }, 3000);
       return () => window.clearTimeout(timer);
     }
-  }, [currentIndex, isInfoOpen, showConfirmDelete, shareModalOpen]);
+  }, [currentIndex, effectiveInfoOpen, showConfirmDelete, shareModalOpen]);
 
   // Navigation handlers
   const goToNext = useCallback(() => {
@@ -570,18 +574,19 @@ export function MediaViewer({
             </button>
           )}
 
-          {/* Tombol Info (RF-14 siap dipakai) */}
-          {onOpenInfo && (
-            <button
-              type="button"
-              onClick={() => onOpenInfo(currentFile)}
-              aria-label="Lihat info"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
-              title="Lihat info"
-            >
-              <Info size={20} strokeWidth={1.5} />
-            </button>
-          )}
+          {/* Tombol Info (RF-14) */}
+          <button
+            type="button"
+            onClick={() => {
+              setInfoSheetOpen(true);
+              if (onOpenInfo) onOpenInfo(currentFile);
+            }}
+            aria-label="Lihat info"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
+            title="Lihat info"
+          >
+            <Info size={20} strokeWidth={1.5} />
+          </button>
 
           {/* Tombol Bagikan */}
           <button
@@ -772,6 +777,17 @@ export function MediaViewer({
           targetTitle={currentFile.originalName}
         />
       )}
+
+      {/* Panel Info (RF-14) */}
+      <FileInfoSheet
+        open={effectiveInfoOpen}
+        onClose={() => setInfoSheetOpen(false)}
+        file={currentFile}
+        isOwner={adapter.mode === "owner"}
+        onDateUpdated={(updated) => {
+          Object.assign(currentFile, updated);
+        }}
+      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   BatchDeleteFilesRequest,
+  FileDetail,
   FileItem,
   FilesResponse,
   SetFileFavoriteRequest,
@@ -174,6 +175,14 @@ export class FilesController {
     reply.header('Content-Length', sizeBytes);
     const stream = createReadStream(filePath);
     reply.send(stream);
+  }
+
+  @Get(':id')
+  async getFileDetail(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+  ): Promise<FileDetail> {
+    return this.filesService.getFileDetail(user.id, id);
   }
 
   @Patch(':id/favorite')

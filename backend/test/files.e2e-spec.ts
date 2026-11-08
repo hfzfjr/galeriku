@@ -1016,5 +1016,140 @@ describe('FilesController (e2e) — US-20', () => {
       });
     });
   });
+
+  describe('RF-14: GET /files/:id (Detail file & koordinat pemilik)', () => {
+    it('mengembalikan detail lengkap file termasuk koordinat GPS untuk pemilik', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('f-detail-1', {
+        id: 'f-detail-1',
+        ownerId: user.id,
+        originalName: 'pemandangan.jpg',
+        storageKey: 'key-pemandangan',
+        mimeType: 'image/jpeg',
+        sizeBytes: 2048000n,
+        kind: FileKind.image,
+        width: 4032,
+        height: 3024,
+        durationS: null,
+        thumbKey: 'thumb-pemandangan',
+        previewKey: 'prev-pemandangan',
+        status: FileStatus.ready,
+        isFavorite: true,
+        capturedAt: new Date('2026-07-15T08:30:00.000Z'),
+        capturedTzOffsetMin: 480,
+        capturedAtSource: 'exif',
+        cameraMake: 'Apple',
+        cameraModel: 'iPhone 15 Pro',
+        lensModel: 'iPhone 15 Pro back camera 6.78mm f/1.78',
+        iso: 80,
+        fNumber: 1.78,
+        exposureS: 0.002,
+        focalLengthMm: 6.78,
+        orientation: 1,
+        gpsLat: -8.4095,
+        gpsLng: 115.1889,
+        gpsAltM: 120.5,
+        placeCountry: 'Indonesia',
+        placeAdmin1: 'Bali',
+        placeCity: 'Tabanan',
+        createdAt: new Date('2026-07-15T09:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/f-detail-1')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe('f-detail-1');
+      expect(res.body.originalName).toBe('pemandangan.jpg');
+      expect(res.body.sizeBytes).toBe('2048000');
+      expect(res.body.cameraMake).toBe('Apple');
+      expect(res.body.cameraModel).toBe('iPhone 15 Pro');
+      expect(res.body.lensModel).toBe('iPhone 15 Pro back camera 6.78mm f/1.78');
+      expect(res.body.iso).toBe(80);
+      expect(res.body.fNumber).toBe(1.78);
+      expect(res.body.exposureS).toBe(0.002);
+      expect(res.body.focalLengthMm).toBe(6.78);
+      expect(res.body.gpsLat).toBe(-8.4095);
+      expect(res.body.gpsLng).toBe(115.1889);
+      expect(res.body.gpsAltM).toBe(120.5);
+      expect(res.body.place).toBe('Tabanan, Bali, Indonesia');
+      expect(res.body.hasLocation).toBe(true);
+    });
+
+    it('IDOR A-vs-B: User B mendapat 404 identik saat mengakses detail file User A', async () => {
+      const userA = await seedUser(db);
+      const userB = await seedUser(db);
+      const tokenA = craftSession(db, userA.id as string);
+      const tokenB = craftSession(db, userB.id as string);
+
+      await expectOwnerOnly(app, {
+        cookieA: tokenA,
+        cookieB: tokenB,
+        origin: ORIGIN,
+        createResource: async () => {
+          const fid = `file-detail-idor-${Date.now()}`;
+          db.files.set(fid, {
+            id: fid,
+            ownerId: userA.id,
+            originalName: 'rahasia.jpg',
+            storageKey: `key-${fid}`,
+            mimeType: 'image/jpeg',
+            sizeBytes: 100n,
+            kind: FileKind.image,
+            width: null,
+            height: null,
+            durationS: null,
+            thumbKey: null,
+            status: FileStatus.ready,
+            isFavorite: false,
+            createdAt: new Date(),
+            deletedAt: null,
+          });
+          return fid;
+        },
+        buildRequests: (id: string) => [
+          {
+            method: 'get',
+            url: `/files/${id}`,
+          },
+        ],
+      });
+    });
+
+    it('mengembalikan 404 jika file sudah dihapus (soft-deleted)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('f-deleted-info', {
+        id: 'f-deleted-info',
+        ownerId: user.id,
+        originalName: 'hapus.jpg',
+        storageKey: 'key-hapus',
+        mimeType: 'image/jpeg',
+        sizeBytes: 100n,
+        kind: FileKind.image,
+        width: null,
+        height: null,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        createdAt: new Date(),
+        deletedAt: new Date(),
+      });
+
+      const res = await http()
+        .get('/files/f-deleted-info')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(404);
+    });
+  });
 });
 

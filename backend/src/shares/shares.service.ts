@@ -72,6 +72,13 @@ function toFileItem(file: {
     capturedAtSource: (file.capturedAtSource as any) ?? undefined,
     place,
     hasLocation,
+    cameraMake: (file as any).cameraMake ?? null,
+    cameraModel: (file as any).cameraModel ?? null,
+    lensModel: (file as any).lensModel ?? null,
+    iso: (file as any).iso ?? null,
+    fNumber: (file as any).fNumber ?? null,
+    exposureS: (file as any).exposureS ?? null,
+    focalLengthMm: (file as any).focalLengthMm ?? null,
     createdAt: file.createdAt.toISOString(),
     deletedAt: file.deletedAt ? file.deletedAt.toISOString() : null,
   };
