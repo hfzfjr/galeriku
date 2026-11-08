@@ -97,7 +97,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 - [x] RF-23 Unduhan ramah HP dan "Baru ditambahkan"
 
 ### Fase 3 — Live Photo, Motion Photo, dan Video
-- [ ] RF-30 Spike Live Photo di iPhone asli
+- [x] RF-30 Spike Live Photo di iPhone asli
 - [ ] RF-31 Motion Photo Android
 - [ ] RF-32 Pairing Live Photo iOS
 - [ ] RF-33 Tampilan Live

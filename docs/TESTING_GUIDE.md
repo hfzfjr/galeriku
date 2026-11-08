@@ -219,3 +219,15 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Unduh video melalui tombol unduh:
      - Periksa metadata video yang diunduh: pastikan tag lokasi ISO 6709 telah dibersihkan secara lossless (`ffmpeg -map_metadata -1 -c copy`).
    - Unduh album berisi video sebagai file ZIP: pastikan berkas video di dalam ZIP juga telah dibersihkan dari metadata lokasi.
+
+---
+
+### RF-30: Spike Live Photo di iPhone Asli
+
+1. **Pengujian Skenario Unggah Live Photo:**
+   - Buka panduan pengujian di `docs/testing/refactor-live.md`.
+   - Lakukan 3 skenario unggah dengan iPhone asli:
+     1. **Skenario A:** Unggah langsung dari Safari iOS via Photo Library.
+     2. **Skenario B:** Ekspor asli tanpa modifikasi (*Export Unmodified Original*) ke aplikasi Files, lalu unggah pasangan HEIC + MOV.
+     3. **Skenario C:** Ekspor ke komputer, lalu unggah berkas pasangan dari browser desktop.
+   - Catat hasil pengamatan pada tabel di `docs/testing/refactor-live.md`.
