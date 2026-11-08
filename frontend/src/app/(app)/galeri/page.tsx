@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "Galeri",
 };
 
+export const instant = false;
+
 export default function GaleriPage() {
   return (
     <main className="flex flex-col gap-4">

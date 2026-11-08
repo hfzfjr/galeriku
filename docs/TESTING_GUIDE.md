@@ -349,5 +349,33 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Klik tombol "Terbaru" pada pil filter atau pilih "Kembali ke Foto Terbaru" di dalam sheet.
    - Pastikan galeri kembali menampilkan foto-foto paling baru.
 
+---
+
+### RF-42: Filter Bar dan Sheet Urutan
+
+1. **Bilah Chip Filter Horisontal (`FilterBar`):**
+   - Buka `/galeri` di perangkat mobile (360x800) atau desktop.
+   - Periksa deretan chip filter yang dapat digeser horisontal secara mulus:
+     - **Urutkan:** Menampilkan bottom sheet dengan 7 opsi pengurutan (Tanggal foto terbaru/terlama, Baru ditambahkan, Nama file A-Z/Z-A, Ukuran terbesar/terkecil). Memilih opsi memperbarui urutan galeri seketika dan mencantumkan query `?urut=...` pada URL browser.
+     - **Jenis:** Menampilkan bottom sheet pilihan "Semua", "Foto", atau "Video".
+     - **Favorit:** Chip toggle instan dengan ikon bintang. Menampilkan hanya file bertanda bintang.
+     - **Live:** Chip toggle untuk foto bergerak (Motion Photo / iOS Live Photo).
+     - **Belum di album:** Chip toggle untuk menampilkan file yang belum masuk ke album manapun.
+     - **Tempat:** Menampilkan bottom sheet pencarian/input nama kota atau tempat.
+     - **Tanggal:** Menampilkan bottom sheet rentang tanggal (dari - sampai).
+     - **Duplikat:** Chip toggle untuk menampilkan file yang terdeteksi sebagai duplikat.
+   - Setiap chip yang sedang aktif memiliki gaya `bg-accent-soft text-accent border-accent/40 font-medium`.
+
+2. **Sinkronisasi State ke URL:**
+   - Aktifkan salah satu atau kombinasi filter (misal jenis "video" dan urut "ukuran").
+   - Periksa URL browser berubah menjadi `/galeri?urut=size_desc&jenis=video`.
+   - Lakukan refresh halaman di browser: pastikan filter tetap aktif sesuai parameter URL.
+
+3. **Keadaan Kosong Khusus (Empty State Filter):**
+   - Terapkan filter yang tidak menghasilkan file apapun (misal tempat "Antartika" atau tanggal masa depan).
+   - Pastikan muncul keadaan kosong khusus: ikon putar kembali, judul "Tidak ada foto yang cocok", deskripsi instruktif, dan tombol "Hapus filter".
+   - Klik tombol "Hapus filter": pastikan semua filter terhapus dan galeri kembali menampilkan seluruh foto.
+
+
 
 

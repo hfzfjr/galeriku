@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FileItem, TimelineBucket } from "@galeriku/contracts";
 import {
@@ -10,6 +11,7 @@ import {
   Download,
   Image as ImageIcon,
   RefreshCw,
+  RotateCcw,
   Star,
   Trash2,
   Upload,
@@ -25,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MediaThumb } from "@/components/ui/media-thumb";
 import { getPhotoDateGroup } from "@/lib/date-group";
+import { FilterBar, type FilterState, type SortOption } from "./filter-bar";
 import { FullViewer } from "./full-viewer";
 
 type GroupedFiles = {
@@ -64,6 +67,29 @@ function formatAnchorDisplay(anchorStr: string): string {
   return `${NAMA_BULAN[monthIdx] || m} ${y}`;
 }
 
+function parseSortOption(sortOpt: SortOption): {
+  sort: "taken" | "uploaded" | "name" | "size";
+  order: "desc" | "asc";
+} {
+  switch (sortOpt) {
+    case "taken_asc":
+      return { sort: "taken", order: "asc" };
+    case "uploaded_desc":
+      return { sort: "uploaded", order: "desc" };
+    case "name_asc":
+      return { sort: "name", order: "asc" };
+    case "name_desc":
+      return { sort: "name", order: "desc" };
+    case "size_desc":
+      return { sort: "size", order: "desc" };
+    case "size_asc":
+      return { sort: "size", order: "asc" };
+    case "taken_desc":
+    default:
+      return { sort: "taken", order: "desc" };
+  }
+}
+
 export function GalleryGrid({
   onTriggerUpload,
   kind,
@@ -72,21 +98,191 @@ export function GalleryGrid({
   emptyDescription = "Foto dan video yang kamu unggah dari HP akan tersimpan rapi di sini.",
   initialSort = "taken",
 }: GalleryGridProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const observerRef = useRef<HTMLDivElement | null>(null);
   const [activeViewerIndex, setActiveViewerIndex] = useState<number | null>(null);
 
-  // Urutan galeri: "taken" (Tanggal foto) atau "uploaded" (Baru ditambahkan) (RF-23)
-  const [sortBy, setSortBy] = useState<"taken" | "uploaded">(initialSort);
+  // Filter state tersinkron ke URL (RF-42)
+  const sortOption: SortOption =
+    (searchParams.get("urut") as SortOption) ||
+    (initialSort === "uploaded" ? "uploaded_desc" : "taken_desc");
+  const { sort: activeSort, order: activeOrder } = parseSortOption(sortOption);
+
+  const filterParam = searchParams.get("filter");
+  const jenisParam = searchParams.get("jenis");
+  const activeKind: "image" | "video" | undefined =
+    kind ||
+    (jenisParam === "image" || jenisParam === "video"
+      ? (jenisParam as "image" | "video")
+      : filterParam === "foto"
+        ? "image"
+        : filterParam === "video"
+          ? "video"
+          : undefined);
+
+  const activeFavorite =
+    favoriteOnly || searchParams.get("favorit") === "true" ? true : undefined;
+  const activeUnalbumed =
+    searchParams.get("unalbumed") === "true" ? true : undefined;
+  const activeLive = searchParams.get("live") === "true" ? true : undefined;
+  const activeDuplicates =
+    searchParams.get("duplikat") === "true" ? true : undefined;
+  const activePlace = searchParams.get("tempat") || undefined;
+  const activeFrom = searchParams.get("dari") || undefined;
+  const activeTo = searchParams.get("sampai") || undefined;
+  const activeQ = searchParams.get("q") || undefined;
+
+  const currentFilters: FilterState = {
+    sort: sortOption,
+    kind: activeKind,
+    favorite: activeFavorite,
+    unalbumed: activeUnalbumed,
+    live: activeLive,
+    duplicates: activeDuplicates,
+    place: activePlace,
+    from: activeFrom,
+    to: activeTo,
+  };
+
+  const handleFilterChange = (updated: Partial<FilterState>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (updated.sort !== undefined) {
+      if (updated.sort === "taken_desc") {
+        params.delete("urut");
+      } else {
+        params.set("urut", updated.sort);
+      }
+    }
+    if (updated.kind !== undefined) {
+      if (!updated.kind) {
+        params.delete("jenis");
+        params.delete("filter");
+      } else {
+        params.set("jenis", updated.kind);
+      }
+    }
+    if (updated.favorite !== undefined) {
+      if (updated.favorite) {
+        params.set("favorit", "true");
+      } else {
+        params.delete("favorit");
+      }
+    }
+    if (updated.unalbumed !== undefined) {
+      if (updated.unalbumed) {
+        params.set("unalbumed", "true");
+      } else {
+        params.delete("unalbumed");
+      }
+    }
+    if (updated.live !== undefined) {
+      if (updated.live) {
+        params.set("live", "true");
+      } else {
+        params.delete("live");
+      }
+    }
+    if (updated.duplicates !== undefined) {
+      if (updated.duplicates) {
+        params.set("duplikat", "true");
+      } else {
+        params.delete("duplikat");
+      }
+    }
+    if (updated.place !== undefined) {
+      if (updated.place) {
+        params.set("tempat", updated.place);
+      } else {
+        params.delete("tempat");
+      }
+    }
+    if (updated.from !== undefined) {
+      if (updated.from) {
+        params.set("dari", updated.from);
+      } else {
+        params.delete("dari");
+      }
+    }
+    if (updated.to !== undefined) {
+      if (updated.to) {
+        params.set("sampai", updated.to);
+      } else {
+        params.delete("sampai");
+      }
+    }
+    const queryStr = params.toString();
+    router.replace(`${pathname}${queryStr ? `?${queryStr}` : ""}`, {
+      scroll: false,
+    });
+  };
 
   // Loncat Waktu Anchor YYYY-MM (RF-41)
   const [anchor, setAnchor] = useState<string | null>(null);
   const [showTimelineSheet, setShowTimelineSheet] = useState(false);
 
+  const handleResetFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("urut");
+    params.delete("jenis");
+    params.delete("filter");
+    if (!favoriteOnly) params.delete("favorit");
+    params.delete("unalbumed");
+    params.delete("live");
+    params.delete("duplikat");
+    params.delete("tempat");
+    params.delete("dari");
+    params.delete("sampai");
+    params.delete("q");
+    setAnchor(null);
+    const queryStr = params.toString();
+    router.replace(`${pathname}${queryStr ? `?${queryStr}` : ""}`, {
+      scroll: false,
+    });
+  };
+
+  const hasActiveFilters = Boolean(
+    (!kind && activeKind) ||
+      (!favoriteOnly && activeFavorite) ||
+      activeUnalbumed ||
+      activeLive ||
+      activeDuplicates ||
+      activePlace ||
+      activeFrom ||
+      activeTo ||
+      activeQ ||
+      anchor ||
+      sortOption !== "taken_desc"
+  );
+
   // Ambil timeline bucket { year, month, count }
   const { data: timelineData } = useQuery({
-    queryKey: ["timeline", { kind, favoriteOnly }],
-    queryFn: () => fetchTimeline({ kind, favorite: favoriteOnly }),
+    queryKey: [
+      "timeline",
+      {
+        kind: activeKind,
+        favoriteOnly: activeFavorite,
+        live: activeLive,
+        unalbumed: activeUnalbumed,
+        duplicates: activeDuplicates,
+        place: activePlace,
+        from: activeFrom,
+        to: activeTo,
+      },
+    ],
+    queryFn: () =>
+      fetchTimeline({
+        kind: activeKind,
+        favorite: activeFavorite,
+        live: activeLive,
+        unalbumed: activeUnalbumed,
+        duplicates: activeDuplicates,
+        place: activePlace,
+        from: activeFrom,
+        to: activeTo,
+      }),
     staleTime: 60_000,
   });
 
@@ -121,15 +317,37 @@ export function GalleryGrid({
     fetchNextPage,
     refetch,
   } = useInfiniteQuery({
-    queryKey: ["files", { kind, favoriteOnly, sortBy, anchor }],
+    queryKey: [
+      "files",
+      {
+        sort: activeSort,
+        order: activeOrder,
+        kind: activeKind,
+        favoriteOnly: activeFavorite,
+        unalbumed: activeUnalbumed,
+        live: activeLive,
+        duplicates: activeDuplicates,
+        place: activePlace,
+        from: activeFrom,
+        to: activeTo,
+        anchor,
+      },
+    ],
     queryFn: ({ pageParam }) =>
       fetchFiles({
         cursor: pageParam,
         anchor: anchor ?? undefined,
         limit: 24,
-        kind,
-        favorite: favoriteOnly,
-        sort: sortBy,
+        sort: activeSort,
+        order: activeOrder,
+        kind: activeKind,
+        favorite: activeFavorite,
+        unalbumed: activeUnalbumed,
+        live: activeLive,
+        duplicates: activeDuplicates,
+        place: activePlace,
+        from: activeFrom,
+        to: activeTo,
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -164,12 +382,12 @@ export function GalleryGrid({
     const map = new Map<string, GroupedFiles>();
     for (const item of allFiles) {
       const refDate =
-        sortBy === "uploaded"
+        activeSort === "uploaded"
           ? item.createdAt
           : item.capturedAt || item.takenAt || item.createdAt;
       const { dateKey, displayDate } = getPhotoDateGroup(
         refDate,
-        sortBy === "uploaded" ? undefined : item.capturedTzOffsetMin,
+        activeSort === "uploaded" ? undefined : item.capturedTzOffsetMin,
       );
       const existing = map.get(dateKey);
       if (existing) {
@@ -183,7 +401,7 @@ export function GalleryGrid({
       }
     }
     return Array.from(map.values());
-  }, [allFiles, sortBy]);
+  }, [allFiles, activeSort]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -273,6 +491,37 @@ export function GalleryGrid({
   }
 
   if (allFiles.length === 0) {
+    if (hasActiveFilters) {
+      return (
+        <div className="flex flex-col gap-4">
+          <FilterBar
+            filters={currentFilters}
+            onChange={handleFilterChange}
+            onReset={handleResetFilters}
+            hideKind={Boolean(kind)}
+            hideFavorite={Boolean(favoriteOnly)}
+          />
+          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sunken text-ink-muted">
+              <RotateCcw size={24} />
+            </div>
+            <h3 className="text-h3 font-serif text-ink">Tidak ada foto yang cocok</h3>
+            <p className="max-w-xs text-body text-ink-muted">
+              Coba sesuaikan atau bersihkan filter untuk melihat foto lainnya.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleResetFilters}
+              className="mt-2 min-h-11 px-5"
+            >
+              Hapus filter
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 px-4 py-12 text-center">
         <div
@@ -304,6 +553,14 @@ export function GalleryGrid({
 
   return (
     <div className="flex flex-col gap-6 pb-24">
+      <FilterBar
+        filters={currentFilters}
+        onChange={handleFilterChange}
+        onReset={handleResetFilters}
+        hideKind={Boolean(kind)}
+        hideFavorite={Boolean(favoriteOnly)}
+      />
+
       {/* Bilah Aksi Pemilihan (Selection Bar) */}
       {isSelectionMode ? (
         <div className="sticky top-0 z-30 flex min-h-12 items-center justify-between rounded-lg border border-line bg-surface px-3 py-2 shadow-float">
@@ -378,15 +635,6 @@ export function GalleryGrid({
               </button>
             )}
 
-            <select
-              aria-label="Urutan galeri"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "taken" | "uploaded")}
-              className="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-2.5 py-1 text-caption font-medium text-ink outline-none transition-colors hover:border-ink-muted focus:border-accent"
-            >
-              <option value="taken">Tanggal foto</option>
-              <option value="uploaded">Baru ditambahkan</option>
-            </select>
             <Button
               type="button"
               variant="ghost"

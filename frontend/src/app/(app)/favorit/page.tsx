@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { GalleryGrid } from "@/components/gallery/gallery-grid";
 
 export const metadata: Metadata = {
   title: "Favorit",
 };
+
+export const instant = false;
 
 export default function FavoritPage() {
   return (
@@ -15,11 +18,13 @@ export default function FavoritPage() {
         </p>
       </div>
 
-      <GalleryGrid
-        favoriteOnly
-        emptyTitle="Belum ada favorit"
-        emptyDescription="Buka foto atau video apa saja lalu tekan tombol bintang untuk menambahkannya ke favorit."
-      />
+      <Suspense fallback={<div className="h-20 animate-pulse rounded bg-sunken/40" />}>
+        <GalleryGrid
+          favoriteOnly
+          emptyTitle="Belum ada favorit"
+          emptyDescription="Buka foto atau video apa saja lalu tekan tombol bintang untuk menambahkannya ke favorit."
+        />
+      </Suspense>
     </main>
   );
 }
