@@ -29,6 +29,7 @@ function toFileItem(file: {
   height: number | null;
   durationS: number | null;
   thumbKey: string | null;
+  previewKey?: string | null;
   status: FileStatus;
   isFavorite?: boolean;
   takenAt?: Date | null;
@@ -62,6 +63,7 @@ function toFileItem(file: {
     height: file.height,
     durationS: file.durationS,
     thumbKey: file.thumbKey,
+    previewKey: file.previewKey ?? null,
     status: file.status,
     isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
@@ -855,5 +857,67 @@ export class SharesService {
     }
 
     return thumbPath;
+  }
+
+  async getPublicPreviewPath(
+    token: string,
+    fileId: string,
+    unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
+  ): Promise<{ previewPath: string; hasPassword: boolean }> {
+    const share = await this.resolvePublicShare(token);
+    const hasPassword = Boolean(share.passwordHash);
+    const unlockToken =
+      typeof unlockTokenOrGetter === 'function'
+        ? unlockTokenOrGetter(share.id)
+        : unlockTokenOrGetter;
+
+    if (
+      share.passwordHash &&
+      !this.verifyUnlockToken(share.id, share.passwordHash, unlockToken)
+    ) {
+      throw new ApiError(401, 'LOCKED', 'Tautan dilindungi kata sandi.');
+    }
+
+    let fileFound = false;
+    if (share.targetType === ShareTarget.file) {
+      if (share.targetId === fileId) {
+        fileFound = true;
+      }
+    } else {
+      const af = await this.prisma.albumFile.findFirst({
+        where: {
+          albumId: share.targetId,
+          fileId,
+        },
+      });
+      if (af) {
+        fileFound = true;
+      }
+    }
+
+    if (!fileFound) {
+      throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan dalam tautan ini.');
+    }
+
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (
+      !file ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready ||
+      !file.previewKey
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan.');
+    }
+
+    const mediaDir = resolveMediaDir();
+    const previewPath = join(mediaDir, file.previewKey);
+    if (!existsSync(previewPath)) {
+      throw new ApiError(404, 'NOT_FOUND', 'Preview fisik tidak ditemukan.');
+    }
+
+    return { previewPath, hasPassword };
   }
 }

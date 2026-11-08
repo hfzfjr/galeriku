@@ -26,6 +26,7 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { method: 'POST', path: '/public/s/:token/unlock' },
   { method: 'GET', path: '/public/s/:token/zip' },
   { method: 'GET', path: '/public/s/:token/files/:fileId/thumb' },
+  { method: 'GET', path: '/public/s/:token/files/:fileId/preview' },
   { method: 'GET', path: '/public/s/:token/cover' },
   { method: 'GET', path: '/public/s/:token/files/:fileId' },
 ];

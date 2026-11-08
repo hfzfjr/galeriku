@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileItem } from "@galeriku/contracts";
 import { ChevronLeft, ChevronRight, Download, Share2, X } from "lucide-react";
-import { getPublicFileContentUrl } from "@/lib/api";
+import { getPublicFileContentUrl, getPublicFilePreviewUrl } from "@/lib/api";
 
 interface PublicViewerProps {
   token: string;
@@ -23,6 +23,7 @@ export function PublicViewer({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [scale, setScale] = useState(1);
+  const [viewOriginalId, setViewOriginalId] = useState<string | null>(null);
   const hideTimerRef = useRef<number | null>(null);
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
@@ -145,8 +146,11 @@ export function PublicViewer({
   if (!currentFile) return null;
 
   const isVideo = currentFile.kind === "video";
+  const showOriginal = viewOriginalId === currentFile.id;
   const contentUrl = getPublicFileContentUrl(token, currentFile.id);
+  const previewUrl = getPublicFilePreviewUrl(token, currentFile.id);
   const downloadUrl = getPublicFileContentUrl(token, currentFile.id, true);
+  const imageSrc = showOriginal ? contentUrl : previewUrl;
 
   return (
     <div
@@ -225,8 +229,8 @@ export function PublicViewer({
         ) : (
           /* eslint-disable-next-line @next/next/no-img-element -- Stream langsung dari API host (AD-3) */
           <img
-            key={currentFile.id}
-            src={contentUrl}
+            key={`${currentFile.id}-${showOriginal ? 'orig' : 'prev'}`}
+            src={imageSrc}
             alt={currentFile.originalName}
             className="max-h-[calc(100dvh-120px)] max-w-full object-contain transition-transform duration-200"
             style={{
@@ -279,6 +283,22 @@ export function PublicViewer({
         <p className="line-clamp-1 text-label font-medium text-on-accent">
           {currentFile.originalName}
         </p>
+        {!isVideo && (
+          <div className="flex items-center justify-center mt-1">
+            <button
+              type="button"
+              onClick={() =>
+                setViewOriginalId((prev) =>
+                  prev === currentFile.id ? null : currentFile.id,
+                )
+              }
+              aria-label={showOriginal ? "Gunakan pratinjau cepat" : "Lihat ukuran asli"}
+              className="text-caption px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-on-accent transition-colors"
+            >
+              {showOriginal ? "Pratinjau cepat" : "Lihat ukuran asli"}
+            </button>
+          </div>
+        )}
       </footer>
     </div>
   );

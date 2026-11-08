@@ -22,6 +22,7 @@ function toFileItem(file: {
   height: number | null;
   durationS: number | null;
   thumbKey: string | null;
+  previewKey?: string | null;
   status: FileStatus;
   isFavorite?: boolean;
   takenAt?: Date | null;
@@ -55,6 +56,7 @@ function toFileItem(file: {
     height: file.height,
     durationS: file.durationS,
     thumbKey: file.thumbKey,
+    previewKey: file.previewKey ?? null,
     status: file.status,
     isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,

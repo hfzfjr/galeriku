@@ -279,7 +279,7 @@ export class AdminService {
     });
     const berkas = await this.prisma.file.findMany({
       where: { ownerId: id },
-      select: { id: true, storageKey: true, thumbKey: true },
+      select: { id: true, storageKey: true, thumbKey: true, previewKey: true },
     });
     const idTautan = tautan.map((t) => t.id);
     const idAlbum = album.map((a) => a.id);
@@ -306,17 +306,17 @@ export class AdminService {
     // membatalkan penghapusan pengguna (baris DB sudah terhapus).
     await this.hapusFileFisik(
       id,
-      berkas as Array<{ storageKey: string; thumbKey: string | null }>,
+      berkas as Array<{ storageKey: string; thumbKey: string | null; previewKey?: string | null }>,
     );
   }
 
   private async hapusFileFisik(
     userId: string,
-    berkas: Array<{ storageKey: string; thumbKey: string | null }>,
+    berkas: Array<{ storageKey: string; thumbKey: string | null; previewKey?: string | null }>,
   ): Promise<void> {
     const mediaDir = resolveMediaDir();
     for (const b of berkas) {
-      for (const kunci of [b.storageKey, b.thumbKey]) {
+      for (const kunci of [b.storageKey, b.thumbKey, b.previewKey]) {
         if (typeof kunci !== 'string' || kunci.length === 0) {
           continue;
         }

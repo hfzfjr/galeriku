@@ -138,6 +138,32 @@ export class PublicSharesController {
   }
 
   @Public()
+  @Get(':token/files/:fileId/preview')
+  async getPublicPreview(
+    @Param('token') token: string,
+    @Param('fileId') fileId: string,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ): Promise<void> {
+    const { previewPath, hasPassword } =
+      await this.sharesService.getPublicPreviewPath(token, fileId, (shareId) =>
+        getUnlockTokenFromReq(req, shareId),
+      );
+
+    const cacheControl = hasPassword
+      ? 'private, max-age=86400'
+      : 'public, max-age=86400';
+
+    res.header('Content-Type', 'image/webp');
+    res.header('Cache-Control', cacheControl);
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Robots-Tag', 'noindex, nofollow');
+
+    const stream = createReadStream(previewPath);
+    return res.send(stream);
+  }
+
+  @Public()
   @Get(':token/cover')
   async getPublicCover(
     @Param('token') token: string,

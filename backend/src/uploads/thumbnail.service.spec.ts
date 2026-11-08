@@ -120,5 +120,82 @@ describe('ThumbnailService (US-19)', () => {
     const res = await service.generatePhotoThumbnail(corruptPath, outputPath);
     expect(res).toBeNull();
   });
+
+  describe('generatePhotoVariants (RF-11)', () => {
+    it('menghasilkan thumb (<=400px, q80) dan preview (<=2048px, q82) tanpa pembesaran jika sumber kecil', async () => {
+      const inputPath = join(tempDir, 'small.png');
+      const thumbPath = join(tempDir, 'small.thumb.webp');
+      const previewPath = join(tempDir, 'small.preview.webp');
+
+      // Gambar 800x600 (lebih kecil dari 2048px)
+      await sharp({
+        create: {
+          width: 800,
+          height: 600,
+          channels: 3,
+          background: { r: 100, g: 200, b: 50 },
+        },
+      })
+        .png()
+        .toFile(inputPath);
+
+      const res = await (service as any).generatePhotoVariants(
+        inputPath,
+        thumbPath,
+        previewPath,
+      );
+
+      expect(res).not.toBeNull();
+      expect(res?.thumbKey).toBe('small.thumb.webp');
+      expect(res?.previewKey).toBe('small.preview.webp');
+      expect(res?.width).toBe(800);
+      expect(res?.height).toBe(600);
+
+      // Verifikasi thumbnail
+      const thumbMeta = await sharp(thumbPath).metadata();
+      expect(thumbMeta.format).toBe('webp');
+      expect(thumbMeta.width).toBeLessThanOrEqual(400);
+      expect(thumbMeta.height).toBeLessThanOrEqual(400);
+
+      // Verifikasi preview: tidak diperbesar, tetap 800x600, format webp
+      const prevMeta = await sharp(previewPath).metadata();
+      expect(prevMeta.format).toBe('webp');
+      expect(prevMeta.width).toBe(800);
+      expect(prevMeta.height).toBe(600);
+    });
+
+    it('mengecilkan preview ke sisi terpanjang maksimal 2048px jika sumber besar', async () => {
+      const inputPath = join(tempDir, 'large.jpg');
+      const thumbPath = join(tempDir, 'large.thumb.webp');
+      const previewPath = join(tempDir, 'large.preview.webp');
+
+      // Gambar 3000x2000 (sisi terpanjang > 2048px)
+      await sharp({
+        create: {
+          width: 3000,
+          height: 2000,
+          channels: 3,
+          background: { r: 30, g: 60, b: 90 },
+        },
+      })
+        .jpeg()
+        .toFile(inputPath);
+
+      const res = await (service as any).generatePhotoVariants(
+        inputPath,
+        thumbPath,
+        previewPath,
+      );
+
+      expect(res).not.toBeNull();
+      expect(res?.width).toBe(3000);
+      expect(res?.height).toBe(2000);
+
+      const prevMeta = await sharp(previewPath).metadata();
+      expect(prevMeta.format).toBe('webp');
+      expect(prevMeta.width).toBe(2048);
+      expect(prevMeta.height).toBe(Math.round((2000 / 3000) * 2048));
+    });
+  });
 });
 

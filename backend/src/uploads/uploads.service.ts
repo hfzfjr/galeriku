@@ -301,22 +301,27 @@ export class UploadsService implements OnModuleInit {
       );
     }
 
-    // 3. Pembuatan thumbnail WebP untuk foto (US-19)
+    // 3. Pembuatan thumbnail WebP (US-19) dan preview 2048px (RF-11) untuk foto
     let thumbKey: string | null = null;
+    let previewKey: string | null = null;
     let width: number | null = null;
     let height: number | null = null;
 
     if (sniffed.kind === 'image') {
       const thumbFilename = `${storageKey}.thumb.webp`;
       const thumbPath = join(mediaDir, thumbFilename);
-      const thumbRes = await this.thumbnail.generatePhotoThumbnail(
+      const previewFilename = `${storageKey}.preview.webp`;
+      const previewPath = join(mediaDir, previewFilename);
+      const variantsRes = await this.thumbnail.generatePhotoVariants(
         tujuan,
         thumbPath,
+        previewPath,
       );
-      if (thumbRes) {
-        thumbKey = thumbRes.thumbKey;
-        width = thumbRes.width ?? null;
-        height = thumbRes.height ?? null;
+      if (variantsRes) {
+        thumbKey = variantsRes.thumbKey;
+        previewKey = variantsRes.previewKey;
+        width = variantsRes.width ?? null;
+        height = variantsRes.height ?? null;
       }
     }
 
@@ -345,6 +350,7 @@ export class UploadsService implements OnModuleInit {
           sizeBytes: BigInt(ukuran),
           kind: sniffed.kind,
           thumbKey,
+          previewKey,
           width: finalWidth,
           height: finalHeight,
           capturedAt: meta.capturedAt,
@@ -369,6 +375,9 @@ export class UploadsService implements OnModuleInit {
       await rm(tujuan, { force: true });
       if (thumbKey) {
         await rm(join(mediaDir, thumbKey), { force: true });
+      }
+      if (previewKey) {
+        await rm(join(mediaDir, previewKey), { force: true });
       }
       this.logger.warn(
         `Baris File ${storageKey} gagal dibuat, berkas final dibersihkan: ${error instanceof Error ? error.message : String(error)}`,

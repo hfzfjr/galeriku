@@ -40,6 +40,7 @@ type FileRow = {
   height: number | null;
   durationS: number | null;
   thumbKey: string | null;
+  previewKey?: string | null;
   status: string;
   isFavorite?: boolean;
   takenAt?: Date | null;
@@ -75,6 +76,7 @@ export function toFileItem(file: FileRow): FileItem {
     height: file.height,
     durationS: file.durationS,
     thumbKey: file.thumbKey,
+    previewKey: file.previewKey ?? null,
     status: file.status,
     isFavorite: Boolean(file.isFavorite),
     takenAt: file.takenAt ? file.takenAt.toISOString() : null,
@@ -207,6 +209,33 @@ export class FilesService {
     return thumbPath;
   }
 
+  async getPreviewPath(userId: string, fileId: string): Promise<string> {
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    // Kepemilikan menjawab 404 identik (AD-12 & US-13)
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    if (!file.previewKey) {
+      throw new ApiError(404, 'NOT_FOUND', 'Preview tidak tersedia.');
+    }
+
+    const mediaDir = resolveMediaDir();
+    const previewPath = join(mediaDir, file.previewKey);
+    if (!existsSync(previewPath)) {
+      throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan.');
+    }
+
+    return previewPath;
+  }
+
   async getFileContentInfo(userId: string, fileId: string): Promise<{
     filePath: string;
     originalName: string;
@@ -295,6 +324,7 @@ export class FilesService {
   private async hapusBerkasFisik(file: {
     storageKey: string;
     thumbKey: string | null;
+    previewKey?: string | null;
   }): Promise<void> {
     const mediaDir = resolveMediaDir();
     try {
@@ -305,6 +335,13 @@ export class FilesService {
     if (file.thumbKey) {
       try {
         await rm(join(mediaDir, file.thumbKey), { force: true });
+      } catch {
+        // Abaikan
+      }
+    }
+    if (file.previewKey) {
+      try {
+        await rm(join(mediaDir, file.previewKey), { force: true });
       } catch {
         // Abaikan
       }
@@ -430,7 +467,7 @@ export class FilesService {
           deletedAt: { not: null },
         },
         take: BATCH_SIZE,
-        select: { id: true, storageKey: true, thumbKey: true },
+        select: { id: true, storageKey: true, thumbKey: true, previewKey: true },
       });
 
       if (files.length === 0) {
@@ -499,7 +536,7 @@ export class FilesService {
           deletedAt: { lte: cutoffDate },
         },
         take: BATCH_SIZE,
-        select: { id: true, storageKey: true, thumbKey: true },
+        select: { id: true, storageKey: true, thumbKey: true, previewKey: true },
       });
 
       if (files.length === 0) {

@@ -108,6 +108,22 @@ export class FilesController {
       .send(stream);
   }
 
+  @Get(':id/preview')
+  async getPreview(
+    @Param('id') id: string,
+    @CurrentUser() user: SessionUser,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const previewPath = await this.filesService.getPreviewPath(user.id, id);
+    const stream = createReadStream(previewPath);
+
+    reply
+      .header('Content-Type', 'image/webp')
+      .header('Cache-Control', 'private, max-age=86400')
+      .header('X-Content-Type-Options', 'nosniff')
+      .send(stream);
+  }
+
   @Get(':id/content')
   async getFileContent(
     @Param('id') id: string,

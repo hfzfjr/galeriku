@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { FileItem } from "@galeriku/contracts";
 import { ChevronLeft, ChevronRight, Download, Share2, Star, Trash2, X } from "lucide-react";
-import { deleteFile, getFileContentUrl, toggleFavoriteFile } from "@/lib/api";
+import { deleteFile, getFileContentUrl, getFilePreviewUrl, toggleFavoriteFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ShareModal } from "@/components/shares/share-modal";
 
@@ -19,6 +19,7 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [scale, setScale] = useState(1);
+  const [viewOriginalId, setViewOriginalId] = useState<string | null>(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -176,8 +177,11 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
   if (!currentFile) return null;
 
   const isVideo = currentFile.kind === "video";
+  const showOriginal = viewOriginalId === currentFile.id;
   const contentUrl = getFileContentUrl(currentFile.id);
+  const previewUrl = getFilePreviewUrl(currentFile.id);
   const downloadUrl = getFileContentUrl(currentFile.id, true);
+  const imageSrc = showOriginal ? contentUrl : previewUrl;
 
   return (
     <div
@@ -281,8 +285,8 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
         ) : (
           /* eslint-disable-next-line @next/next/no-img-element -- Stream langsung dari API host (AD-3) */
           <img
-            key={currentFile.id}
-            src={contentUrl}
+            key={`${currentFile.id}-${showOriginal ? 'orig' : 'prev'}`}
+            src={imageSrc}
             crossOrigin="use-credentials"
             alt={currentFile.originalName}
             className="max-h-[calc(100dvh-120px)] max-w-full object-contain transition-transform duration-200"
@@ -346,6 +350,22 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
             minute: "2-digit",
           }).format(new Date(currentFile.takenAt || currentFile.createdAt))}
         </p>
+        {!isVideo && (
+          <div className="flex items-center justify-center mt-1">
+            <button
+              type="button"
+              onClick={() =>
+                setViewOriginalId((prev) =>
+                  prev === currentFile.id ? null : currentFile.id,
+                )
+              }
+              aria-label={showOriginal ? "Gunakan pratinjau cepat" : "Lihat ukuran asli"}
+              className="text-caption px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-on-accent transition-colors"
+            >
+              {showOriginal ? "Pratinjau cepat" : "Lihat ukuran asli"}
+            </button>
+          </div>
+        )}
       </footer>
 
       {/* Dialog Konfirmasi Hapus */}

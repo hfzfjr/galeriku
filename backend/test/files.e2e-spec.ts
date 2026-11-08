@@ -330,9 +330,11 @@ describe('FilesController (e2e) — US-20', () => {
           counter += 1;
           const fid = `resource-a-${counter}`;
           const thumbFile = `thumb-a-${counter}.webp`;
+          const previewFile = `preview-a-${counter}.webp`;
           const storageFile = `key-a-${counter}`;
           const contentBuf = Buffer.from('mockisifile');
           writeFileSync(join(mediaDir, thumbFile), Buffer.from('mockwebp'));
+          writeFileSync(join(mediaDir, previewFile), Buffer.from('mockpreviewwebp'));
           writeFileSync(join(mediaDir, storageFile), contentBuf);
 
           db.files.set(fid, {
@@ -347,6 +349,7 @@ describe('FilesController (e2e) — US-20', () => {
             height: 400,
             durationS: null,
             thumbKey: thumbFile,
+            previewKey: previewFile,
             status: FileStatus.ready,
             takenAt: null,
             createdAt: new Date(),
@@ -357,10 +360,88 @@ describe('FilesController (e2e) — US-20', () => {
         },
         buildRequests: (id) => [
           { method: 'get', url: `/files/${id}/thumb` },
+          { method: 'get', url: `/files/${id}/preview` },
           { method: 'get', url: `/files/${id}/content` },
           { method: 'delete', url: `/files/${id}` },
         ],
       });
+    });
+  });
+
+  describe('GET /files/:id/preview (RF-11)', () => {
+    it('tanpa sesi -> 401 UNAUTHENTICATED', async () => {
+      const res = await http().get('/files/f-123/preview');
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe('UNAUTHENTICATED');
+    });
+
+    it('mengembalikan 200 image/webp dengan cache private untuk preview milik sendiri', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const prevFilename = 'sample.preview.webp';
+      const prevContent = Buffer.from('RIFFmockpreviewdata');
+      writeFileSync(join(mediaDir, prevFilename), prevContent);
+
+      db.files.set('file-prev-valid', {
+        id: 'file-prev-valid',
+        ownerId: user.id,
+        originalName: 'foto-besar.jpg',
+        storageKey: 'key-prev-valid',
+        mimeType: 'image/jpeg',
+        sizeBytes: 5000000n,
+        kind: FileKind.image,
+        width: 3000,
+        height: 2000,
+        durationS: null,
+        thumbKey: 'sample.thumb.webp',
+        previewKey: prevFilename,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/file-prev-valid/preview')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.header['content-type']).toBe('image/webp');
+      expect(res.header['cache-control']).toBe('private, max-age=86400');
+      expect(res.header['x-content-type-options']).toBe('nosniff');
+      expect(res.body).toEqual(prevContent);
+    });
+
+    it('mengembalikan 404 jika file tidak memiliki preview', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('file-no-prev', {
+        id: 'file-no-prev',
+        ownerId: user.id,
+        originalName: 'video.mp4',
+        storageKey: 'key-no-prev',
+        mimeType: 'video/mp4',
+        sizeBytes: 20000n,
+        kind: FileKind.video,
+        width: 1920,
+        height: 1080,
+        durationS: 12.0,
+        thumbKey: null,
+        previewKey: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .get('/files/file-no-prev/preview')
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('NOT_FOUND');
     });
   });
 

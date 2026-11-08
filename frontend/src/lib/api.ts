@@ -302,6 +302,10 @@ export function getThumbnailUrl(fileId: string): string {
   return `${getApiBase()}/files/${encodeURIComponent(fileId)}/thumb`;
 }
 
+export function getFilePreviewUrl(fileId: string): string {
+  return `${getApiBase()}/files/${encodeURIComponent(fileId)}/preview`;
+}
+
 export function getFileContentUrl(fileId: string, download = false): string {
   const base = `${getApiBase()}/files/${encodeURIComponent(fileId)}/content`;
   return download ? `${base}?download=1` : base;
@@ -432,6 +436,10 @@ export function unlockPublicShare(
 
 export function getPublicThumbnailUrl(token: string, fileId: string): string {
   return `${getApiBase()}/public/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/thumb`;
+}
+
+export function getPublicFilePreviewUrl(token: string, fileId: string): string {
+  return `${getApiBase()}/public/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/preview`;
 }
 
 export function getPublicFileContentUrl(

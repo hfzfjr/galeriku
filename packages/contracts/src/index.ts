@@ -233,6 +233,7 @@ export const fileItemSchema = z.object({
   height: z.number().nullable(),
   durationS: z.number().nullable(),
   thumbKey: z.string().nullable(),
+  previewKey: z.string().nullable().optional(),
   status: z.string(),
   isFavorite: z.boolean().default(false),
   takenAt: z.string().nullable().optional(),

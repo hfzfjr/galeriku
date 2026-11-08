@@ -34,14 +34,17 @@ function seedUser(
 function seedPhysicalFile(fileId: string, content: Buffer): {
   storageKey: string;
   thumbKey: string;
+  previewKey: string;
 } {
   const mediaDir = resolveMediaDir();
   mkdirSync(mediaDir, { recursive: true });
   const storageKey = `${fileId}.jpg`;
   const thumbKey = `${fileId}.thumb.webp`;
+  const previewKey = `${fileId}.preview.webp`;
   writeFileSync(join(mediaDir, storageKey), content);
   writeFileSync(join(mediaDir, thumbKey), Buffer.from('RIFF....WEBPVP8 '));
-  return { storageKey, thumbKey };
+  writeFileSync(join(mediaDir, previewKey), Buffer.from('RIFFPREVIEWWEBP'));
+  return { storageKey, thumbKey, previewKey };
 }
 
 describe('Public Shares (US-25)', () => {
@@ -60,6 +63,7 @@ describe('Public Shares (US-25)', () => {
     try {
       rmSync(join(mediaDir, 'f-pub-1.jpg'), { force: true });
       rmSync(join(mediaDir, 'f-pub-1.thumb.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-pub-1.preview.webp'), { force: true });
     } catch {
       // Abaikan
     }
@@ -69,7 +73,7 @@ describe('Public Shares (US-25)', () => {
     const http = () =>
       request(app.app.getHttpAdapter().getInstance().server);
 
-    const { storageKey, thumbKey } = seedPhysicalFile('f-pub-1', contentBuf);
+    const { storageKey, thumbKey, previewKey } = seedPhysicalFile('f-pub-1', contentBuf);
 
     app.db.files.set('f-pub-1', {
       id: 'f-pub-1',
@@ -77,6 +81,7 @@ describe('Public Shares (US-25)', () => {
       originalName: 'pemandangan.jpg',
       storageKey,
       thumbKey,
+      previewKey,
       mimeType: 'image/jpeg',
       sizeBytes: BigInt(contentBuf.length),
       kind: FileKind.image,
@@ -126,6 +131,15 @@ describe('Public Shares (US-25)', () => {
 
     expect(resThumb.header['content-type']).toBe('image/webp');
     expect(resThumb.header['x-robots-tag']).toBe('noindex, nofollow');
+
+    // 2b. Stream preview 2048px (RF-11) tanpa login (Cache-Control public bila tanpa sandi)
+    const resPreview = await http()
+      .get(`/public/s/${token}/files/f-pub-1/preview`)
+      .expect(200);
+
+    expect(resPreview.header['content-type']).toBe('image/webp');
+    expect(resPreview.header['cache-control']).toBe('public, max-age=86400');
+    expect(resPreview.header['x-robots-tag']).toBe('noindex, nofollow');
 
     // 3. Streaming HTTP Range tanpa login
     const resRange = await http()
@@ -364,6 +378,13 @@ describe('Public Shares (US-25)', () => {
     // 4. Akses thumbnail: viewCount tidak boleh bertambah
     await http()
       .get(`/public/s/${tokenB7}/files/f-pub-1/thumb`)
+      .set('x-forwarded-for', '203.0.113.10')
+      .expect(200);
+    expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);
+
+    // 5. Akses preview: viewCount tidak boleh bertambah (RF-11)
+    await http()
+      .get(`/public/s/${tokenB7}/files/f-pub-1/preview`)
       .set('x-forwarded-for', '203.0.113.10')
       .expect(200);
     expect(app.db.shareLinks.get('sh-b7')?.viewCount).toBe(1);

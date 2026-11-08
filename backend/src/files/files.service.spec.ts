@@ -36,6 +36,7 @@ describe('FilesService helpers', () => {
         height: 1080,
         durationS: null,
         thumbKey: 'file-1.thumb.webp',
+        previewKey: null,
         status: 'ready',
         takenAt: null,
         createdAt: now,
@@ -51,6 +52,7 @@ describe('FilesService helpers', () => {
         height: 1080,
         durationS: null,
         thumbKey: 'file-1.thumb.webp',
+        previewKey: null,
         status: 'ready',
         isFavorite: false,
         takenAt: null,
@@ -85,6 +87,7 @@ describe('FilesService helpers', () => {
       expect(item.sizeBytes).toBe('104857600');
       expect(item.durationS).toBe(42.5);
       expect(item.thumbKey).toBeNull();
+      expect(item.previewKey).toBeNull();
     });
   });
 

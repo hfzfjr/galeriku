@@ -83,7 +83,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 
 ### Fase 1 — Fondasi Metadata
 - [x] RF-10 Skema dan ekstraksi metadata saat upload
-- [ ] RF-11 Preview 2048 px dan pipeline HEIC
+- [x] RF-11 Preview 2048 px dan pipeline HEIC
 - [ ] RF-12 Urutan dan pengelompokan berdasarkan captured_at
 - [ ] RF-13 MediaViewer terpadu
 - [ ] RF-14 Panel Info
