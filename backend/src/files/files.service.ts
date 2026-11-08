@@ -15,7 +15,7 @@ import {
   filesTimelineQuerySchema,
   updateCapturedAtSchema,
 } from '@galeriku/contracts';
-import { FileStatus } from '../generated/prisma/client';
+import { FileKind, FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiError } from '../common/errors/api-error';
 import { resolveMediaDir } from '../uploads/uploads.utils';
@@ -628,7 +628,10 @@ export class FilesService {
     return thumbPath;
   }
 
-  async getPreviewPath(userId: string, fileId: string): Promise<string> {
+  async getPreviewPath(
+    userId: string,
+    fileId: string,
+  ): Promise<{ filePath: string; mimeType: string }> {
     const file = await this.prisma.file.findUnique({
       where: { id: fileId },
     });
@@ -637,22 +640,42 @@ export class FilesService {
     if (
       !file ||
       file.ownerId !== userId ||
+      file.deletedAt !== null ||
       file.status !== FileStatus.ready
     ) {
       throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
     }
 
-    if (!file.previewKey) {
-      throw new ApiError(404, 'NOT_FOUND', 'Preview tidak tersedia.');
-    }
-
     const mediaDir = resolveMediaDir();
-    const previewPath = join(mediaDir, file.previewKey);
-    if (!existsSync(previewPath)) {
-      throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan.');
+
+    // 1. Coba previewKey bila ada dan berkasnya tersedia di disk (2048px WebP)
+    if (file.previewKey) {
+      const previewPath = join(mediaDir, file.previewKey);
+      if (existsSync(previewPath)) {
+        return { filePath: previewPath, mimeType: 'image/webp' };
+      }
     }
 
-    return previewPath;
+    // 2. Fallback transparan: berkas asli dari storageKey jika jenis image
+    const storagePath = join(mediaDir, file.storageKey);
+    if (file.kind === FileKind.image && existsSync(storagePath)) {
+      return { filePath: storagePath, mimeType: file.mimeType };
+    }
+
+    // 3. Fallback ke thumbnail jika ada
+    if (file.thumbKey) {
+      const thumbPath = join(mediaDir, file.thumbKey);
+      if (existsSync(thumbPath)) {
+        return { filePath: thumbPath, mimeType: 'image/webp' };
+      }
+    }
+
+    // 4. Fallback ke storagePath untuk jenis berkas apapun yang ada di disk
+    if (existsSync(storagePath)) {
+      return { filePath: storagePath, mimeType: file.mimeType };
+    }
+
+    throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan.');
   }
 
   async getFileContentInfo(userId: string, fileId: string): Promise<{

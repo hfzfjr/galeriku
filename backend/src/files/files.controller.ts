@@ -127,11 +127,11 @@ export class FilesController {
     @CurrentUser() user: SessionUser,
     @Res() reply: FastifyReply,
   ): Promise<void> {
-    const previewPath = await this.filesService.getPreviewPath(user.id, id);
-    const stream = createReadStream(previewPath);
+    const { filePath, mimeType } = await this.filesService.getPreviewPath(user.id, id);
+    const stream = createReadStream(filePath);
 
     reply
-      .header('Content-Type', 'image/webp')
+      .header('Content-Type', mimeType)
       .header('Cache-Control', 'private, max-age=86400')
       .header('X-Content-Type-Options', 'nosniff')
       .send(stream);

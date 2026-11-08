@@ -166,7 +166,7 @@ export class PublicSharesController {
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ): Promise<void> {
-    const { previewPath, hasPassword } =
+    const { previewPath, mimeType, hasPassword } =
       await this.sharesService.getPublicPreviewPath(token, fileId, (shareId) =>
         getUnlockTokenFromReq(req, shareId),
       );
@@ -175,7 +175,7 @@ export class PublicSharesController {
       ? 'private, max-age=86400'
       : 'public, max-age=86400';
 
-    res.header('Content-Type', 'image/webp');
+    res.header('Content-Type', mimeType);
     res.header('Cache-Control', cacheControl);
     res.header('X-Content-Type-Options', 'nosniff');
     res.header('X-Robots-Tag', 'noindex, nofollow');

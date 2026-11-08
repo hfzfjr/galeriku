@@ -16,6 +16,7 @@ import {
   CircleDot,
   Download,
   Info,
+  MapPin,
   Share2,
   Star,
   Trash2,
@@ -28,9 +29,11 @@ import {
   getFileContentUrl,
   getFileMotionUrl,
   getFilePreviewUrl,
+  getThumbnailUrl,
   getPublicFileContentUrl,
   getPublicFileMotionUrl,
   getPublicFilePreviewUrl,
+  getPublicThumbnailUrl,
   toggleFavoriteFile,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -103,6 +106,21 @@ export function MediaViewer({
   const [offsetY, setOffsetY] = useState(0);
   const [swipeOffsetX, setSwipeOffsetX] = useState(0);
   const [isGesturing, setIsGesturing] = useState(false);
+
+  // Filmstrip refs & controls hover
+  const filmstripContainerRef = useRef<HTMLDivElement>(null);
+  const activeThumbRef = useRef<HTMLButtonElement>(null);
+  const isHoveringControlsRef = useRef(false);
+
+  // Desktop Mouse Drag / Pan states
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const isDraggingMouseRef = useRef(false);
+  const mouseDragRef = useRef<{
+    startX: number;
+    startY: number;
+    startPanX: number;
+    startPanY: number;
+  }>({ startX: 0, startY: 0, startPanX: 0, startPanY: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<number | null>(null);
@@ -237,25 +255,60 @@ export function MediaViewer({
     if (currentIndex < total - 1) preload(files[currentIndex + 1]);
   }, [currentIndex, files, adapter, total]);
 
-  // Controls visibility management (3s auto-hide)
+  // Auto-scroll thumbnail aktif pada filmstrip
+  useEffect(() => {
+    if (activeThumbRef.current) {
+      activeThumbRef.current.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+    }
+  }, [currentIndex]);
+
+  // Controls visibility management (3.5s auto-hide)
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
     if (hideTimerRef.current) {
       window.clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
-    if (!effectiveInfoOpen && !showConfirmDelete && !shareModalOpen) {
+    if (
+      !effectiveInfoOpen &&
+      !showConfirmDelete &&
+      !shareModalOpen &&
+      !isHoveringControlsRef.current
+    ) {
       hideTimerRef.current = window.setTimeout(() => {
         setControlsVisible(false);
-      }, 3000);
+      }, 3500);
     }
   }, [effectiveInfoOpen, showConfirmDelete, shareModalOpen]);
 
+  const handleControlsMouseEnter = useCallback(() => {
+    isHoveringControlsRef.current = true;
+    setControlsVisible(true);
+    if (hideTimerRef.current) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const handleControlsMouseLeave = useCallback(() => {
+    isHoveringControlsRef.current = false;
+    showControlsTemporarily();
+  }, [showControlsTemporarily]);
+
   useEffect(() => {
-    if (!effectiveInfoOpen && !showConfirmDelete && !shareModalOpen) {
+    if (
+      !effectiveInfoOpen &&
+      !showConfirmDelete &&
+      !shareModalOpen &&
+      !isHoveringControlsRef.current
+    ) {
       const timer = window.setTimeout(() => {
         setControlsVisible(false);
-      }, 3000);
+      }, 3500);
       return () => window.clearTimeout(timer);
     }
   }, [currentIndex, effectiveInfoOpen, showConfirmDelete, shareModalOpen]);
@@ -468,6 +521,60 @@ export function MediaViewer({
         setScale(targetScale);
       }
     }
+  };
+
+  // Mouse drag & double click handlers (Desktop WhatsApp Web style)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if (scale > 1) {
+      e.preventDefault();
+      setIsMouseDown(true);
+      isDraggingMouseRef.current = false;
+      mouseDragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startPanX: pan.x,
+        startPanY: pan.y,
+      };
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    showControlsTemporarily();
+
+    if (isMouseDown && scale > 1) {
+      const dx = e.clientX - mouseDragRef.current.startX;
+      const dy = e.clientY - mouseDragRef.current.startY;
+      if (Math.hypot(dx, dy) > 4) {
+        isDraggingMouseRef.current = true;
+      }
+      setPan({
+        x: mouseDragRef.current.startPanX + dx,
+        y: mouseDragRef.current.startPanY + dy,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsMouseDown(false);
+    setTimeout(() => {
+      isDraggingMouseRef.current = false;
+    }, 50);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleDoubleTap(e.clientX, e.clientY);
+  };
+
+  const handleBackdropClick = () => {
+    if (isDraggingMouseRef.current) return;
+    if (scale > 1) {
+      setScale(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    onClose();
   };
 
   // Touch event handlers: Pinch, Pan, Swipe, Drag-to-close
@@ -693,10 +800,14 @@ export function MediaViewer({
       role="dialog"
       aria-modal="true"
       aria-label="Viewer layar penuh"
-      className="fixed inset-0 z-50 flex flex-col justify-between overflow-hidden bg-[#14110E] select-none touch-none outline-none"
+      className="fixed inset-0 z-50 flex flex-col justify-between overflow-hidden bg-[#14110E] select-none outline-none"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onClick={handleBackdropClick}
       style={{
         transform: offsetY > 0 ? `translateY(${offsetY}px)` : undefined,
         opacity: offsetY > 0 ? Math.max(0.3, 1 - offsetY / 300) : 1,
@@ -705,22 +816,24 @@ export function MediaViewer({
     >
       {/* Bilah Atas */}
       <header
-        className={`fixed top-0 inset-x-0 z-20 flex min-h-14 items-center justify-between bg-scrim px-4 py-2 text-on-accent backdrop-blur-sm transition-opacity duration-300 pt-[calc(8px+env(safe-area-inset-top))] ${
+        className={`fixed top-0 inset-x-0 z-30 flex min-h-14 items-center justify-between bg-black/80 px-4 py-2 text-white backdrop-blur-md border-b border-white/10 transition-opacity duration-300 pt-[calc(8px+env(safe-area-inset-top))] ${
           controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
+        onMouseEnter={handleControlsMouseEnter}
+        onMouseLeave={handleControlsMouseLeave}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup viewer"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:bg-white/15 active:bg-white/20 transition-colors"
           >
             <X size={24} strokeWidth={1.5} />
           </button>
           <span
-            className="text-caption font-medium tracking-wider text-on-accent font-mono"
+            className="text-caption font-medium tracking-wider text-white/80 font-mono"
             aria-live="polite"
           >
             {currentIndex + 1} / {total}
@@ -747,8 +860,8 @@ export function MediaViewer({
               aria-label={isLivePlaying ? "Hentikan gerak Live Photo" : "Putar gerak Live Photo"}
               className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold backdrop-blur-xs transition-colors ${
                 isLivePlaying
-                  ? "bg-amber-500/80 text-black shadow-md ring-1 ring-amber-300"
-                  : "bg-scrim text-on-accent hover:bg-white/20"
+                  ? "bg-amber-500 text-black shadow-md ring-1 ring-amber-300"
+                  : "bg-white/15 text-white hover:bg-white/25"
               }`}
               title="Tekan dan tahan untuk memutar"
             >
@@ -762,7 +875,23 @@ export function MediaViewer({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Info Tengah Desktop: Nama File, Tanggal, dan Lokasi */}
+        <div className="hidden sm:flex flex-col items-center justify-center flex-1 px-4 min-w-0 text-center">
+          <h2 className="text-sm md:text-base font-medium text-white truncate max-w-xs md:max-w-md lg:max-w-xl">
+            {currentFile.originalName}
+          </h2>
+          <div className="flex items-center gap-2 text-xs text-white/70">
+            <span>{dateInfo.displayDate} · {dateInfo.formattedTime}</span>
+            {currentFile.place && (
+              <span className="inline-flex items-center gap-1 text-white/90">
+                <MapPin size={12} className="text-amber-400 shrink-0" />
+                <span className="truncate max-w-[160px] md:max-w-[240px]">{currentFile.place}</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
           {/* Tombol Audio Mute/Unmute untuk Live Photo (RF-33) */}
           {isLive && (
             <button
@@ -775,7 +904,7 @@ export function MediaViewer({
                 }
               }}
               aria-label={isLiveMuted ? "Aktifkan suara Live Photo" : "Bisukan suara Live Photo"}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
               title={isLiveMuted ? "Aktifkan suara" : "Bisukan suara"}
             >
               {isLiveMuted ? (
@@ -795,8 +924,8 @@ export function MediaViewer({
                   ? `Hapus ${currentFile.originalName} dari favorit`
                   : `Jadikan ${currentFile.originalName} favorit`
               }
-              className={`flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors active:bg-white/10 ${
-                isFavorite ? "text-amber-400" : "text-on-accent hover:text-amber-300"
+              className={`flex min-h-11 min-w-11 items-center justify-center rounded-full transition-colors active:bg-white/15 ${
+                isFavorite ? "text-amber-400" : "text-white hover:text-amber-300"
               }`}
               title={isFavorite ? "Hapus dari favorit" : "Jadikan favorit"}
             >
@@ -816,7 +945,7 @@ export function MediaViewer({
               if (onOpenInfo) onOpenInfo(currentFile);
             }}
             aria-label="Lihat info"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
             title="Lihat info"
           >
             <Info size={20} strokeWidth={1.5} />
@@ -827,7 +956,7 @@ export function MediaViewer({
             type="button"
             onClick={handleShare}
             aria-label={`Bagikan ${currentFile.originalName}`}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-accent active:bg-white/10"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
             title="Bagikan"
           >
             <Share2 size={20} strokeWidth={1.5} />
@@ -841,7 +970,7 @@ export function MediaViewer({
                 onClick={() => handleSaveToGallery(false)}
                 disabled={isSavingToGallery}
                 aria-label={`Simpan ke Galeri ${currentFile.originalName}`}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10 disabled:opacity-50"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 disabled:opacity-50 transition-colors"
                 title="Simpan ke Galeri"
               >
                 {isSavingToGallery ? (
@@ -855,7 +984,7 @@ export function MediaViewer({
                 href={downloadUrl}
                 download={currentFile.originalName}
                 aria-label={`Unduh ${currentFile.originalName}`}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent active:bg-white/10"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-amber-300 active:bg-white/15 transition-colors"
                 title="Unduh"
               >
                 <Download size={20} strokeWidth={1.5} />
@@ -868,7 +997,7 @@ export function MediaViewer({
               type="button"
               onClick={() => setShowConfirmDelete(true)}
               aria-label={`Hapus ${currentFile.originalName}`}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-accent hover:text-danger active:bg-white/10"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white hover:text-danger active:bg-white/15 transition-colors"
               title="Hapus"
             >
               <Trash2 size={20} strokeWidth={1.5} />
@@ -878,14 +1007,20 @@ export function MediaViewer({
       </header>
 
       {/* Konten Utama (Media Image / Video) */}
-      <div className="relative flex flex-1 items-center justify-center p-2 overflow-hidden">
+      <div
+        className="relative flex flex-1 items-center justify-center p-2 sm:p-4 overflow-hidden"
+        onClick={handleBackdropClick}
+      >
         <div
-          className="relative flex items-center justify-center w-full h-full"
+          className="relative flex items-center justify-center max-h-full max-w-full"
           style={{
             transform: `translate3d(${swipeOffsetX + pan.x}px, ${pan.y}px, 0) scale(${scale})`,
-            transition: isGesturing ? "none" : "transform 0.25s cubic-bezier(0.2, 0, 0, 1)",
-            cursor: scale > 1 ? "grab" : "default",
+            transition: isGesturing || isMouseDown ? "none" : "transform 0.25s cubic-bezier(0.2, 0, 0, 1)",
+            cursor: scale > 1 ? (isMouseDown ? "grabbing" : "grab") : "default",
           }}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={handleDoubleClick}
+          onMouseDown={handleMouseDown}
         >
           {isVideo ? (
             <video
@@ -895,12 +1030,12 @@ export function MediaViewer({
               playsInline
               crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
               src={contentUrl}
-              className="max-h-[calc(100dvh-130px)] max-w-full rounded object-contain"
+              className="max-h-[calc(100dvh-170px)] sm:max-h-[calc(100dvh-180px)] max-w-full rounded object-contain shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
             <div
-              className="relative flex items-center justify-center max-h-[calc(100dvh-130px)] max-w-full"
+              className="relative flex items-center justify-center max-h-[calc(100dvh-170px)] sm:max-h-[calc(100dvh-180px)] max-w-full"
               onPointerDown={() => {
                 if (isLive && scale === 1) {
                   holdTimerRef.current = window.setTimeout(startHoldToPlay, 180);
@@ -927,7 +1062,7 @@ export function MediaViewer({
                 src={imageSrc}
                 crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
                 alt={currentFile.originalName}
-                className="max-h-[calc(100dvh-130px)] max-w-full object-contain pointer-events-none select-none"
+                className="max-h-[calc(100dvh-170px)] sm:max-h-[calc(100dvh-180px)] max-w-full object-contain pointer-events-none select-none shadow-2xl"
                 draggable={false}
               />
               {isLive && isLiveActive && (
@@ -944,7 +1079,7 @@ export function MediaViewer({
                   autoPlay={isLivePlaying}
                   crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
                   onEnded={() => setIsLivePlaying(false)}
-                  className={`absolute inset-0 max-h-[calc(100dvh-130px)] max-w-full m-auto object-contain transition-opacity duration-150 ${
+                  className={`absolute inset-0 max-h-[calc(100dvh-170px)] sm:max-h-[calc(100dvh-180px)] max-w-full m-auto object-contain transition-opacity duration-150 ${
                     isLivePlaying ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
                   }`}
                 />
@@ -962,11 +1097,11 @@ export function MediaViewer({
               goToPrev();
             }}
             aria-label="File sebelumnya"
-            className={`absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex h-11 w-11 items-center justify-center rounded-full bg-scrim text-on-accent backdrop-blur-sm transition-opacity duration-300 ${
+            className={`absolute left-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 shadow-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 ${
               controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
-            <ChevronLeft size={24} strokeWidth={1.5} />
+            <ChevronLeft size={28} strokeWidth={2} />
           </button>
         )}
 
@@ -978,31 +1113,43 @@ export function MediaViewer({
               goToNext();
             }}
             aria-label="File berikutnya"
-            className={`absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex h-11 w-11 items-center justify-center rounded-full bg-scrim text-on-accent backdrop-blur-sm transition-opacity duration-300 ${
+            className={`absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-black/60 hover:bg-black/85 text-white border border-white/20 shadow-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 ${
               controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
-            <ChevronRight size={24} strokeWidth={1.5} />
+            <ChevronRight size={28} strokeWidth={2} />
           </button>
         )}
       </div>
 
-      {/* Bilah Bawah (Metadata) */}
+      {/* Bilah Bawah & Slider Thumbnail (WhatsApp Desktop & iOS) */}
       <footer
-        className={`fixed bottom-0 inset-x-0 z-20 flex flex-col gap-0.5 bg-scrim px-4 py-3 text-center text-on-accent backdrop-blur-sm transition-opacity duration-300 pb-[calc(12px+env(safe-area-inset-bottom))] ${
+        className={`fixed bottom-0 inset-x-0 z-30 flex flex-col items-center gap-1.5 bg-black/80 px-4 py-2 text-center text-white backdrop-blur-md border-t border-white/10 transition-opacity duration-300 pb-[calc(10px+env(safe-area-inset-bottom))] ${
           controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={(e) => e.stopPropagation()}
+        onMouseEnter={handleControlsMouseEnter}
+        onMouseLeave={handleControlsMouseLeave}
       >
-        <p className="line-clamp-1 text-label font-medium text-on-accent">
-          {currentFile.originalName}
-        </p>
-        <p className="text-caption text-on-accent/70">
-          {`${dateInfo.displayDate} · ${dateInfo.formattedTime}`}
-        </p>
+        {/* Info Mobile (< sm): Nama file, tanggal, dan lokasi */}
+        <div className="sm:hidden flex flex-col items-center gap-0.5">
+          <p className="line-clamp-1 text-sm font-medium text-white">
+            {currentFile.originalName}
+          </p>
+          <div className="flex items-center gap-1.5 text-xs text-white/70">
+            <span>{dateInfo.displayDate} · {dateInfo.formattedTime}</span>
+            {currentFile.place && (
+              <span className="inline-flex items-center gap-0.5 text-amber-400">
+                <MapPin size={11} className="shrink-0" />
+                <span className="truncate max-w-[130px]">{currentFile.place}</span>
+              </span>
+            )}
+          </div>
+        </div>
 
+        {/* Tombol Lihat Ukuran Asli */}
         {!isVideo && (
-          <div className="flex items-center justify-center mt-1">
+          <div className="flex items-center justify-center">
             <button
               type="button"
               onClick={() =>
@@ -1011,10 +1158,63 @@ export function MediaViewer({
                 )
               }
               aria-label={showOriginal ? "Gunakan pratinjau cepat" : "Lihat ukuran asli"}
-              className="text-caption px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-on-accent transition-colors"
+              className="text-xs px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/35 text-white transition-colors border border-white/10"
             >
               {showOriginal ? "Pratinjau cepat" : "Lihat ukuran asli"}
             </button>
+          </div>
+        )}
+
+        {/* Filmstrip Thumbnail Slider ala WhatsApp Desktop / Web */}
+        {total > 1 && (
+          <div
+            ref={filmstripContainerRef}
+            className="w-full max-w-4xl mx-auto flex items-center justify-start sm:justify-center gap-2 overflow-x-auto py-1 px-2 no-scrollbar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {files.map((file, idx) => {
+              const isActive = idx === currentIndex;
+              const thumbUrl =
+                adapter.mode === "owner"
+                  ? getThumbnailUrl(file.id)
+                  : getPublicThumbnailUrl(adapter.token, file.id);
+
+              return (
+                <button
+                  key={file.id}
+                  ref={isActive ? activeThumbRef : null}
+                  type="button"
+                  onClick={() => {
+                    setCurrentIndex(idx);
+                    setScale(1);
+                    setPan({ x: 0, y: 0 });
+                    setOffsetY(0);
+                    setSwipeOffsetX(0);
+                    showControlsTemporarily();
+                  }}
+                  aria-label={`Buka ${file.originalName} (${idx + 1} dari ${total})`}
+                  className={`relative h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-md overflow-hidden transition-all duration-150 ${
+                    isActive
+                      ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-black scale-105 opacity-100 shadow-md"
+                      : "opacity-50 hover:opacity-90 hover:scale-100 border border-white/10"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbUrl}
+                    alt={file.originalName}
+                    crossOrigin={adapter.mode === "owner" ? "use-credentials" : undefined}
+                    className="w-full h-full object-cover select-none pointer-events-none"
+                    loading="lazy"
+                  />
+                  {file.kind === "video" && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <span className="h-0 w-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-white" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 

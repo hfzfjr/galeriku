@@ -44,15 +44,20 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
-    if (process.env.BACKFILL_ENABLED === 'true') {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+    if (process.env.BACKFILL_ENABLED !== 'false') {
       this.logger.log(
-        'BACKFILL_ENABLED=true terdeteksi. Memulai job backfill metadata di background...',
+        'Memulai pengecekan backfill metadata di latar belakang...',
       );
-      void this.runOnce().catch((err: unknown) => {
-        this.logger.error(
-          `Backfill gagal: ${err instanceof Error ? err.message : 'unknown'}`,
-        );
-      });
+      setTimeout(() => {
+        void this.runAll().catch((err: unknown) => {
+          this.logger.error(
+            `Backfill otomatis gagal: ${err instanceof Error ? err.message : 'unknown'}`,
+          );
+        });
+      }, 5000);
     }
   }
 
@@ -62,6 +67,26 @@ export class BackfillService implements OnModuleInit, OnModuleDestroy {
 
   stop(): void {
     this.shouldStop = true;
+  }
+
+  async runAll(options?: BackfillOptions): Promise<BackfillResult> {
+    let totalProcessed = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+
+    while (!this.shouldStop) {
+      const res = await this.runOnce(options);
+      totalProcessed += res.processed;
+      totalSkipped += res.skipped;
+      totalErrors += res.errors;
+
+      // Jika tidak ada item yang berhasil diproses pada putaran ini, hentikan perulangan
+      if (res.processed === 0) {
+        break;
+      }
+    }
+
+    return { processed: totalProcessed, skipped: totalSkipped, errors: totalErrors };
   }
 
   async runOnce(options?: BackfillOptions): Promise<BackfillResult> {

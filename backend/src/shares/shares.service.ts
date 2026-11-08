@@ -1446,7 +1446,7 @@ export class SharesService {
     token: string,
     fileId: string,
     unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
-  ): Promise<{ previewPath: string; hasPassword: boolean }> {
+  ): Promise<{ previewPath: string; mimeType: string; hasPassword: boolean }> {
     const share = await this.resolvePublicShare(token);
     const hasPassword = Boolean(share.passwordHash);
     const unlockToken =
@@ -1473,18 +1473,40 @@ export class SharesService {
     if (
       !file ||
       file.deletedAt !== null ||
-      file.status !== FileStatus.ready ||
-      !file.previewKey
+      file.status !== FileStatus.ready
     ) {
       throw new ApiError(404, 'NOT_FOUND', 'Preview tidak ditemukan.');
     }
 
     const mediaDir = resolveMediaDir();
-    const previewPath = join(mediaDir, file.previewKey);
-    if (!existsSync(previewPath)) {
-      throw new ApiError(404, 'NOT_FOUND', 'Preview fisik tidak ditemukan.');
+
+    // 1. Coba previewKey bila sudah dibuat (2048px WebP)
+    if (file.previewKey) {
+      const previewPath = join(mediaDir, file.previewKey);
+      if (existsSync(previewPath)) {
+        return { previewPath, mimeType: 'image/webp', hasPassword };
+      }
     }
 
-    return { previewPath, hasPassword };
+    // 2. Fallback transparan: file asli jika berjenis image
+    const storagePath = join(mediaDir, file.storageKey);
+    if (file.kind === FileKind.image && existsSync(storagePath)) {
+      return { previewPath: storagePath, mimeType: file.mimeType, hasPassword };
+    }
+
+    // 3. Fallback ke thumbnail jika ada
+    if (file.thumbKey) {
+      const thumbPath = join(mediaDir, file.thumbKey);
+      if (existsSync(thumbPath)) {
+        return { previewPath: thumbPath, mimeType: 'image/webp', hasPassword };
+      }
+    }
+
+    // 4. Fallback ke storagePath untuk jenis apapun yang ada di disk
+    if (existsSync(storagePath)) {
+      return { previewPath: storagePath, mimeType: file.mimeType, hasPassword };
+    }
+
+    throw new ApiError(404, 'NOT_FOUND', 'Preview fisik tidak ditemukan.');
   }
 }
