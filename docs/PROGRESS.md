@@ -93,7 +93,7 @@ _Catatan: US-14 dihapus, digabung ke US-09/10/11._
 ### Fase 2 — Berbagi yang Matang
 - [x] RF-20 Halaman publik SSR dan preview OG
 - [x] RF-21 allowDownload yang nyata, toggle lokasi, pembersihan GPS
-- [ ] RF-22 Default kedaluwarsa album tanpa batas
+- [x] RF-22 Default kedaluwarsa album tanpa batas
 - [ ] RF-23 Unduhan ramah HP dan "Baru ditambahkan"
 
 ### Fase 3 — Live Photo, Motion Photo, dan Video

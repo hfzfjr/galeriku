@@ -384,7 +384,7 @@ export const createShareLinkSchema = z.object({
   targetId: z.string().min(1, 'Target ID tidak boleh kosong.'),
   allowDownload: z.boolean().default(true),
   showLocation: z.boolean().default(false),
-  expiry: shareExpiryOptionSchema.default('30_DAYS'),
+  expiry: shareExpiryOptionSchema.optional(),
   password: z.string().max(100).optional(),
 });
 

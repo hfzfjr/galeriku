@@ -175,4 +175,36 @@ describe('SharesService', () => {
       expect(service.verifyUnlockToken('sh-lain', pwdHash, validToken)).toBe(false);
     });
   });
+
+  describe('RF-22: Default kedaluwarsa album tanpa batas (D5)', () => {
+    const service = new SharesService({} as any, {} as any, {} as any);
+
+    it('default kedaluwarsa target ALBUM tanpa batas (NEVER -> null)', () => {
+      const expiryAlbum = service.calculateExpiresAt(undefined, 'ALBUM');
+      expect(expiryAlbum).toBeNull();
+
+      const expiryAlbumEnum = service.calculateExpiresAt(undefined, ShareTarget.album);
+      expect(expiryAlbumEnum).toBeNull();
+    });
+
+    it('default kedaluwarsa target FILE adalah 30 hari', () => {
+      const now = Date.now();
+      const expiryFile = service.calculateExpiresAt(undefined, 'FILE');
+      expect(expiryFile).not.toBeNull();
+      const diffDays = Math.round((expiryFile!.getTime() - now) / 86400_000);
+      expect(diffDays).toBe(30);
+    });
+
+    it('opsi eksplisit 1_DAY, 7_DAYS, 30_DAYS, NEVER tetap dihormati', () => {
+      const now = Date.now();
+      const day1 = service.calculateExpiresAt('1_DAY', 'ALBUM');
+      expect(Math.round((day1!.getTime() - now) / 86400_000)).toBe(1);
+
+      const day7 = service.calculateExpiresAt('7_DAYS', 'FILE');
+      expect(Math.round((day7!.getTime() - now) / 86400_000)).toBe(7);
+
+      const neverFile = service.calculateExpiresAt('NEVER', 'FILE');
+      expect(neverFile).toBeNull();
+    });
+  });
 });

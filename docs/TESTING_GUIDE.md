@@ -155,3 +155,17 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Buat link dengan "Tampilkan Lokasi" mati dan "Izinkan Unduhan" aktif pada foto JPEG yang memiliki koordinat GPS.
    - Unduh foto tersebut dari tautan publik.
    - Buka berkas yang diunduh dengan aplikasi penampil EXIF (atau `exifr`): pastikan koordinat GPS dan segmen APP1 telah terhapus bersih tanpa penurunan kualitas gambar.
+
+---
+
+## RF-22: Default Kedaluwarsa Album Tanpa Batas (D5)
+1. **Verifikasi Default Target Album:**
+   - Masuk ke halaman **Album**, buka salah satu album, lalu klik tombol **Bagikan**.
+   - Periksa opsi Masa Berlaku: pastikan opsi **"Tanpa batas (Disarankan)"** otomatis terpilih secara default.
+   - Periksa teks bantu di bawah pilihan: menampilkan *"Tanpa batas — kamu bisa mencabutnya kapan saja."*
+   - Buat link tanpa mengubah pilihan: pastikan link berhasil terbuat dan detail tautan menyatakan berlaku selamanya (`expiresAt: null`).
+2. **Verifikasi Default Target Foto/Video Tunggal:**
+   - Buka satu foto dari galeri, lalu klik **Bagikan**.
+   - Periksa opsi Masa Berlaku: pastikan default untuk file tunggal tetap **30 Hari**.
+3. **Verifikasi Pilihan Eksplisit:**
+   - Coba ubah masa berlaku album ke 1 Hari atau 7 Hari: pastikan opsi tetap dihormati dan tanggal kedaluwarsa terhitung tepat.

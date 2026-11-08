@@ -25,7 +25,9 @@ export function ShareModal({
 }: ShareModalProps) {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
-  const [expiry, setExpiry] = useState<ShareExpiryOption>("30_DAYS");
+  const [expiry, setExpiry] = useState<ShareExpiryOption>(
+    targetType === "ALBUM" ? "NEVER" : "30_DAYS",
+  );
   const [allowDownload, setAllowDownload] = useState(true);
   const [showLocation, setShowLocation] = useState(false);
   const [password, setPassword] = useState("");
@@ -133,7 +135,13 @@ export function ShareModal({
                     { label: "1 Hari", val: "1_DAY" },
                     { label: "7 Hari", val: "7_DAYS" },
                     { label: "30 Hari", val: "30_DAYS" },
-                    { label: "Selamanya", val: "NEVER" },
+                    {
+                      label:
+                        targetType === "ALBUM"
+                          ? "Tanpa batas (Disarankan)"
+                          : "Tanpa batas",
+                      val: "NEVER",
+                    },
                   ].map((opt) => (
                     <button
                       type="button"
@@ -149,6 +157,11 @@ export function ShareModal({
                     </button>
                   ))}
                 </div>
+                {expiry === "NEVER" && (
+                  <p className="text-[11px] text-ink-muted">
+                    Tanpa batas — kamu bisa mencabutnya kapan saja.
+                  </p>
+                )}
               </div>
 
               {/* Toggle Izinkan Unduh */}

@@ -96,10 +96,18 @@ export class SharesService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  calculateExpiresAt(expiry?: ShareExpiryOption): Date | null {
-    const mode = expiry ?? '30_DAYS';
+  calculateExpiresAt(
+    expiry?: ShareExpiryOption,
+    targetType?: 'FILE' | 'ALBUM' | ShareTarget,
+  ): Date | null {
+    if (!expiry) {
+      if (targetType === 'ALBUM' || targetType === ShareTarget.album) {
+        return null;
+      }
+      return new Date(Date.now() + 30 * 86400_000);
+    }
     const now = Date.now();
-    switch (mode) {
+    switch (expiry) {
       case '1_DAY':
         return new Date(now + 86400_000);
       case '7_DAYS':
@@ -195,7 +203,7 @@ export class SharesService {
     }
 
     const token = randomBytes(32).toString('base64url');
-    const expiresAt = this.calculateExpiresAt(data.expiry);
+    const expiresAt = this.calculateExpiresAt(data.expiry, data.targetType);
     const passwordHash = data.password?.trim()
       ? await this.passwordService.hashPassword(data.password.trim())
       : null;
@@ -254,7 +262,10 @@ export class SharesService {
     }
 
     if (data.expiry !== undefined) {
-      updateData.expiresAt = this.calculateExpiresAt(data.expiry);
+      updateData.expiresAt = this.calculateExpiresAt(
+        data.expiry,
+        existing.targetType,
+      );
     }
 
     if (data.password !== undefined) {
