@@ -1,8 +1,10 @@
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import sharp from 'sharp';
 import { FileKind, FileStatus, ShareTarget, UserStatus } from '../generated/prisma/client';
+import { stripJpegExif } from '../common/utils/strip-exif';
 import type {
   CreateShareLinkRequest,
   FileItem,
@@ -44,15 +46,16 @@ function toFileItem(file: {
   gpsLng?: number | null;
   createdAt: Date;
   deletedAt?: Date | null;
-}): FileItem {
+}, showLocation = true): FileItem {
   const capturedAt = file.capturedAt ?? file.takenAt ?? file.createdAt;
   const hasLocation =
+    showLocation &&
     file.gpsLat !== null &&
     file.gpsLat !== undefined &&
     file.gpsLng !== null &&
     file.gpsLng !== undefined;
   const placeParts = [file.placeCity, file.placeAdmin1, file.placeCountry].filter(Boolean);
-  const place = placeParts.length > 0 ? placeParts.join(', ') : null;
+  const place = showLocation && placeParts.length > 0 ? placeParts.join(', ') : null;
 
   return {
     id: file.id,
@@ -205,6 +208,7 @@ export class SharesService {
           data.targetType === 'FILE' ? ShareTarget.file : ShareTarget.album,
         targetId: data.targetId,
         allowDownload: data.allowDownload ?? true,
+        showLocation: data.showLocation ?? false,
         expiresAt,
         passwordHash,
       },
@@ -217,6 +221,7 @@ export class SharesService {
       targetId: share.targetId,
       targetTitle,
       allowDownload: share.allowDownload,
+      showLocation: share.showLocation ?? false,
       viewCount: share.viewCount,
       expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
       hasPassword: share.passwordHash !== null,
@@ -242,6 +247,10 @@ export class SharesService {
 
     if (data.allowDownload !== undefined) {
       updateData.allowDownload = data.allowDownload;
+    }
+
+    if (data.showLocation !== undefined) {
+      updateData.showLocation = data.showLocation;
     }
 
     if (data.expiry !== undefined) {
@@ -337,6 +346,7 @@ export class SharesService {
         targetId: share.targetId,
         targetTitle,
         allowDownload: share.allowDownload,
+        showLocation: share.showLocation ?? false,
         viewCount: share.viewCount,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
         hasPassword: share.passwordHash !== null,
@@ -390,6 +400,7 @@ export class SharesService {
       targetId: share.targetId,
       targetTitle,
       allowDownload: share.allowDownload,
+      showLocation: share.showLocation ?? false,
       viewCount: share.viewCount,
       expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
       hasPassword: share.passwordHash !== null,
@@ -648,6 +659,7 @@ export class SharesService {
         targetType: share.targetType === ShareTarget.file ? 'FILE' : 'ALBUM',
         title: targetTitle,
         allowDownload: share.allowDownload,
+        showLocation: share.showLocation ?? false,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword: true,
         isUnlocked: false,
@@ -675,12 +687,13 @@ export class SharesService {
         targetType: 'FILE',
         title: file.originalName,
         allowDownload: share.allowDownload,
+        showLocation: share.showLocation ?? false,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword,
         isUnlocked: true,
         ownerName: share.owner.name ?? null,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
-        files: [toFileItem(file)],
+        files: [toFileItem(file, share.showLocation ?? false)],
       };
     } else {
       const album = await this.prisma.album.findUnique({
@@ -708,12 +721,15 @@ export class SharesService {
         targetType: 'ALBUM',
         title: album.title,
         allowDownload: share.allowDownload,
+        showLocation: share.showLocation ?? false,
         createdAt: (share.createdAt ?? new Date()).toISOString(),
         hasPassword,
         isUnlocked: true,
         ownerName: share.owner.name ?? null,
         expiresAt: share.expiresAt ? share.expiresAt.toISOString() : null,
-        files: album.albumFiles.map((af) => toFileItem(af.file)),
+        files: album.albumFiles.map((af) =>
+          toFileItem(af.file, share.showLocation ?? false),
+        ),
       };
     }
   }
@@ -728,6 +744,10 @@ export class SharesService {
     originalName: string;
     mimeType: string;
     sizeBytes: number;
+    kind: FileKind;
+    fileBuffer?: Buffer;
+    isInlinePreview?: boolean;
+    hasPassword?: boolean;
   }> {
     const share = await this.resolvePublicShare(token);
     const unlockToken =
@@ -784,9 +804,77 @@ export class SharesService {
     }
 
     const mediaDir = resolveMediaDir();
+
+    // 1. Gambar inline (tanpa ?download=1) SELALU menyajikan preview (RF-11 / B4), bukan file asli
+    if (!download && file.kind === FileKind.image) {
+      if (file.previewKey) {
+        const previewPath = join(mediaDir, file.previewKey);
+        if (existsSync(previewPath)) {
+          const stat = statSync(previewPath);
+          return {
+            filePath: previewPath,
+            originalName: file.originalName,
+            mimeType: 'image/webp',
+            sizeBytes: stat.size,
+            kind: file.kind,
+            isInlinePreview: true,
+            hasPassword: share.passwordHash !== null,
+          };
+        }
+      }
+      if (file.thumbKey) {
+        const thumbPath = join(mediaDir, file.thumbKey);
+        if (existsSync(thumbPath)) {
+          const stat = statSync(thumbPath);
+          return {
+            filePath: thumbPath,
+            originalName: file.originalName,
+            mimeType: 'image/webp',
+            sizeBytes: stat.size,
+            kind: file.kind,
+            isInlinePreview: true,
+            hasPassword: share.passwordHash !== null,
+          };
+        }
+      }
+    }
+
+    // 2. Berkas asli untuk unduhan atau streaming video
     const filePath = join(mediaDir, file.storageKey);
     if (!existsSync(filePath)) {
       throw new ApiError(404, 'NOT_FOUND', 'Berkas fisik tidak ditemukan.');
+    }
+
+    // 3. Jika unduhan dan showLocation = false, bersihkan koordinat GPS (B3 / RF-21)
+    const hasGps = file.gpsLat !== null || file.gpsLng !== null;
+    if (download && !share.showLocation && hasGps) {
+      const isJpeg = file.mimeType === 'image/jpeg' || /\.jpe?g$/i.test(file.originalName);
+      if (isJpeg) {
+        const raw = readFileSync(filePath);
+        const stripped = stripJpegExif(raw);
+        return {
+          filePath,
+          fileBuffer: stripped,
+          originalName: file.originalName,
+          mimeType: 'image/jpeg',
+          sizeBytes: stripped.length,
+          kind: file.kind,
+          hasPassword: share.passwordHash !== null,
+        };
+      } else if (file.kind === FileKind.image) {
+        const converted = await sharp(filePath).rotate().jpeg({ quality: 92 }).toBuffer();
+        const baseName = file.originalName.replace(/\.[^.]+$/, '');
+        const jpgName = `${baseName}.jpg`;
+        return {
+          filePath,
+          fileBuffer: converted,
+          originalName: jpgName,
+          mimeType: 'image/jpeg',
+          sizeBytes: converted.length,
+          kind: file.kind,
+          hasPassword: share.passwordHash !== null,
+        };
+      }
     }
 
     const stat = statSync(filePath);
@@ -796,6 +884,8 @@ export class SharesService {
       originalName: file.originalName,
       mimeType: file.mimeType,
       sizeBytes: stat.size,
+      kind: file.kind,
+      hasPassword: share.passwordHash !== null,
     };
   }
 
@@ -804,7 +894,14 @@ export class SharesService {
     unlockTokenOrGetter?: string | ((shareId: string) => string | undefined),
   ): Promise<{
     title: string;
-    files: Array<{ originalName: string; filePath: string }>;
+    showLocation: boolean;
+    files: Array<{
+      originalName: string;
+      filePath: string;
+      mimeType: string;
+      kind: FileKind;
+      hasGps: boolean;
+    }>;
   }> {
     const share = await this.resolvePublicShare(token);
     const unlockToken =
@@ -852,7 +949,13 @@ export class SharesService {
     }
 
     const mediaDir = resolveMediaDir();
-    const readyFiles: Array<{ originalName: string; filePath: string }> = [];
+    const readyFiles: Array<{
+      originalName: string;
+      filePath: string;
+      mimeType: string;
+      kind: FileKind;
+      hasGps: boolean;
+    }> = [];
 
     for (const af of album.albumFiles) {
       const f = af.file;
@@ -862,6 +965,9 @@ export class SharesService {
           readyFiles.push({
             originalName: f.originalName,
             filePath: fullPath,
+            mimeType: f.mimeType,
+            kind: f.kind,
+            hasGps: f.gpsLat !== null || f.gpsLng !== null,
           });
         }
       }
@@ -869,6 +975,7 @@ export class SharesService {
 
     return {
       title: album.title,
+      showLocation: share.showLocation ?? false,
       files: readyFiles,
     };
   }

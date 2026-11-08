@@ -1,4 +1,8 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
+import { Readable, PassThrough } from 'node:stream';
+import sharp from 'sharp';
+import { FileKind } from '../generated/prisma/client';
+import { stripJpegExif } from '../common/utils/strip-exif';
 import {
   Body,
   Controller,
@@ -207,34 +211,47 @@ export class PublicSharesController {
     @Res() res: FastifyReply,
   ): Promise<void> {
     const isDownload = downloadQuery === '1';
-    const { filePath, originalName, mimeType, sizeBytes } =
-      await this.sharesService.getPublicFileContentInfo(
-        token,
-        fileId,
-        isDownload,
-        (shareId) => getUnlockTokenFromReq(req, shareId),
-      );
+    const info = await this.sharesService.getPublicFileContentInfo(
+      token,
+      fileId,
+      isDownload,
+      (shareId) => getUnlockTokenFromReq(req, shareId),
+    );
 
     res.header('X-Content-Type-Options', 'nosniff');
     res.header('X-Robots-Tag', 'noindex, nofollow');
 
     if (isDownload) {
-      res.header('Content-Disposition', contentDisposition(originalName));
-      res.header('Content-Type', mimeType);
-      res.header('Content-Length', sizeBytes);
-      const stream = createReadStream(filePath);
+      res.header('Content-Disposition', contentDisposition(info.originalName));
+      res.header('Content-Type', info.mimeType);
+      res.header('Content-Length', info.sizeBytes);
+      if (info.fileBuffer) {
+        return res.send(info.fileBuffer);
+      }
+      const stream = createReadStream(info.filePath);
+      return res.send(stream);
+    }
+
+    if (info.isInlinePreview) {
+      const cacheControl = info.hasPassword
+        ? 'private, max-age=86400'
+        : 'public, max-age=86400';
+      res.header('Content-Type', info.mimeType);
+      res.header('Cache-Control', cacheControl);
+      res.header('Content-Length', info.sizeBytes);
+      const stream = createReadStream(info.filePath);
       return res.send(stream);
     }
 
     res.header('Accept-Ranges', 'bytes');
-    res.header('Content-Type', mimeType);
+    res.header('Content-Type', info.mimeType);
 
     const rangeHeader = req.headers.range;
     if (rangeHeader) {
-      const parsed = parseRange(rangeHeader, sizeBytes);
+      const parsed = parseRange(rangeHeader, info.sizeBytes);
       if (!parsed) {
         res.status(416);
-        res.header('Content-Range', `bytes */${sizeBytes}`);
+        res.header('Content-Range', `bytes */${info.sizeBytes}`);
         return res.send();
       }
 
@@ -242,15 +259,15 @@ export class PublicSharesController {
       const chunkSize = end - start + 1;
 
       res.status(206);
-      res.header('Content-Range', `bytes ${start}-${end}/${sizeBytes}`);
+      res.header('Content-Range', `bytes ${start}-${end}/${info.sizeBytes}`);
       res.header('Content-Length', chunkSize);
 
-      const stream = createReadStream(filePath, { start, end });
+      const stream = createReadStream(info.filePath, { start, end });
       return res.send(stream);
     }
 
-    res.header('Content-Length', sizeBytes);
-    const stream = createReadStream(filePath);
+    res.header('Content-Length', info.sizeBytes);
+    const stream = createReadStream(info.filePath);
     return res.send(stream);
   }
 
@@ -263,10 +280,10 @@ export class PublicSharesController {
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ): Promise<void> {
-    const { title, files } = await this.sharesService.getAlbumZipInfo(
-      token,
-      (shareId) => getUnlockTokenFromReq(req, shareId),
-    );
+    const { title, showLocation, files } =
+      await this.sharesService.getAlbumZipInfo(token, (shareId) =>
+        getUnlockTokenFromReq(req, shareId),
+      );
 
     const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '_').trim() || 'album';
     const filename = `${safeTitle}.zip`;
@@ -276,10 +293,36 @@ export class PublicSharesController {
     res.header('X-Content-Type-Options', 'nosniff');
     res.header('X-Robots-Tag', 'noindex, nofollow');
 
-    const entries = files.map((f) => ({
-      filename: f.originalName,
-      getStream: () => createReadStream(f.filePath),
-    }));
+    const entries = files.map((f) => {
+      if (!showLocation && f.hasGps) {
+        const isJpeg =
+          f.mimeType === 'image/jpeg' || /\.jpe?g$/i.test(f.originalName);
+        if (isJpeg) {
+          return {
+            filename: f.originalName,
+            getStream: () => {
+              const raw = readFileSync(f.filePath);
+              const stripped = stripJpegExif(raw);
+              return Readable.from(stripped);
+            },
+          };
+        } else if (f.kind === FileKind.image) {
+          const baseName = f.originalName.replace(/\.[^.]+$/, '');
+          return {
+            filename: `${baseName}.jpg`,
+            getStream: () => {
+              const pass = new PassThrough();
+              sharp(f.filePath).rotate().jpeg({ quality: 92 }).pipe(pass);
+              return pass;
+            },
+          };
+        }
+      }
+      return {
+        filename: f.originalName,
+        getStream: () => createReadStream(f.filePath),
+      };
+    });
 
     const zipStream = createZipStream(entries);
     zipStream.on('error', (err) => {

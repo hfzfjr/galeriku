@@ -220,6 +220,7 @@ model ShareLink {
   expiresAt     DateTime?   @map("expires_at")
   passwordHash  String?     @map("password_hash")
   allowDownload Boolean     @default(true) @map("allow_download")
+  showLocation  Boolean     @default(false) @map("show_location")
   viewCount     Int         @default(0) @map("view_count")
   revokedAt     DateTime?   @map("revoked_at")
   createdAt     DateTime    @default(now()) @map("created_at")

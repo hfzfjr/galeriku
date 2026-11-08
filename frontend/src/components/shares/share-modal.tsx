@@ -27,6 +27,7 @@ export function ShareModal({
   const [copied, setCopied] = useState(false);
   const [expiry, setExpiry] = useState<ShareExpiryOption>("30_DAYS");
   const [allowDownload, setAllowDownload] = useState(true);
+  const [showLocation, setShowLocation] = useState(false);
   const [password, setPassword] = useState("");
   const [createdShare, setCreatedShare] = useState<ShareLinkItem | null>(null);
 
@@ -36,6 +37,7 @@ export function ShareModal({
         targetType,
         targetId,
         allowDownload,
+        showLocation,
         expiry,
         password: password.trim() ? password.trim() : undefined,
       }),
@@ -161,6 +163,22 @@ export function ShareModal({
                   type="checkbox"
                   checked={allowDownload}
                   onChange={(e) => setAllowDownload(e.target.checked)}
+                  className="h-4 w-4 accent-accent rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Toggle Tampilkan Lokasi (RF-21) */}
+              <div className="flex items-center justify-between rounded-xl border border-line bg-sunken/50 p-3">
+                <div>
+                  <p className="text-xs font-medium text-ink">Tampilkan Lokasi</p>
+                  <p className="text-[11px] text-ink-muted">
+                    Jika mati, lokasi disembunyikan dari penerima.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={showLocation}
+                  onChange={(e) => setShowLocation(e.target.checked)}
                   className="h-4 w-4 accent-accent rounded cursor-pointer"
                 />
               </div>

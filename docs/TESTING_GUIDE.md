@@ -137,3 +137,21 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
    - Buka tautan album publik di browser:
      - Di bagian atas, pastikan teks subtitle menampilkan `"Dibagikan oleh {nama}"` serta `"Berlaku sampai {tanggal}"` jika memiliki batas kedaluwarsa.
      - Di grid foto album, pastikan foto-foto terkelompok rapi berdasarkan header tanggal pengambilan foto asli (`captured_at` / D1), bukan tercampur aduk.
+
+---
+
+## RF-21: allowDownload Nyata, Toggle Lokasi, & Pembersihan GPS
+1. **Verifikasi Toggle Tampilkan Lokasi (Modal Bagikan):**
+   - Buka foto atau album, klik tombol **Bagikan**.
+   - Periksa keberadaan toggle baru: **"Tampilkan Lokasi"** dengan teks bantuan *"Jika mati, lokasi disembunyikan dari penerima."* (default tidak aktif / mati).
+   - Buat link dengan toggle lokasi mati: buka link di tab baru / incognito, pastikan nama tempat dan GPS tidak muncul sama sekali di tampilan penerima.
+2. **Verifikasi `allowDownload=false` Nyata (B2):**
+   - Buat link dengan toggle "Izinkan Unduhan" dimatikan.
+   - Buka link: gambar inline tetap memuat preview WebP 2048px dengan mulus tanpa memuat berkas asli.
+   - Coba akses URL unduh langsung (`/public/s/:token/files/:id?download=1`): pastikan ditolak 403 `DOWNLOAD_FORBIDDEN`.
+   - Coba unduh ZIP album (`/public/s/:token/zip`): pastikan ditolak 403 `DOWNLOAD_FORBIDDEN`.
+   - Untuk video tunggal: pastikan video tetap dapat diputar streaming (Range), dengan catatan *"Pemilik membatasi unduhan, tetapi video tetap bisa diputar."*
+3. **Verifikasi Pembersihan EXIF/GPS JPEG Lossless (B3):**
+   - Buat link dengan "Tampilkan Lokasi" mati dan "Izinkan Unduhan" aktif pada foto JPEG yang memiliki koordinat GPS.
+   - Unduh foto tersebut dari tautan publik.
+   - Buka berkas yang diunduh dengan aplikasi penampil EXIF (atau `exifr`): pastikan koordinat GPS dan segmen APP1 telah terhapus bersih tanpa penurunan kualitas gambar.

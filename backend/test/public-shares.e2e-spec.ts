@@ -64,6 +64,10 @@ describe('Public Shares (US-25)', () => {
       rmSync(join(mediaDir, 'f-pub-1.jpg'), { force: true });
       rmSync(join(mediaDir, 'f-pub-1.thumb.webp'), { force: true });
       rmSync(join(mediaDir, 'f-pub-1.preview.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-pub-vid.jpg'), { force: true });
+      rmSync(join(mediaDir, 'f-pub-vid.thumb.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-pub-vid.preview.webp'), { force: true });
+      rmSync(join(mediaDir, 'f-gps-strip.jpg'), { force: true });
     } catch {
       // Abaikan
     }
@@ -146,13 +150,47 @@ describe('Public Shares (US-25)', () => {
     expect(resPreview.header['cache-control']).toBe('public, max-age=86400');
     expect(resPreview.header['x-robots-tag']).toBe('noindex, nofollow');
 
-    // 3. Streaming HTTP Range tanpa login
+    // 3. Streaming HTTP Range video tanpa login
+    const videoBuf = Buffer.from('0123456789video');
+    const { storageKey: videoKey } = seedPhysicalFile('f-pub-vid', videoBuf);
+    app.db.files.set('f-pub-vid', {
+      id: 'f-pub-vid',
+      ownerId: 'user-active',
+      originalName: 'rekaman.mp4',
+      storageKey: videoKey,
+      thumbKey: null,
+      previewKey: null,
+      mimeType: 'video/mp4',
+      sizeBytes: BigInt(videoBuf.length),
+      kind: FileKind.video,
+      width: 1920,
+      height: 1080,
+      durationS: 10,
+      status: FileStatus.ready,
+      takenAt: null,
+      createdAt: new Date(),
+      deletedAt: null,
+    });
+    app.db.shareLinks.set('sh-vid', {
+      id: 'sh-vid',
+      token: 'token-vid-1',
+      ownerId: 'user-active',
+      targetType: ShareTarget.file,
+      targetId: 'f-pub-vid',
+      allowDownload: true,
+      viewCount: 0,
+      expiresAt: null,
+      passwordHash: null,
+      revokedAt: null,
+      createdAt: new Date(),
+    });
+
     const resRange = await http()
-      .get(`/public/s/${token}/files/f-pub-1`)
+      .get(`/public/s/token-vid-1/files/f-pub-vid`)
       .set('Range', 'bytes=0-4')
       .expect(206);
 
-    expect(resRange.header['content-range']).toBe(`bytes 0-4/${contentBuf.length}`);
+    expect(resRange.header['content-range']).toBe(`bytes 0-4/${videoBuf.length}`);
     expect(resRange.body.toString()).toBe('01234');
 
     // 4. Unduh berkas tanpa login
@@ -453,6 +491,146 @@ describe('Public Shares (US-25)', () => {
       expect(res.body.hasCover).toBe(false);
       expect(res.body.fileCount).toBe(0);
       expect(app.db.shareLinks.get('sh-meta-pwd')?.viewCount).toBe(0);
+    });
+  });
+
+  describe('RF-21: allowDownload nyata, toggle lokasi, & pembersihan GPS (B2, B3)', () => {
+    const http = () => request(app.app.getHttpAdapter().getInstance().server);
+
+    it('gambar inline selalu menyajikan preview, bukan file asli', async () => {
+      const token = 'token-rf21-inline';
+      app.db.shareLinks.set('sh-rf21-inline', {
+        id: 'sh-rf21-inline',
+        token,
+        ownerId: 'user-active',
+        targetType: ShareTarget.file,
+        targetId: 'f-pub-1',
+        allowDownload: false,
+        showLocation: false,
+        viewCount: 0,
+        expiresAt: null,
+        passwordHash: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      // Permintaan inline (tanpa ?download=1)
+      const res = await http().get(`/public/s/${token}/files/f-pub-1`).expect(200);
+
+      // Memastikan yang dikembalikan adalah preview WebP, bukan byte asli (contentBuf)
+      expect(res.header['content-type']).toBe('image/webp');
+      expect(res.body).toEqual(Buffer.from('RIFFPREVIEWWEBP'));
+      expect(res.body).not.toEqual(contentBuf);
+    });
+
+    it('show_location=false menyembunyikan place dan hasLocation dari daftar publik', async () => {
+      // Setup file dengan GPS
+      app.db.files.set('f-gps-1', {
+        id: 'f-gps-1',
+        ownerId: 'user-active',
+        originalName: 'foto_gps.jpg',
+        storageKey: 'f-gps-1.jpg',
+        thumbKey: 'f-gps-1.thumb.webp',
+        previewKey: 'f-gps-1.preview.webp',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000n,
+        kind: FileKind.image,
+        width: 1920,
+        height: 1080,
+        durationS: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        capturedAt: new Date(),
+        gpsLat: -6.2,
+        gpsLng: 106.81,
+        placeCity: 'Jakarta Selatan',
+        placeAdmin1: 'DKI Jakarta',
+        placeCountry: 'Indonesia',
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const tokenNoLoc = 'token-rf21-noloc';
+      app.db.shareLinks.set('sh-rf21-noloc', {
+        id: 'sh-rf21-noloc',
+        token: tokenNoLoc,
+        ownerId: 'user-active',
+        targetType: ShareTarget.file,
+        targetId: 'f-gps-1',
+        allowDownload: true,
+        showLocation: false,
+        viewCount: 0,
+        expiresAt: null,
+        passwordHash: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      const res = await http().get(`/public/s/${tokenNoLoc}`).expect(200);
+      expect(res.body.showLocation).toBe(false);
+      expect(res.body.files[0].hasLocation).toBe(false);
+      expect(res.body.files[0].place).toBeNull();
+      expect(res.body.files[0].gpsLat).toBeUndefined();
+      expect(res.body.files[0].gpsLng).toBeUndefined();
+    });
+
+    it('show_location=false membersihkan segmen APP1 EXIF saat JPEG diunduh', async () => {
+      const mediaDir = resolveMediaDir();
+      const soi = Buffer.from([0xff, 0xd8]);
+      const app1 = Buffer.from([0xff, 0xe1, 0x00, 0x06, 0x45, 0x78, 0x69, 0x66]); // "Exif"
+      const sos = Buffer.from([0xff, 0xda, 0x00, 0x02, 0xaa, 0xbb, 0xff, 0xd9]);
+      const jpegWithGps = Buffer.concat([soi, app1, sos]);
+
+      writeFileSync(join(mediaDir, 'f-gps-strip.jpg'), jpegWithGps);
+
+      app.db.files.set('f-gps-strip', {
+        id: 'f-gps-strip',
+        ownerId: 'user-active',
+        originalName: 'foto_pantai.jpg',
+        storageKey: 'f-gps-strip.jpg',
+        thumbKey: 'f-gps-strip.thumb.webp',
+        previewKey: 'f-gps-strip.preview.webp',
+        mimeType: 'image/jpeg',
+        sizeBytes: BigInt(jpegWithGps.length),
+        kind: FileKind.image,
+        width: 1920,
+        height: 1080,
+        durationS: null,
+        status: FileStatus.ready,
+        takenAt: null,
+        capturedAt: new Date(),
+        gpsLat: -8.7,
+        gpsLng: 115.17,
+        placeCity: 'Badung',
+        placeAdmin1: 'Bali',
+        placeCountry: 'Indonesia',
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const tokenStrip = 'token-rf21-strip';
+      app.db.shareLinks.set('sh-rf21-strip', {
+        id: 'sh-rf21-strip',
+        token: tokenStrip,
+        ownerId: 'user-active',
+        targetType: ShareTarget.file,
+        targetId: 'f-gps-strip',
+        allowDownload: true,
+        showLocation: false,
+        viewCount: 0,
+        expiresAt: null,
+        passwordHash: null,
+        revokedAt: null,
+        createdAt: new Date(),
+      });
+
+      const res = await http()
+        .get(`/public/s/${tokenStrip}/files/f-gps-strip?download=1`)
+        .expect(200);
+
+      // Byte hasil unduhan tidak boleh memuat marker APP1 (0xFF 0xE1)
+      expect(res.body.includes(Buffer.from([0xff, 0xe1]))).toBe(false);
+      expect(res.body.length).toBe(jpegWithGps.length - app1.length);
     });
   });
 });

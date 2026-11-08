@@ -257,6 +257,9 @@ function ShareCard({
                   }).format(new Date(share.expiresAt))}`
                 : "Berlaku selamanya"}
             </span>
+            <span>
+              {share.showLocation ? "Lokasi terbuka" : "Lokasi tertutup"}
+            </span>
           </div>
         </div>
       </div>

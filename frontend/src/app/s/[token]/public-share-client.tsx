@@ -311,6 +311,11 @@ export function PublicShareClient({ token }: { token: string }) {
                   </Button>
                 </a>
               )}
+              {!data.allowDownload && data.files[0].kind === "video" && (
+                <p className="text-[12px] text-ink-muted">
+                  Pemilik membatasi unduhan, tetapi video tetap bisa diputar.
+                </p>
+              )}
             </div>
           </div>
         ) : (

@@ -383,6 +383,7 @@ export const createShareLinkSchema = z.object({
   targetType: shareTargetSchema,
   targetId: z.string().min(1, 'Target ID tidak boleh kosong.'),
   allowDownload: z.boolean().default(true),
+  showLocation: z.boolean().default(false),
   expiry: shareExpiryOptionSchema.default('30_DAYS'),
   password: z.string().max(100).optional(),
 });
@@ -391,6 +392,7 @@ export type CreateShareLinkRequest = z.output<typeof createShareLinkSchema>;
 
 export const updateShareLinkSchema = z.object({
   allowDownload: z.boolean().optional(),
+  showLocation: z.boolean().optional(),
   expiry: shareExpiryOptionSchema.optional(),
   password: z.string().max(100).optional().nullable(),
 });
@@ -410,6 +412,7 @@ export const shareLinkItemSchema = z.object({
   targetId: z.string(),
   targetTitle: z.string(),
   allowDownload: z.boolean(),
+  showLocation: z.boolean().default(false),
   viewCount: z.number().int().nonnegative(),
   expiresAt: z.string().nullable(),
   hasPassword: z.boolean(),
@@ -452,6 +455,7 @@ export const publicShareResponseSchema = z.object({
   targetType: shareTargetSchema,
   title: z.string(),
   allowDownload: z.boolean(),
+  showLocation: z.boolean().default(false),
   createdAt: z.string(),
   hasPassword: z.boolean(),
   isUnlocked: z.boolean(),
