@@ -161,6 +161,19 @@ describe('FilesController (e2e) — US-20', () => {
       expect(resPage2.body.nextCursor).toBeNull();
     });
 
+    it('menolak cursor format lama dengan 400 INVALID_CURSOR (RF-12)', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      const legacyCursor = Buffer.from(JSON.stringify({ id: 'file-05' })).toString('base64url');
+      const res = await http()
+        .get(`/files?cursor=${legacyCursor}`)
+        .set('Cookie', `galeriku_session=${token}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_CURSOR');
+    });
+
     it('mengabaikan file yang statusnya bukan ready atau sudah deletedAt', async () => {
       const user = await seedUser(db);
       const token = craftSession(db, user.id as string);
@@ -909,6 +922,95 @@ describe('FilesController (e2e) — US-20', () => {
           {
             method: 'delete',
             url: `/files/${id}/permanent`,
+          },
+        ],
+      });
+    });
+  });
+
+  describe('PATCH /files/:id/captured-at (RF-12)', () => {
+    it('mengubah tanggal pengambilan, mengekstrak offset, dan menandai sumber manual', async () => {
+      const user = await seedUser(db);
+      const token = craftSession(db, user.id as string);
+
+      db.files.set('f-mod-date', {
+        id: 'f-mod-date',
+        ownerId: user.id,
+        originalName: 'foto.jpg',
+        storageKey: 'key-f-mod',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000n,
+        kind: FileKind.image,
+        width: 800,
+        height: 600,
+        durationS: null,
+        thumbKey: null,
+        status: FileStatus.ready,
+        isFavorite: false,
+        capturedAt: new Date('2026-01-01T00:00:00.000Z'),
+        capturedTzOffsetMin: 0,
+        capturedAtSource: 'upload',
+        createdAt: new Date(),
+        deletedAt: null,
+      });
+
+      const res = await http()
+        .patch('/files/f-mod-date/captured-at')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `galeriku_session=${token}`)
+        .send({
+          capturedAt: '2026-06-20T10:15:00+07:00',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.capturedAtSource).toBe('manual');
+      expect(res.body.capturedTzOffsetMin).toBe(420);
+      expect(new Date(res.body.capturedAt).getTime()).toBe(
+        new Date('2026-06-20T10:15:00+07:00').getTime(),
+      );
+
+      // Verifikasi di database
+      const row = db.files.get('f-mod-date');
+      expect(row?.capturedAtSource).toBe('manual');
+      expect(row?.capturedTzOffsetMin).toBe(420);
+    });
+
+    it('IDOR A-vs-B: User B mendapat 404 identik saat mengubah tanggal file User A', async () => {
+      const userA = await seedUser(db);
+      const userB = await seedUser(db);
+      const tokenA = craftSession(db, userA.id as string);
+      const tokenB = craftSession(db, userB.id as string);
+
+      await expectOwnerOnly(app, {
+        cookieA: tokenA,
+        cookieB: tokenB,
+        origin: ORIGIN,
+        createResource: async () => {
+          const fid = `file-cap-idor-${Date.now()}`;
+          db.files.set(fid, {
+            id: fid,
+            ownerId: userA.id,
+            originalName: 'privat.jpg',
+            storageKey: `key-${fid}`,
+            mimeType: 'image/jpeg',
+            sizeBytes: 100n,
+            kind: FileKind.image,
+            width: null,
+            height: null,
+            durationS: null,
+            thumbKey: null,
+            status: FileStatus.ready,
+            isFavorite: false,
+            createdAt: new Date(),
+            deletedAt: null,
+          });
+          return fid;
+        },
+        buildRequests: (id: string) => [
+          {
+            method: 'patch',
+            url: `/files/${id}/captured-at`,
+            body: { capturedAt: '2026-08-01T12:00:00Z' },
           },
         ],
       });

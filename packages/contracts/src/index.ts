@@ -270,6 +270,15 @@ export const setFileFavoriteSchema = z.object({
   isFavorite: z.boolean(),
 });
 
+export const updateCapturedAtSchema = z.object({
+  capturedAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'Format tanggal tidak valid.',
+  }),
+  capturedTzOffsetMin: z.number().int().min(-840).max(840).nullable().optional(),
+});
+
+export type UpdateCapturedAtRequest = z.output<typeof updateCapturedAtSchema>;
+
 export type SetFileFavoriteRequest = z.output<typeof setFileFavoriteSchema>;
 
 export const trashFilesResponseSchema = z.object({

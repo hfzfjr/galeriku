@@ -7,27 +7,50 @@ import type {
   FilesQuery,
   FilesResponse,
 } from '@galeriku/contracts';
-import { filesQuerySchema } from '@galeriku/contracts';
+import { filesQuerySchema, updateCapturedAtSchema } from '@galeriku/contracts';
 import { FileStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiError } from '../common/errors/api-error';
 import { resolveMediaDir } from '../uploads/uploads.utils';
 
-export function encodeCursor(id: string): string {
-  return Buffer.from(JSON.stringify({ id }), 'utf8').toString('base64url');
+export type KeysetCursor = {
+  capturedAt: string;
+  id: string;
+};
+
+// Cursor keyset baru (captured_at, id) sandi base64url (RF-12).
+// Kompatibel mundur: cursor format lama ditolak dengan 400 INVALID_CURSOR yang jelas.
+export function encodeCursor(capturedAt: Date | string, id: string): string {
+  const iso = capturedAt instanceof Date ? capturedAt.toISOString() : capturedAt;
+  return Buffer.from(JSON.stringify({ capturedAt: iso, id }), 'utf8').toString('base64url');
 }
 
-export function decodeCursor(cursor: string): string | null {
+export function decodeCursor(cursor: string): KeysetCursor {
   try {
     const parsed = JSON.parse(
       Buffer.from(cursor, 'base64url').toString('utf8'),
-    ) as { id?: unknown };
-    return typeof parsed.id === 'string' && parsed.id.length > 0
-      ? parsed.id
-      : null;
+    ) as { capturedAt?: unknown; id?: unknown };
+
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof parsed.capturedAt === 'string' &&
+      !isNaN(Date.parse(parsed.capturedAt)) &&
+      typeof parsed.id === 'string' &&
+      parsed.id.length > 0
+    ) {
+      return { capturedAt: parsed.capturedAt, id: parsed.id };
+    }
   } catch {
-    return null;
+    // Abaikan
   }
+
+  throw new ApiError(
+    400,
+    'INVALID_CURSOR',
+    'Cursor paginasi tidak valid atau telah usang. Silakan muat ulang halaman dari awal.',
+    { fields: [{ field: 'cursor', message: 'Cursor tidak valid atau telah usang.' }] },
+  );
 }
 
 type FileRow = {
@@ -126,42 +149,21 @@ export class FilesService {
     }
 
     if (query.cursor !== undefined) {
-      const jangkar = decodeCursor(query.cursor);
-      if (!jangkar) {
-        throw new ApiError(
-          400,
-          'VALIDATION_ERROR',
-          'Cursor tidak valid.',
-          { fields: [{ field: 'cursor', message: 'Cursor tidak valid.' }] },
-        );
-      }
-      const ada = await this.prisma.file.findFirst({
-        where: { id: jangkar, ...where },
-        select: { id: true },
-      });
-      if (!ada) {
-        throw new ApiError(
-          400,
-          'VALIDATION_ERROR',
-          'Cursor tidak valid.',
-          { fields: [{ field: 'cursor', message: 'Cursor tidak valid.' }] },
-        );
-      }
+      const { capturedAt, id: cursorId } = decodeCursor(query.cursor);
+      const cursorDate = new Date(capturedAt);
 
-      const rows = await this.prisma.file.findMany({
-        where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        cursor: { id: jangkar },
-        skip: 1,
-        take: query.limit + 1,
-      });
-
-      return this.keRespons(rows as FileRow[], query.limit);
+      where.OR = [
+        { capturedAt: { lt: cursorDate } },
+        {
+          capturedAt: cursorDate,
+          id: { lt: cursorId },
+        },
+      ];
     }
 
     const rows = await this.prisma.file.findMany({
       where,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ capturedAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
     });
 
@@ -172,7 +174,11 @@ export class FilesService {
     const halaman = rows.slice(0, limit);
     const lanjut =
       rows.length > limit && halaman.length > 0
-        ? encodeCursor(halaman[halaman.length - 1].id)
+        ? encodeCursor(
+            halaman[halaman.length - 1].capturedAt ??
+              halaman[halaman.length - 1].createdAt,
+            halaman[halaman.length - 1].id,
+          )
         : null;
 
     return {
@@ -369,6 +375,72 @@ export class FilesService {
     const updated = await this.prisma.file.update({
       where: { id: fileId },
       data: { isFavorite },
+    });
+
+    return toFileItem(updated as FileRow);
+  }
+
+  // Mengubah tanggal & jam pengambilan foto secara manual (RF-12).
+  // Menerima capturedAt ISO 8601 dan opsional capturedTzOffsetMin.
+  // Menyimpan capturedAtSource = 'manual'.
+  async updateCapturedAt(
+    userId: string,
+    fileId: string,
+    rawBody: unknown,
+  ): Promise<FileItem> {
+    const parsed = updateCapturedAtSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'Data tanggal pengambilan tidak valid.',
+        {
+          fields: parsed.error.issues.map((i) => ({
+            field: i.path.join('.'),
+            message: i.message,
+          })),
+        },
+      );
+    }
+
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    // Kepemilikan menjawab 404 identik (AD-12 & US-13)
+    if (
+      !file ||
+      file.ownerId !== userId ||
+      file.deletedAt !== null ||
+      file.status !== FileStatus.ready
+    ) {
+      throw new ApiError(404, 'NOT_FOUND', 'File tidak ditemukan.');
+    }
+
+    let offsetMin = parsed.data.capturedTzOffsetMin;
+    if (offsetMin === undefined) {
+      const match = /(?:([+-])(\d{2}):(\d{2})|Z)$/.exec(parsed.data.capturedAt);
+      if (match) {
+        if (match[0] === 'Z') {
+          offsetMin = 0;
+        } else {
+          const sign = match[1] === '-' ? -1 : 1;
+          const hours = Number(match[2]);
+          const mins = Number(match[3]);
+          offsetMin = sign * (hours * 60 + mins);
+        }
+      } else {
+        offsetMin = null;
+      }
+    }
+
+    const updated = await this.prisma.file.update({
+      where: { id: fileId },
+      data: {
+        capturedAt: new Date(parsed.data.capturedAt),
+        capturedTzOffsetMin: offsetMin,
+        capturedAtSource: 'manual',
+      },
     });
 
     return toFileItem(updated as FileRow);

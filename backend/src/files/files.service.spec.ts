@@ -6,20 +6,25 @@ import {
 import { parseRange } from './files.controller';
 
 describe('FilesService helpers', () => {
-  describe('cursor buram', () => {
-    it('bolak-balik id dan menolak format invalid', () => {
+  describe('cursor buram (RF-12)', () => {
+    it('bolak-balik capturedAt dan id, serta menolak cursor lama atau invalid dengan 400', () => {
       const id = 'f-xyz-123';
-      const encoded = encodeCursor(id);
+      const capturedAt = '2026-11-01T15:30:00.000Z';
+      const encoded = encodeCursor(capturedAt, id);
       expect(typeof encoded).toBe('string');
-      expect(decodeCursor(encoded)).toBe(id);
+      expect(decodeCursor(encoded)).toEqual({ capturedAt, id });
 
-      expect(decodeCursor('bukan-base64!!!')).toBeNull();
-      expect(decodeCursor('')).toBeNull();
-      expect(
+      // Cursor format lama (hanya id) wajib ditolak dengan 400 INVALID_CURSOR
+      const legacyCursor = Buffer.from(JSON.stringify({ id })).toString('base64url');
+      expect(() => decodeCursor(legacyCursor)).toThrow();
+
+      expect(() => decodeCursor('bukan-base64!!!')).toThrow();
+      expect(() => decodeCursor('')).toThrow();
+      expect(() =>
         decodeCursor(
           Buffer.from(JSON.stringify({ salah: 'struktur' })).toString('base64url'),
         ),
-      ).toBeNull();
+      ).toThrow();
     });
   });
 
@@ -88,6 +93,31 @@ describe('FilesService helpers', () => {
       expect(item.durationS).toBe(42.5);
       expect(item.thumbKey).toBeNull();
       expect(item.previewKey).toBeNull();
+    });
+
+    it('mendukung capturedAt dengan zona offset (RF-12)', () => {
+      const captured = new Date('2026-11-01T15:00:00.000Z');
+      const item = toFileItem({
+        id: 'file-tz',
+        originalName: 'foto-wib.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 1000n,
+        kind: 'image',
+        width: 800,
+        height: 600,
+        durationS: null,
+        thumbKey: null,
+        previewKey: null,
+        status: 'ready',
+        capturedAt: captured,
+        capturedTzOffsetMin: 420, // WIB (+07:00)
+        capturedAtSource: 'manual',
+        createdAt: captured,
+      });
+
+      expect(item.capturedAt).toBe('2026-11-01T15:00:00.000Z');
+      expect(item.capturedTzOffsetMin).toBe(420);
+      expect(item.capturedAtSource).toBe('manual');
     });
   });
 

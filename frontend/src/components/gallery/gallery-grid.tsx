@@ -22,33 +22,8 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { MediaThumb } from "@/components/ui/media-thumb";
+import { getPhotoDateGroup } from "@/lib/date-group";
 import { FullViewer } from "./full-viewer";
-
-function formatDateHeader(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    return new Intl.DateTimeFormat("id-ID", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(d);
-  } catch {
-    return isoString;
-  }
-}
-
-function toDateKey(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    const y = d.getFullYear();
-    const m = (d.getMonth() + 1).toString().padStart(2, "0");
-    const day = d.getDate().toString().padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  } catch {
-    return "lainnya";
-  }
-}
 
 type GroupedFiles = {
   dateKey: string;
@@ -127,19 +102,22 @@ export function GalleryGrid({
     return data.pages.flatMap((page) => page.items);
   }, [data]);
 
-  // Kelompokkan per tanggal
+  // Kelompokkan per tanggal dalam zona waktu foto (RF-12)
   const groups = useMemo(() => {
     const map = new Map<string, GroupedFiles>();
     for (const item of allFiles) {
-      const refDate = item.takenAt || item.createdAt;
-      const key = toDateKey(refDate);
-      const existing = map.get(key);
+      const refDate = item.capturedAt || item.takenAt || item.createdAt;
+      const { dateKey, displayDate } = getPhotoDateGroup(
+        refDate,
+        item.capturedTzOffsetMin,
+      );
+      const existing = map.get(dateKey);
       if (existing) {
         existing.items.push(item);
       } else {
-        map.set(key, {
-          dateKey: key,
-          displayDate: formatDateHeader(refDate),
+        map.set(dateKey, {
+          dateKey,
+          displayDate,
           items: [item],
         });
       }

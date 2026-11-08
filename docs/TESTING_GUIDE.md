@@ -45,3 +45,15 @@ Panduan ini disiapkan untuk pengujian manual antarmuka dan fungsi melalui browse
 3. **Verifikasi HEIC/HEIF (B11):**
    - Unggah berkas `.heic` dari iPhone atau berkas HEIC sampel.
    - Pastikan thumbnail di grid galeri muncul dan viewer dapat menampilkan preview WebP secara sempurna di browser desktop / Chrome Android.
+
+---
+
+## RF-12: Urutan dan Pengelompokan berdasarkan Captured_At
+1. **Verifikasi Pengelompokan Tanggal Lokal Foto (B12):**
+   - Unggah foto dengan offset zona waktu tertentu (misal EXIF OffsetTime +09:00).
+   - Periksa grid galeri: foto harus terkelompok di header tanggal lokal aslinya, bukan tanggal UTC perangkat.
+2. **Verifikasi Keyset Pagination:**
+   - Gulir ke bawah pada galeri yang memiliki banyak foto: pastikan infinite scroll / pagination berikutnya termuat mulus dengan urutan `captured_at DESC, id DESC`.
+3. **Verifikasi Ubah Tanggal Manual:**
+   - Lakukan patch tanggal (`PATCH /files/:id/captured-at`) dengan payload tanggal baru.
+   - Periksa galeri: pastikan foto berpindah grup ke tanggal yang baru diperbarui dan sumber tanggal ditandai sebagai `manual`.

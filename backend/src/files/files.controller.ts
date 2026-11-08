@@ -186,6 +186,15 @@ export class FilesController {
     return this.filesService.setFavorite(user.id, id, body.isFavorite);
   }
 
+  @Patch(':id/captured-at')
+  async updateCapturedAt(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @CurrentUser() user: SessionUser,
+  ): Promise<FileItem> {
+    return this.filesService.updateCapturedAt(user.id, id, body);
+  }
+
   @Post(':id/restore')
   @HttpCode(200)
   async restoreFile(

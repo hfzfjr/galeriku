@@ -107,7 +107,11 @@ function matchWhere(
       ) as Record<string, unknown>[];
       return !clauses.some((w) => matchWhere(row, w));
     }
-    return matchField(row[key], value);
+    const rowVal =
+      key === 'capturedAt' && row[key] === undefined
+        ? (row.createdAt ?? new Date())
+        : row[key];
+    return matchField(rowVal, value);
   });
 }
 
@@ -148,11 +152,19 @@ export function createFakePrisma(db: FakeDb) {
           : [];
         for (const rule of rules.reverse()) {
           const [field, arah] = Object.entries(rule)[0];
-          rows = [...rows].sort(
-            (a, b) =>
-              (arah === 'desc' ? -1 : 1) *
-              compareValues(a[field], b[field]),
-          );
+          rows = [...rows].sort((a, b) => {
+            const valA =
+              field === 'capturedAt' && a[field] === undefined
+                ? (a.createdAt ?? new Date())
+                : a[field];
+            const valB =
+              field === 'capturedAt' && b[field] === undefined
+                ? (b.createdAt ?? new Date())
+                : b[field];
+            return (
+              (arah === 'desc' ? -1 : 1) * compareValues(valA, valB)
+            );
+          });
         }
         if (args?.cursor) {
           const posisi = rows.findIndex((row) =>
@@ -171,7 +183,8 @@ export function createFakePrisma(db: FakeDb) {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const id =
           typeof data.id === 'string' ? data.id : `x-${store.size + 1}`;
-        const row = { createdAt: new Date(), ...data, id };
+        const capturedAt = data.capturedAt ?? data.createdAt ?? new Date();
+        const row = { createdAt: new Date(), capturedAt, ...data, id };
         store.set(id, row);
         return { ...row };
       },

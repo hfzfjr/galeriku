@@ -23,6 +23,7 @@ import type {
   TrashFilesResponse,
   UnlockShareRequest,
   UpdateAlbumRequest,
+  UpdateCapturedAtRequest,
   UpdateQuotaRequest,
   UpdateShareLinkRequest,
   VerifyEmailRequest,
@@ -315,6 +316,19 @@ export function deleteFile(id: string): Promise<void> {
   return request<void>(`/files/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+export function updateFileCapturedAt(
+  fileId: string,
+  payload: UpdateCapturedAtRequest,
+): Promise<FileItem> {
+  return request<FileItem>(
+    `/files/${encodeURIComponent(fileId)}/captured-at`,
+    {
+      method: "PATCH",
+      body: payload,
+    },
+  );
 }
 
 export function batchDeleteFiles(ids: string[]): Promise<{ count: number }> {

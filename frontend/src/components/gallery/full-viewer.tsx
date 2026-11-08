@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Download, Share2, Star, Trash2, X } from "lu
 import { deleteFile, getFileContentUrl, getFilePreviewUrl, toggleFavoriteFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ShareModal } from "@/components/shares/share-modal";
+import { getPhotoDateGroup } from "@/lib/date-group";
 
 interface FullViewerProps {
   files: FileItem[];
@@ -342,13 +343,13 @@ export function FullViewer({ files, initialIndex, onClose }: FullViewerProps) {
           {currentFile.originalName}
         </p>
         <p className="text-caption text-on-accent/70">
-          {new Intl.DateTimeFormat("id-ID", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(new Date(currentFile.takenAt || currentFile.createdAt))}
+          {(() => {
+            const dateInfo = getPhotoDateGroup(
+              currentFile.capturedAt || currentFile.createdAt,
+              currentFile.capturedTzOffsetMin,
+            );
+            return `${dateInfo.displayDate} · ${dateInfo.formattedTime}`;
+          })()}
         </p>
         {!isVideo && (
           <div className="flex items-center justify-center mt-1">
