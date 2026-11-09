@@ -38,6 +38,13 @@ function toFileItem(file: {
   placeCity?: string | null;
   gpsLat?: number | null;
   gpsLng?: number | null;
+  cameraMake?: string | null;
+  cameraModel?: string | null;
+  lensModel?: string | null;
+  iso?: number | null;
+  fNumber?: number | null;
+  exposureS?: number | null;
+  focalLengthMm?: number | null;
   liveKind?: string | null;
   duplicateOfId?: string | null;
   createdAt: Date;
@@ -75,6 +82,13 @@ function toFileItem(file: {
     capturedAtSource: (file.capturedAtSource as any) ?? undefined,
     place,
     hasLocation,
+    cameraMake: file.cameraMake ?? null,
+    cameraModel: file.cameraModel ?? null,
+    lensModel: file.lensModel ?? null,
+    iso: file.iso ?? null,
+    fNumber: file.fNumber ?? null,
+    exposureS: file.exposureS ?? null,
+    focalLengthMm: file.focalLengthMm ?? null,
     duplicateOfId: file.duplicateOfId ?? null,
     isDuplicate: Boolean(file.duplicateOfId),
     createdAt: file.createdAt.toISOString(),

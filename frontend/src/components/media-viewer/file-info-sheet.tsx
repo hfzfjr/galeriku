@@ -70,11 +70,11 @@ export function FileInfoSheet({
 
   const startEditDate = () => {
     const d = new Date(activeData.capturedAt || activeData.createdAt);
-    // Format YYYY-MM-DDTHH:mm for datetime-local
+    // Format YYYY-MM-DDTHH:mm untuk datetime-local
     const pad = (n: number) => String(n).padStart(2, "0");
-    const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-      d.getDate(),
-    )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const localIso = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
+      d.getUTCDate(),
+    )}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
     setEditDateValue(localIso);
     setIsEditingDate(true);
     setSaveDateError(null);
@@ -85,9 +85,12 @@ export function FileInfoSheet({
     setIsSavingDate(true);
     setSaveDateError(null);
     try {
-      const selected = new Date(editDateValue);
+      const [datePart, timePart] = editDateValue.split("T");
+      const [y, m, day] = datePart.split("-").map(Number);
+      const [h, min] = timePart.split(":").map(Number);
+      const utcIso = new Date(Date.UTC(y, m - 1, day, h, min, 0)).toISOString();
       const updated = await updateFileCapturedAt(file.id, {
-        capturedAt: selected.toISOString(),
+        capturedAt: utcIso,
       });
       if (onDateUpdated) {
         onDateUpdated(updated);

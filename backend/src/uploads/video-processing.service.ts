@@ -59,6 +59,48 @@ export function parseIso6709(raw?: string | null): {
   };
 }
 
+/**
+ * Mengurai string tanggal pembuatan video dari berbagai tag container (QuickTime/MP4/MKV/WebM)
+ * secara aman dan konsisten tanpa pergeseran ganda zona waktu.
+ */
+export function parseVideoCreationDate(raw?: string | null): Date | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(
+    /^(\d{4})[-/:](\d{2})[-/:](\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2}))?/,
+  );
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const hour = match[4] ? Number(match[4]) : 0;
+    const minute = match[5] ? Number(match[5]) : 0;
+    const second = match[6] ? Number(match[6]) : 0;
+
+    // Abaikan tahun < 1971 (zero epoch QuickTime 1904 atau Unix 1970)
+    if (year < 1971 || year > 2100) return null;
+
+    return new Date(Date.UTC(year, month, day, hour, minute, second));
+  }
+
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime()) && d.getUTCFullYear() >= 1971 && d.getUTCFullYear() <= 2100) {
+    return new Date(
+      Date.UTC(
+        d.getUTCFullYear(),
+        d.getUTCMonth(),
+        d.getUTCDate(),
+        d.getUTCHours(),
+        d.getUTCMinutes(),
+        d.getUTCSeconds(),
+      ),
+    );
+  }
+  return null;
+}
+
 @Injectable()
 export class VideoProcessingService {
   private readonly logger = new Logger(VideoProcessingService.name);
@@ -137,20 +179,24 @@ export class VideoProcessingService {
         }
       }
 
-      // 3. Tanggal pembuatan (creation_time)
+      // 3. Tanggal pembuatan (QuickTime creationdate, standard creation_time, date, media_create_date)
       const creationRaw =
+        parsed.format?.tags?.['com.apple.quicktime.creationdate'] ||
+        videoStream?.tags?.['com.apple.quicktime.creationdate'] ||
+        parsed.format?.tags?.['creation_time'] ||
         videoStream?.tags?.['creation_time'] ||
-        parsed.format?.tags?.['creation_time'];
-      let creationTime: Date | null = null;
-      if (creationRaw) {
-        const parsedDate = new Date(creationRaw);
-        if (!isNaN(parsedDate.getTime())) {
-          creationTime = parsedDate;
-        }
-      }
+        parsed.format?.tags?.['date'] ||
+        videoStream?.tags?.['date'] ||
+        parsed.format?.tags?.['date-eng'] ||
+        videoStream?.tags?.['date-eng'] ||
+        parsed.format?.tags?.['media_create_date'] ||
+        videoStream?.tags?.['media_create_date'];
+      const creationTime = parseVideoCreationDate(creationRaw);
 
-      // 4. GPS (ISO 6709)
+      // 4. GPS (ISO 6709 - Apple QuickTime & standard)
       const locRaw =
+        parsed.format?.tags?.['com.apple.quicktime.location.ISO6709'] ||
+        videoStream?.tags?.['com.apple.quicktime.location.ISO6709'] ||
         parsed.format?.tags?.['location'] ||
         parsed.format?.tags?.['location-eng'] ||
         videoStream?.tags?.['location'];
@@ -158,12 +204,17 @@ export class VideoProcessingService {
 
       // 5. Kamera
       const cameraMake =
+        parsed.format?.tags?.['com.apple.quicktime.make'] ||
+        videoStream?.tags?.['com.apple.quicktime.make'] ||
         parsed.format?.tags?.['make'] ||
         videoStream?.tags?.['make'] ||
         null;
       const cameraModel =
+        parsed.format?.tags?.['com.apple.quicktime.model'] ||
+        videoStream?.tags?.['com.apple.quicktime.model'] ||
         parsed.format?.tags?.['model'] ||
         videoStream?.tags?.['model'] ||
+        parsed.format?.tags?.['com.apple.quicktime.software'] ||
         null;
 
       // 6. Apple ContentIdentifier untuk Live Photo MOV (RF-32)

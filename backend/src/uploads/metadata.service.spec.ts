@@ -25,30 +25,30 @@ describe('MetadataService (RF-10)', () => {
     it('pola filename IMG_YYYYMMDD_HHMMSS', () => {
       const res = service.parseFilenameDate('IMG_20261108_143022.jpg');
       expect(res).not.toBeNull();
-      expect(res?.getFullYear()).toBe(2026);
-      expect(res?.getMonth()).toBe(10); // 0-indexed: 10 = Nov
-      expect(res?.getDate()).toBe(8);
-      expect(res?.getHours()).toBe(14);
-      expect(res?.getMinutes()).toBe(30);
-      expect(res?.getSeconds()).toBe(22);
+      expect(res?.getUTCFullYear()).toBe(2026);
+      expect(res?.getUTCMonth()).toBe(10); // 0-indexed: 10 = Nov
+      expect(res?.getUTCDate()).toBe(8);
+      expect(res?.getUTCHours()).toBe(14);
+      expect(res?.getUTCMinutes()).toBe(30);
+      expect(res?.getUTCSeconds()).toBe(22);
     });
 
     it('pola filename WhatsApp IMG-YYYYMMDD-WA####', () => {
       const res = service.parseFilenameDate('IMG-20261108-WA0042.jpeg');
       expect(res).not.toBeNull();
-      expect(res?.getFullYear()).toBe(2026);
-      expect(res?.getMonth()).toBe(10);
-      expect(res?.getDate()).toBe(8);
+      expect(res?.getUTCFullYear()).toBe(2026);
+      expect(res?.getUTCMonth()).toBe(10);
+      expect(res?.getUTCDate()).toBe(8);
     });
 
     it('pola filename YYYY-MM-DD HH.MM.SS', () => {
       const res = service.parseFilenameDate('2026-11-08 09.15.00.png');
       expect(res).not.toBeNull();
-      expect(res?.getFullYear()).toBe(2026);
-      expect(res?.getMonth()).toBe(10);
-      expect(res?.getDate()).toBe(8);
-      expect(res?.getHours()).toBe(9);
-      expect(res?.getMinutes()).toBe(15);
+      expect(res?.getUTCFullYear()).toBe(2026);
+      expect(res?.getUTCMonth()).toBe(10);
+      expect(res?.getUTCDate()).toBe(8);
+      expect(res?.getUTCHours()).toBe(9);
+      expect(res?.getUTCMinutes()).toBe(15);
     });
 
     it('mengembalikan null untuk nama file acak tanpa pola tanggal', () => {
@@ -81,7 +81,7 @@ describe('MetadataService (RF-10)', () => {
       });
 
       expect(meta.capturedAtSource).toBe('filename');
-      expect(meta.capturedAt.getFullYear()).toBe(2026);
+      expect(meta.capturedAt.getUTCFullYear()).toBe(2026);
       expect(meta.capturedTzOffsetMin).toBeNull();
     });
 

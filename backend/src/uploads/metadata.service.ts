@@ -59,7 +59,7 @@ export class MetadataService {
       const month = Number(waMatch[2]) - 1;
       const day = Number(waMatch[3]);
       if (this.isValidDateValues(year, month, day)) {
-        return new Date(year, month, day, 0, 0, 0);
+        return new Date(Date.UTC(year, month, day, 0, 0, 0));
       }
     }
 
@@ -78,7 +78,7 @@ export class MetadataService {
         this.isValidDateValues(year, month, day) &&
         this.isValidTimeValues(hour, minute, second)
       ) {
-        return new Date(year, month, day, hour, minute, second);
+        return new Date(Date.UTC(year, month, day, hour, minute, second));
       }
     }
 
@@ -97,7 +97,7 @@ export class MetadataService {
         this.isValidDateValues(year, month, day) &&
         this.isValidTimeValues(hour, minute, second)
       ) {
-        return new Date(year, month, day, hour, minute, second);
+        return new Date(Date.UTC(year, month, day, hour, minute, second));
       }
     }
 
@@ -114,10 +114,47 @@ export class MetadataService {
         this.isValidDateValues(year, month, day) &&
         this.isValidTimeValues(hour, minute, second)
       ) {
-        return new Date(year, month, day, hour, minute, second);
+        return new Date(Date.UTC(year, month, day, hour, minute, second));
       }
     }
 
+    return null;
+  }
+
+  /**
+   * Mengurai nilai tanggal EXIF (string atau Date) menjadi Date UTC murni
+   * dengan mempertahankan angka jam/menit asli kamera tanpa pergeseran zona waktu.
+   */
+  parseExifDateTime(val: unknown): Date | null {
+    if (!val) return null;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      const match = trimmed.match(
+        /^(\d{4})[-/:](\d{2})[-/:](\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2}))?/,
+      );
+      if (match) {
+        const year = Number(match[1]);
+        const month = Number(match[2]) - 1;
+        const day = Number(match[3]);
+        const hour = match[4] ? Number(match[4]) : 0;
+        const minute = match[5] ? Number(match[5]) : 0;
+        const second = match[6] ? Number(match[6]) : 0;
+        if (year >= 1970 && year <= 2100) {
+          return new Date(Date.UTC(year, month, day, hour, minute, second));
+        }
+      }
+    }
+    if (val instanceof Date && !isNaN(val.getTime())) {
+      const year = val.getFullYear();
+      const month = val.getMonth();
+      const day = val.getDate();
+      const hour = val.getHours();
+      const minute = val.getMinutes();
+      const second = val.getSeconds();
+      if (year >= 1970 && year <= 2100) {
+        return new Date(Date.UTC(year, month, day, hour, minute, second));
+      }
+    }
     return null;
   }
 
@@ -221,16 +258,18 @@ export class MetadataService {
     let capturedTzOffsetMin: number | null = null;
     let capturedAtSource: ExtractedMetadata['capturedAtSource'] = 'upload';
 
-    const dtOrig = parsedExif?.['DateTimeOriginal'];
-    if (dtOrig instanceof Date && !isNaN(dtOrig.getTime())) {
+    const dtOrig = this.parseExifDateTime(parsedExif?.['DateTimeOriginal']);
+    if (dtOrig) {
       capturedAt = dtOrig;
       capturedAtSource = 'exif';
       capturedTzOffsetMin = this.parseOffsetMinutes(
         parsedExif?.['OffsetTimeOriginal'] as string,
       );
     } else {
-      const dtCreate = parsedExif?.['CreateDate'] ?? parsedExif?.['ModifyDate'];
-      if (dtCreate instanceof Date && !isNaN(dtCreate.getTime())) {
+      const dtCreate = this.parseExifDateTime(
+        parsedExif?.['CreateDate'] ?? parsedExif?.['ModifyDate'],
+      );
+      if (dtCreate) {
         capturedAt = dtCreate;
         capturedAtSource = 'exif';
         capturedTzOffsetMin = this.parseOffsetMinutes(

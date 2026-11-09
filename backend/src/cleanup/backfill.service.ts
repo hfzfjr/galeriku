@@ -15,7 +15,7 @@ import { ThumbnailService } from '../uploads/thumbnail.service';
 import { VideoProcessingService } from '../uploads/video-processing.service';
 import { computeFileSha256, resolveMediaDir } from '../uploads/uploads.utils';
 
-export const CURRENT_META_VERSION = 1;
+export const CURRENT_META_VERSION = 2;
 
 export interface BackfillOptions {
   batchSize?: number;

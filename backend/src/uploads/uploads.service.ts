@@ -474,7 +474,7 @@ export class UploadsService implements OnModuleInit {
           liveVideoKey,
           liveOffset,
           liveLength,
-          metaVersion: 1,
+          metaVersion: 2,
           status: FileStatus.ready,
         },
         select: { id: true },

@@ -23,7 +23,7 @@ describe('BackfillService (RF-15)', () => {
     }
   });
 
-  it('hanya memproses file dengan metaVersion < 1 (idempoten)', async () => {
+  it('hanya memproses file dengan metaVersion < CURRENT_META_VERSION (idempoten)', async () => {
     const updatedFiles: Array<{ id: string; metaVersion: number }> = [];
 
     const mockPrisma = {
@@ -101,7 +101,7 @@ describe('BackfillService (RF-15)', () => {
     expect(result.errors).toBe(0);
     expect(mockMetadata.extractMetadata).toHaveBeenCalledTimes(1);
     expect(mockThumbnail.generatePhotoVariants).toHaveBeenCalledTimes(1);
-    expect(updatedFiles).toEqual([{ id: 'f-v0', metaVersion: 1 }]);
+    expect(updatedFiles).toEqual([{ id: 'f-v0', metaVersion: 2 }]);
   });
 
   it('melewati file fisik yang hilang dengan peringatan tanpa crash', async () => {

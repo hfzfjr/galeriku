@@ -103,6 +103,32 @@ describe('VideoProcessingService (RF-34)', () => {
       expect(meta.height).toBe(1920);
     });
 
+    it('mengekstrak com.apple.quicktime.creationdate, camera, dan GPS iOS', async () => {
+      const service = new VideoProcessingService();
+
+      const mockStdout = JSON.stringify({
+        format: {
+          tags: {
+            'com.apple.quicktime.creationdate': '2026-11-08T14:30:22+07:00',
+            'com.apple.quicktime.make': 'Apple',
+            'com.apple.quicktime.model': 'iPhone 15 Pro',
+            'com.apple.quicktime.location.ISO6709': '-07.7956+110.3695+0113.000/',
+          },
+        },
+      });
+
+      const mockRunner = jest.fn().mockResolvedValue({ stdout: mockStdout, stderr: '' });
+
+      const meta = await service.extractMetadata('ios.mov', mockRunner as any);
+
+      expect(meta.creationTime).toEqual(new Date('2026-11-08T14:30:22.000Z'));
+      expect(meta.cameraMake).toBe('Apple');
+      expect(meta.cameraModel).toBe('iPhone 15 Pro');
+      expect(meta.gpsLat).toBe(-7.7956);
+      expect(meta.gpsLng).toBe(110.3695);
+      expect(meta.gpsAltM).toBe(113);
+    });
+
     it('mengembalikan fallback aman jika ffprobe gagal atau file korup', async () => {
       const service = new VideoProcessingService();
 
