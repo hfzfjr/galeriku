@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowUpDown,
   Check,
   CheckSquare,
   Download,
@@ -20,6 +21,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet } from "@/components/ui/sheet";
 import { MediaThumb } from "@/components/ui/media-thumb";
 import { FullViewer } from "@/components/gallery/full-viewer";
 import { ShareModal } from "@/components/shares/share-modal";
@@ -27,6 +29,7 @@ import { AlbumAddPhotosSheet } from "@/components/gallery/album-add-photos-sheet
 import { AlbumBreadcrumb } from "@/components/albums/album-breadcrumb";
 import { DeleteAlbumModal } from "@/components/albums/delete-album-modal";
 import { MoveAlbumModal } from "@/components/albums/move-album-modal";
+import { getPhotoDateGroup } from "@/lib/date-group";
 import {
   createAlbum,
   deleteAlbum,
@@ -39,9 +42,30 @@ import {
 } from "@/lib/api";
 import { toIndonesianMessage } from "@/lib/auth-errors";
 
+export type AlbumSortOption =
+  | "taken_desc"
+  | "taken_asc"
+  | "uploaded_desc"
+  | "name_asc"
+  | "name_desc"
+  | "custom";
+
+export const ALBUM_SORT_LABELS: Record<AlbumSortOption, string> = {
+  taken_desc: "Tanggal foto (terbaru)",
+  taken_asc: "Tanggal foto (terlama)",
+  uploaded_desc: "Baru ditambahkan",
+  name_asc: "Nama file (A-Z)",
+  name_desc: "Nama file (Z-A)",
+  custom: "Urutan album bawaan",
+};
+
 export function AlbumDetailClient({ albumId }: { albumId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // State urutan foto album (default tanggal foto terbaru)
+  const [sortOption, setSortOption] = useState<AlbumSortOption>("taken_desc");
+  const [showSortSheet, setShowSortSheet] = useState(false);
 
   // State dialog & viewer
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -102,6 +126,19 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     });
   };
 
+  const handleToggleSelectGroup = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      if (allSelected) {
+        for (const id of ids) next.delete(id);
+      } else {
+        for (const id of ids) next.add(id);
+      }
+      return next;
+    });
+  };
+
   const handleSelectAll = () => {
     if (!album) return;
     if (selectedIds.size === album.files.length) {
@@ -115,6 +152,75 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
     setIsSelectionMode(false);
     setSelectedIds(new Set());
   };
+
+  // Sortir foto album
+  const sortedFiles = useMemo(() => {
+    if (!album?.files) return [];
+    const files = [...album.files];
+    switch (sortOption) {
+      case "taken_desc":
+        return files.sort((a, b) => {
+          const dateA = new Date(a.capturedAt || a.takenAt || a.createdAt).getTime();
+          const dateB = new Date(b.capturedAt || b.takenAt || b.createdAt).getTime();
+          return dateB - dateA;
+        });
+      case "taken_asc":
+        return files.sort((a, b) => {
+          const dateA = new Date(a.capturedAt || a.takenAt || a.createdAt).getTime();
+          const dateB = new Date(b.capturedAt || b.takenAt || b.createdAt).getTime();
+          return dateA - dateB;
+        });
+      case "uploaded_desc":
+        return files.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+      case "name_asc":
+        return files.sort((a, b) =>
+          a.originalName.localeCompare(b.originalName, undefined, { numeric: true }),
+        );
+      case "name_desc":
+        return files.sort((a, b) =>
+          b.originalName.localeCompare(a.originalName, undefined, { numeric: true }),
+        );
+      case "custom":
+      default:
+        return files;
+    }
+  }, [album, sortOption]);
+
+  // Kelompokkan per tanggal foto secara default (kecuali sortir alfabetis/custom)
+  const groupedFiles = useMemo(() => {
+    if (
+      sortOption === "name_asc" ||
+      sortOption === "name_desc" ||
+      sortOption === "custom"
+    ) {
+      return null;
+    }
+    const map = new Map<
+      string,
+      { dateKey: string; displayDate: string; items: typeof sortedFiles }
+    >();
+    for (const item of sortedFiles) {
+      const refDate =
+        sortOption === "uploaded_desc"
+          ? item.createdAt
+          : item.capturedAt || item.takenAt || item.createdAt;
+      const { dateKey, displayDate } = getPhotoDateGroup(
+        refDate,
+        sortOption === "uploaded_desc" ? undefined : item.capturedTzOffsetMin,
+      );
+      const existing = map.get(dateKey);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        map.set(dateKey, { dateKey, displayDate, items: [item] });
+      }
+    }
+    return Array.from(map.values());
+  }, [sortedFiles, sortOption]);
 
   // Keluarkan massal (RF-43, B14)
   const handleBatchRemove = async () => {
@@ -214,86 +320,94 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
             currentTitle={album.title}
           />
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-h1 font-serif text-ink">{album.title}</h1>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditTitle(album.title);
-                    setErrorMsg(null);
-                    setEditModalOpen(true);
-                  }}
-                  className="rounded-full p-1.5 text-ink-muted hover:bg-sunken hover:text-ink transition"
-                  title="Ubah nama album"
-                  aria-label="Ubah nama album"
-                >
-                  <Edit2 size={16} />
-                </button>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-h1 font-serif text-ink">{album.title}</h1>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditTitle(album.title);
+                      setErrorMsg(null);
+                      setEditModalOpen(true);
+                    }}
+                    className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-muted hover:bg-sunken hover:text-ink transition"
+                    title="Ubah nama album"
+                    aria-label="Ubah nama album"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                </div>
+                <p className="text-caption text-ink-muted">
+                  {album.files.length} item
+                  {album.subAlbums && album.subAlbums.length > 0
+                    ? ` · ${album.subAlbums.length} sub-album`
+                    : ""}
+                </p>
               </div>
-              <p className="text-caption text-ink-muted">
-                {album.files.length} item
-                {album.subAlbums && album.subAlbums.length > 0
-                  ? ` · ${album.subAlbums.length} sub-album`
-                  : ""}
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setIsSelectionMode(true)}
-                className="flex min-h-11 items-center gap-1.5 text-caption font-medium text-ink"
-              >
-                <CheckSquare size={16} />
-                <span>Pilih</span>
-              </Button>
-              {album.files.length > 0 && (
-                <a
-                  href={getAlbumZipUrl(albumId)}
-                  download
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-caption font-medium text-ink transition hover:border-ink-muted active:bg-sunken"
-                  title="Unduh seluruh album sebagai ZIP"
-                  aria-label="Unduh seluruh album sebagai ZIP"
+              {/* Bilah Tombol Aksi Album: Rapi, simetris, dan mudah dipakai */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="primary"
+                  onClick={() => setAddFilesModalOpen(true)}
+                  className="min-h-11 gap-1.5 text-caption font-medium px-4"
                 >
-                  <Download size={16} />
-                  <span className="hidden sm:inline">Unduh ZIP</span>
-                </a>
-              )}
-              <Button
-                variant="secondary"
-                onClick={() => setShareModalOpen(true)}
-                className="min-h-11 gap-1.5 text-caption"
-              >
-                <Share2 size={16} />
-                <span>Bagikan</span>
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setMoveModalOpen(true)}
-                className="min-h-11 gap-1.5 text-caption"
-                title="Pindahkan album ke folder lain"
-              >
-                <FolderTree size={16} />
-                <span className="hidden sm:inline">Pindahkan</span>
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setAddFilesModalOpen(true)}
-                className="min-h-11 gap-1.5 text-caption"
-              >
-                <Plus size={18} strokeWidth={2} />
-                <span>Tambah Foto</span>
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="min-h-11 gap-1.5 text-caption"
-              >
-                <Trash2 size={16} />
-                <span className="hidden sm:inline">Hapus Album</span>
-              </Button>
+                  <Plus size={18} strokeWidth={2} />
+                  <span>Tambah Foto</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setShareModalOpen(true)}
+                  className="min-h-11 gap-1.5 text-caption font-medium px-3.5"
+                >
+                  <Share2 size={16} />
+                  <span>Bagikan</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsSelectionMode(true)}
+                  className="min-h-11 gap-1.5 text-caption font-medium px-3.5 text-ink"
+                >
+                  <CheckSquare size={16} />
+                  <span>Pilih</span>
+                </Button>
+
+                {album.files.length > 0 && (
+                  <a
+                    href={getAlbumZipUrl(albumId)}
+                    download
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 py-1.5 text-caption font-medium text-ink transition hover:border-ink-muted active:bg-sunken"
+                    title="Unduh seluruh album sebagai ZIP"
+                  >
+                    <Download size={16} />
+                    <span>Unduh ZIP</span>
+                  </a>
+                )}
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setMoveModalOpen(true)}
+                  className="min-h-11 gap-1.5 text-caption font-medium px-3.5"
+                  title="Pindahkan album ke folder lain"
+                >
+                  <FolderTree size={16} />
+                  <span>Pindahkan</span>
+                </Button>
+
+                <Button
+                  variant="danger"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="min-h-11 gap-1.5 text-caption font-medium px-3.5"
+                  title="Hapus album"
+                >
+                  <Trash2 size={16} />
+                  <span>Hapus</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -366,6 +480,23 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
         )}
       </div>
 
+      {/* Bilah Kontrol Sortir Album */}
+      {album.files.length > 0 && (
+        <div className="flex items-center justify-between pt-1">
+          <button
+            type="button"
+            onClick={() => setShowSortSheet(true)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-caption font-medium text-ink hover:border-ink-muted active:bg-sunken transition"
+          >
+            <ArrowUpDown size={15} className="text-accent shrink-0" />
+            <span>{ALBUM_SORT_LABELS[sortOption]}</span>
+          </button>
+          <span className="text-caption text-ink-muted">
+            {album.files.length} foto/video
+          </span>
+        </div>
+      )}
+
       {/* Grid Foto Album */}
       {album.files.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface py-16 px-4 text-center">
@@ -385,9 +516,105 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
             Pilih Foto untuk Ditambahkan
           </Button>
         </div>
+      ) : groupedFiles ? (
+        <div className="flex flex-col gap-6">
+          {groupedFiles.map((group) => {
+            const allGroupSelected =
+              group.items.length > 0 &&
+              group.items.every((item) => selectedIds.has(item.id));
+            const groupIds = group.items.map((item) => item.id);
+
+            return (
+              <div key={group.dateKey} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-body font-semibold text-ink">
+                      {group.displayDate}
+                    </h3>
+                    <span className="text-caption text-ink-muted">
+                      {group.items.length} item
+                    </span>
+                  </div>
+                  {isSelectionMode && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleToggleSelectGroup(groupIds)}
+                      className="min-h-9 px-2 text-caption text-ink-muted hover:text-ink"
+                    >
+                      {allGroupSelected ? "Batal Grup" : "Pilih Grup"}
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 sm:gap-2">
+                  {group.items.map((file) => {
+                    const sortedIdx = sortedFiles.findIndex((f) => f.id === file.id);
+                    const isSelected = selectedIds.has(file.id);
+                    return (
+                      <div
+                        key={file.id}
+                        className={`relative aspect-square overflow-hidden rounded bg-sunken transition ${
+                          isSelected ? "ring-2 ring-accent" : ""
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isSelectionMode) {
+                              toggleSelect(file.id);
+                            } else {
+                              setActiveViewerIndex(sortedIdx >= 0 ? sortedIdx : 0);
+                            }
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            if (!isSelectionMode) {
+                              setIsSelectionMode(true);
+                              setSelectedIds(new Set([file.id]));
+                            }
+                          }}
+                          className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+                        >
+                          <MediaThumb
+                            src={file.thumbKey ? getThumbnailUrl(file.id) : null}
+                            alt={file.originalName}
+                            kind={file.kind}
+                            durationS={file.durationS}
+                            liveKind={file.liveKind}
+                          />
+                        </button>
+
+                        {/* Mode Pilih: Indikator Centang Selalu Terlihat (B14) */}
+                        {isSelectionMode && (
+                          <button
+                            type="button"
+                            onClick={() => toggleSelect(file.id)}
+                            className="absolute top-1.5 right-1.5 flex min-h-11 min-w-11 items-center justify-center rounded-full"
+                            aria-label={isSelected ? `Batal pilih ${file.originalName}` : `Pilih ${file.originalName}`}
+                          >
+                            <div
+                              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition shadow ${
+                                isSelected
+                                  ? "border-accent bg-accent text-white"
+                                  : "border-white/80 bg-black/40 text-transparent"
+                              }`}
+                            >
+                              <Check size={14} strokeWidth={2.5} />
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 sm:gap-2">
-          {album.files.map((file, idx) => {
+          {sortedFiles.map((file, idx) => {
             const isSelected = selectedIds.has(file.id);
             return (
               <div
@@ -423,7 +650,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
                   />
                 </button>
 
-                {/* Mode Pilih: Indikator Centang Selalu Terlihat (B14, BUKAN hover-only!) */}
+                {/* Mode Pilih: Indikator Centang Selalu Terlihat (B14) */}
                 {isSelectionMode && (
                   <button
                     type="button"
@@ -451,7 +678,7 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
       {/* Viewer Layar Penuh */}
       {activeViewerIndex !== null && (
         <FullViewer
-          files={album.files}
+          files={sortedFiles}
           initialIndex={activeViewerIndex}
           onClose={() => setActiveViewerIndex(null)}
         />
@@ -613,6 +840,46 @@ export function AlbumDetailClient({ albumId }: { albumId: string }) {
         albumId={albumId}
         existingFileIds={album.files.map((f) => f.id)}
       />
+
+      {/* Sheet Pemilihan Urutan Foto Album */}
+      <Sheet
+        open={showSortSheet}
+        onClose={() => setShowSortSheet(false)}
+        title="Urutkan Foto Album"
+      >
+        <div className="flex flex-col gap-1 p-2">
+          {(
+            [
+              "taken_desc",
+              "taken_asc",
+              "uploaded_desc",
+              "name_asc",
+              "name_desc",
+              "custom",
+            ] as AlbumSortOption[]
+          ).map((opt) => {
+            const isSelected = sortOption === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  setSortOption(opt);
+                  setShowSortSheet(false);
+                }}
+                className={`flex min-h-12 w-full items-center justify-between rounded-xl px-4 py-3 text-left text-body transition ${
+                  isSelected
+                    ? "bg-accent/10 font-semibold text-accent"
+                    : "text-ink hover:bg-sunken active:bg-sunken"
+                }`}
+              >
+                <span>{ALBUM_SORT_LABELS[opt]}</span>
+                {isSelected && <Check size={18} className="text-accent shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
 
       {/* Modal Berbagi */}
       <ShareModal

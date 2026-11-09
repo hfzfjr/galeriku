@@ -744,7 +744,7 @@ export class SharesService {
       where: {
         linkId: shareId,
         ipHash,
-        createdAt: { gte: thirtyMinutesAgo },
+        accessedAt: { gte: thirtyMinutesAgo },
       },
     });
 
@@ -759,6 +759,7 @@ export class SharesService {
             linkId: shareId,
             ipHash,
             userAgent: userAgent ? userAgent.slice(0, 255) : null,
+            accessedAt: new Date(),
           },
         }),
       ]);

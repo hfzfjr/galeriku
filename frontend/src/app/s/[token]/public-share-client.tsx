@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  ArrowUpDown,
+  Check,
   ChevronRight,
   Download,
   Flag,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
 import { MediaThumb } from "@/components/ui/media-thumb";
 import { getPhotoDateGroup } from "@/lib/date-group";
 import { PublicViewer } from "@/components/public/public-viewer";
@@ -31,6 +34,21 @@ import { toIndonesianMessage } from "@/lib/auth-errors";
 const CONTACT_EMAIL =
   process.env.NEXT_PUBLIC_CONTACT_EMAIL || "admin@hafizfajar.com";
 
+export type PublicSortOption =
+  | "taken_desc"
+  | "taken_asc"
+  | "uploaded_desc"
+  | "name_asc"
+  | "name_desc";
+
+export const PUBLIC_SORT_LABELS: Record<PublicSortOption, string> = {
+  taken_desc: "Tanggal foto (terbaru)",
+  taken_asc: "Tanggal foto (terlama)",
+  uploaded_desc: "Baru diunggah",
+  name_asc: "Nama file (A-Z)",
+  name_desc: "Nama file (Z-A)",
+};
+
 export function PublicShareClient({ token }: { token: string }) {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -40,6 +58,8 @@ export function PublicShareClient({ token }: { token: string }) {
     null,
   );
   const [passwordInput, setPasswordInput] = useState("");
+  const [sortOption, setSortOption] = useState<PublicSortOption>("taken_desc");
+  const [showSortSheet, setShowSortSheet] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-share", token, activeSubAlbumId],
@@ -59,18 +79,61 @@ export function PublicShareClient({ token }: { token: string }) {
     },
   });
 
+  // Sortir foto sebelum dikelompokkan
+  const sortedFiles = useMemo(() => {
+    if (!data?.files) return [];
+    const files = [...data.files];
+    switch (sortOption) {
+      case "taken_desc":
+        return files.sort((a, b) => {
+          const dateA = new Date(a.capturedAt || a.takenAt || a.createdAt).getTime();
+          const dateB = new Date(b.capturedAt || b.takenAt || b.createdAt).getTime();
+          return dateB - dateA;
+        });
+      case "taken_asc":
+        return files.sort((a, b) => {
+          const dateA = new Date(a.capturedAt || a.takenAt || a.createdAt).getTime();
+          const dateB = new Date(b.capturedAt || b.takenAt || b.createdAt).getTime();
+          return dateA - dateB;
+        });
+      case "uploaded_desc":
+        return files.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+      case "name_asc":
+        return files.sort((a, b) =>
+          a.originalName.localeCompare(b.originalName, undefined, { numeric: true }),
+        );
+      case "name_desc":
+        return files.sort((a, b) =>
+          b.originalName.localeCompare(a.originalName, undefined, { numeric: true }),
+        );
+      default:
+        return files;
+    }
+  }, [data, sortOption]);
+
+  // Kelompokkan per tanggal foto secara default (kecuali sortir alfabetis)
   const groupedFiles = useMemo(() => {
-    if (data?.targetType !== "ALBUM" || !data.files) return [];
+    if (data?.targetType !== "ALBUM" || !sortedFiles.length) return null;
+    if (sortOption === "name_asc" || sortOption === "name_desc") {
+      return null;
+    }
     const groups: Map<
       string,
-      { dateKey: string; displayDate: string; items: typeof data.files }
+      { dateKey: string; displayDate: string; items: typeof sortedFiles }
     > = new Map();
 
-    for (const file of data.files) {
-      const dateToUse = file.capturedAt || file.takenAt || file.createdAt;
+    for (const file of sortedFiles) {
+      const dateToUse =
+        sortOption === "uploaded_desc"
+          ? file.createdAt
+          : file.capturedAt || file.takenAt || file.createdAt;
       const { dateKey, displayDate } = getPhotoDateGroup(
         dateToUse,
-        file.capturedTzOffsetMin,
+        sortOption === "uploaded_desc" ? undefined : file.capturedTzOffsetMin,
       );
 
       if (!groups.has(dateKey)) {
@@ -84,7 +147,7 @@ export function PublicShareClient({ token }: { token: string }) {
     }
 
     return Array.from(groups.values());
-  }, [data]);
+  }, [data, sortedFiles, sortOption]);
 
   const expiryFormatted = data?.expiresAt
     ? new Intl.DateTimeFormat("id-ID", {
@@ -367,6 +430,23 @@ export function PublicShareClient({ token }: { token: string }) {
             </div>
           )}
 
+        {/* Bilah Kontrol Sortir Album Publik */}
+        {data.targetType === "ALBUM" && sortedFiles.length > 0 && (
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() => setShowSortSheet(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 py-1.5 text-caption font-medium text-ink hover:border-ink-muted active:bg-sunken transition"
+            >
+              <ArrowUpDown size={15} className="text-accent shrink-0" />
+              <span>{PUBLIC_SORT_LABELS[sortOption]}</span>
+            </button>
+            <span className="text-caption text-ink-muted">
+              {sortedFiles.length} foto/video
+            </span>
+          </div>
+        )}
+
         {/* Jika File Tunggal */}
         {data.targetType === "FILE" && data.files.length === 1 ? (
           <div className="flex flex-col items-center gap-4">
@@ -415,8 +495,8 @@ export function PublicShareClient({ token }: { token: string }) {
               )}
             </div>
           </div>
-        ) : (
-          /* Jika Album: Grid Foto/Video dikelompokkan per tanggal (D1) */
+        ) : groupedFiles ? (
+          /* Jika Album: Grid Foto/Video dikelompokkan per tanggal */
           <div className="flex flex-col gap-6">
             {groupedFiles.map((group) => (
               <div key={group.dateKey} className="flex flex-col gap-2">
@@ -430,7 +510,7 @@ export function PublicShareClient({ token }: { token: string }) {
                 </div>
                 <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 sm:gap-2">
                   {group.items.map((file) => {
-                    const flatIdx = data.files.findIndex((f) => f.id === file.id);
+                    const sortedIdx = sortedFiles.findIndex((f) => f.id === file.id);
                     return (
                       <div
                         key={file.id}
@@ -439,7 +519,7 @@ export function PublicShareClient({ token }: { token: string }) {
                         <button
                           type="button"
                           onClick={() =>
-                            setActiveViewerIndex(flatIdx >= 0 ? flatIdx : 0)
+                            setActiveViewerIndex(sortedIdx >= 0 ? sortedIdx : 0)
                           }
                           className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
                         >
@@ -463,6 +543,35 @@ export function PublicShareClient({ token }: { token: string }) {
               </div>
             ))}
           </div>
+        ) : (
+          /* Flat Grid jika urutan alfabetis */
+          <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6 sm:gap-2">
+            {sortedFiles.map((file, idx) => (
+              <div
+                key={file.id}
+                className="group relative aspect-square overflow-hidden rounded bg-sunken"
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveViewerIndex(idx)}
+                  className="h-full w-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <MediaThumb
+                    src={
+                      file.thumbKey
+                        ? getPublicThumbnailUrl(token, file.id)
+                        : null
+                    }
+                    alt={file.originalName}
+                    kind={file.kind}
+                    durationS={file.durationS}
+                    liveKind={file.liveKind}
+                    crossOrigin="anonymous"
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Kosong (RF-52) */}
@@ -483,11 +592,50 @@ export function PublicShareClient({ token }: { token: string }) {
           )}
       </main>
 
+      {/* Sheet Pemilihan Urutan Foto Album Publik */}
+      <Sheet
+        open={showSortSheet}
+        onClose={() => setShowSortSheet(false)}
+        title="Urutkan Foto Album"
+      >
+        <div className="flex flex-col gap-1 p-2">
+          {(
+            [
+              "taken_desc",
+              "taken_asc",
+              "uploaded_desc",
+              "name_asc",
+              "name_desc",
+            ] as PublicSortOption[]
+          ).map((opt) => {
+            const isSelected = sortOption === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  setSortOption(opt);
+                  setShowSortSheet(false);
+                }}
+                className={`flex min-h-12 w-full items-center justify-between rounded-xl px-4 py-3 text-left text-body transition ${
+                  isSelected
+                    ? "bg-accent/10 font-semibold text-accent"
+                    : "text-ink hover:bg-sunken active:bg-sunken"
+                }`}
+              >
+                <span>{PUBLIC_SORT_LABELS[opt]}</span>
+                {isSelected && <Check size={18} className="text-accent shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
+
       {/* Viewer Layar Penuh */}
       {activeViewerIndex !== null && (
         <PublicViewer
           token={token}
-          files={data.files}
+          files={sortedFiles}
           initialIndex={activeViewerIndex}
           allowDownload={data.allowDownload}
           onClose={() => setActiveViewerIndex(null)}

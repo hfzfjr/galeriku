@@ -196,7 +196,8 @@ export function createFakePrisma(db: FakeDb) {
         const id =
           typeof data.id === 'string' ? data.id : `x-${store.size + 1}`;
         const capturedAt = data.capturedAt ?? data.createdAt ?? new Date();
-        const row = { createdAt: new Date(), capturedAt, ...data, id };
+        const accessedAt = data.accessedAt ?? new Date();
+        const row = { createdAt: new Date(), accessedAt, capturedAt, ...data, id };
         store.set(id, row);
         return { ...row };
       },
